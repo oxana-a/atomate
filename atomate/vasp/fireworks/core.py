@@ -38,7 +38,7 @@ class OptimizeFW(Firework):
                  vasp_cmd="vasp", override_default_vasp_params=None,
                  ediffg=None, db_file=None,
                  force_gamma=True, job_type="double_relaxation_run",
-                 max_force_threshold=RELAX_MAX_FORCE,
+                 handler_group="default", max_force_threshold=RELAX_MAX_FORCE,
                  auto_npar=">>auto_npar<<",
                  half_kpts_first_relax=HALF_KPOINTS_FIRST_RELAX, parents=None,
                  **kwargs):
@@ -57,6 +57,7 @@ class OptimizeFW(Firework):
             db_file (str): Path to file specifying db credentials to place output parsing.
             force_gamma (bool): Force gamma centered kpoint generation
             job_type (str): custodian job type (default "double_relaxation_run")
+            handler_group (str or [ErrorHandler]): custodian handler group (default "default")
             max_force_threshold (float): max force on a site allowed at end; otherwise, reject job
             auto_npar (bool or str): whether to set auto_npar. defaults to env_chk: ">>auto_npar<<"
             half_kpts_first_relax (bool): whether to use half the kpoints for the first relaxation
@@ -72,6 +73,7 @@ class OptimizeFW(Firework):
         t.append(WriteVaspFromIOSet(structure=structure,
                                     vasp_input_set=vasp_input_set))
         t.append(RunVaspCustodian(vasp_cmd=vasp_cmd, job_type=job_type,
+                                  handler_group=handler_group,
                                   max_force_threshold=max_force_threshold,
                                   ediffg=ediffg,
                                   auto_npar=auto_npar,
@@ -556,7 +558,7 @@ class TransmuterFW(Firework):
     def __init__(self, structure, transformations, transformation_params=None,
                  vasp_input_set=None, prev_calc_dir=None,
                  name="structure transmuter", vasp_cmd="vasp",
-                 copy_vasp_outputs=True, db_file=None,
+                 handler_group="default", copy_vasp_outputs=True, db_file=None,
                  parents=None, override_default_vasp_params=None, **kwargs):
         """
         Apply the transformations to the input structure, write the input set corresponding
@@ -574,6 +576,7 @@ class TransmuterFW(Firework):
                 transmuted structure.
             name (string): Name for the Firework.
             vasp_cmd (string): Command to run vasp.
+            handler_group (str or [ErrorHandler]): custodian handler group (default "default")
             copy_vasp_outputs (bool): Whether to copy outputs from previous run. Defaults to True.
             prev_calc_dir (str): Path to a previous calculation to copy from
             db_file (string): Path to file specifying db credentials.
@@ -615,7 +618,7 @@ class TransmuterFW(Firework):
         else:
             raise ValueError("Must specify structure or previous calculation")
 
-        t.append(RunVaspCustodian(vasp_cmd=vasp_cmd))
+        t.append(RunVaspCustodian(vasp_cmd=vasp_cmd, handler_group=handler_group))
         t.append(PassCalcLocs(name=name))
         t.append(VaspToDb(db_file=db_file,
                           additional_fields={
