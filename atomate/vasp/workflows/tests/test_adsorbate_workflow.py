@@ -77,7 +77,8 @@ class TestAdsorptionWorkflow(AtomateTest):
         self.assertFalse(bulk_set.auto_dipole)
         self.assertIsNone(bulk_set.incar.get('LDIPOL'))
         self.assertIsNone(bulk_set.incar.get('LVTOT'))
-
+        self.assertEqual(self.wf_1.fws[0].tasks[-3]['handler_group'],'default')
+ 
         # Test slab
         slab_set = MPSurfaceSet(self.slab_100)
         self.assertTrue(slab_set.auto_dipole)
@@ -87,12 +88,15 @@ class TestAdsorptionWorkflow(AtomateTest):
             PymatgenTest.get_structure('BaNiO3'), 1, 7.0, 20.0)[0]
         banio3_slab_set = MPSurfaceSet(banio3_slab)
         self.assertTrue(banio3_slab_set.incar['LDAU'], True)
+        self.assertEqual(self.wf_1.fws[1].tasks[-3]['handler_group'],'md')
 
         # Test adsorbates
         fe_ads = self.wf_1.fws[-1].tasks[-1]['additional_fields']['slab'].copy()
         fe_ads.replace_species({'H': 'O', "Ir": "Fe"})
         fe_ads_set = MPSurfaceSet(fe_ads)
         self.assertFalse(fe_ads_set.incar['LDAU'])
+        for i in [2,3,4]:
+            self.assertEqual(self.wf_1.fws[i].tasks[-3]['handler_group'],'md')
 
         # Test interaction of adsorbates and LDAU
         banio3_ads = banio3_slab.copy()
