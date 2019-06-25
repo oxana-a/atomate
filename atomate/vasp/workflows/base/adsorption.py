@@ -292,8 +292,8 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
         slab_gen_params (dict): dictionary of kwargs for generate_all_slabs
         ads_site_finder_params (dict): parameters to be supplied as
             kwargs to AdsorbateSiteFinder
-        ads_structures_params (dict): dictionary of kwargs for generating
-            of adsorption structures via AdsorptionSiteFinder
+        ads_structures_params (dict): parameters to be supplied as
+            kwargs to AdsorbateSiteFinder.generate_adsorption_structures
         vasp_cmd (str): vasp command
         handler_group (str or [ErrorHandler]): custodian handler group (default "md")
         db_file (str): location of db file
