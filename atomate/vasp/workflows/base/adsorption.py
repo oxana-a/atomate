@@ -159,6 +159,7 @@ def get_slab_trans_params(slab):
 
 
 def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
+                ads_site_finder_params=None,
                 ads_structures_params=None, vasp_cmd="vasp",
                 handler_group="md", db_file=None, add_molecules_in_box=False):
     """
@@ -171,6 +172,8 @@ def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
             this flag sets the slab fireworks to be TransmuterFWs based
             on bulk optimization of oriented unit cells
         adsorbates ([Molecule]): list of molecules to place as adsorbates
+        ads_site_finder_params (dict): parameters to be supplied as
+            kwargs to AdsorbateSiteFinder
         ads_structures_params (dict): parameters to be supplied as
             kwargs to AdsorbateSiteFinder.generate_adsorption_structures
         vasp_cmd (string): vasp command
@@ -186,6 +189,9 @@ def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
 
     if adsorbates is None:
         adsorbates = []
+
+    if ads_site_finder_params is None:
+        ads_site_finder_params = {}
 
     if ads_structures_params is None:
         ads_structures_params = {}
@@ -209,7 +215,7 @@ def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
     fws.append(slab_fw)
 
     for adsorbate in adsorbates:
-        ads_slabs = AdsorbateSiteFinder(slab).generate_adsorption_structures(
+        ads_slabs = AdsorbateSiteFinder(slab,**ads_site_finder_params).generate_adsorption_structures(
             adsorbate, **ads_structures_params)
         for n, ads_slab in enumerate(ads_slabs):
             # Create adsorbate fw
@@ -268,6 +274,7 @@ def get_wf_molecules(molecules, vasp_input_set=None, db_file=None,
 #       the same miller index, but different shift
 def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
                       adsorbates=None, max_index=1, slab_gen_params=None,
+                      ads_site_finder_params=None,
                       ads_structures_params=None, vasp_cmd="vasp",
                       handler_group="md", db_file=None,
                       add_molecules_in_box=False):
@@ -283,6 +290,8 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
         adsorbates ([Molecule]): adsorbates to place on surfaces
         max_index (int): max miller index
         slab_gen_params (dict): dictionary of kwargs for generate_all_slabs
+        ads_site_finder_params (dict): parameters to be supplied as
+            kwargs to AdsorbateSiteFinder
         ads_structures_params (dict): dictionary of kwargs for generating
             of adsorption structures via AdsorptionSiteFinder
         vasp_cmd (str): vasp command
@@ -300,8 +309,8 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     wfs = []
     for slab in slabs:
         slab_wf = get_wf_slab(slab, include_bulk_opt, adsorbates,
-                              ads_structures_params, vasp_cmd, handler_group,
-                              db_file)
+                              ads_site_finder_params,ads_structures_params,
+                              vasp_cmd, handler_group, db_file)
         wfs.append(slab_wf)
 
     if add_molecules_in_box:
