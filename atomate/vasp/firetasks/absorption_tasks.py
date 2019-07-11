@@ -107,19 +107,19 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 				#This is the first time the energy has dived below 0. This is probably a good guess.
 				first_0 = True
 				distance_0 = distance
-				structure = fw_spec["{}{}_structure".format(idx, distance)]
+				structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
 				optimal_distance = distance
 				lowest_energy = energy
 			elif lowest_energy <0 and energy >0 and first_0:
 				#Energy recrossed the 0 eV line, lets take an average
 				second_0 = True
-				structure = fw_spec["{}{}_structure".format(idx, distance)]
+				structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
 				optimal_distance = (distance_0 + distance)/2
 				lowest_energy = energy
 			elif energy < lowest_energy and not first_0 and not second_0:
 				#If nothing has crossed 0 yet just take the lowest energy distance...
 				lowest_energy = energy
-				structure = fw_spec["{}{}_structure".format(idx, distance)]
+				structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
 				optimal_distance = distance
 
 		print(optimal_distance)
@@ -128,7 +128,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		if lowest_energy >0.2:
 			#Let's exit the rest of the FW's if energy is too high.
 			return FWAction(exit=True)
-		return FWAction(update_spec={
+		return FWAction(mod_spec={
 					idx:{
 						'lowest_energy':lowest_energy,
 						'optimal_distance':optimal_distance
