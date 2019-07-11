@@ -128,9 +128,9 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		if lowest_energy >0.2:
 			#Let's exit the rest of the FW's if energy is too high.
 			return FWAction(exit=True)
-		return FWAction(mod_spec={
+		return FWAction(mod_spec={"_push":{
 					idx:{
 						'lowest_energy':lowest_energy,
 						'optimal_distance':optimal_distance
 					}
-				})
+				}})
