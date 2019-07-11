@@ -40,15 +40,15 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 		print(fw_spec)
 		optimal_distance = fw_spec.get(idx)[0]["optimal_distance"] #when you _push to fw_spec it pushes it as an array for  some reason...
 		original_slab = self["original_slab"]
-		adsorbate = self["adsorbate"]
-		ads_finder_params = self["ads_finder_params"]
-		ads_structures_params = self["ads_structurs_params"]
+		adsorbate = self.get["adsorbate"]
+		ads_finder_params = self.get("ads_finder_params", {})
+		ads_structures_params = self.get("ads_structurs_params", {})
 		site_idx = self["site_idx"]
 		vasp_input_set = self.get("vasp_input_set", MPSurfaceSet(original_slab, user_incar_settings=vasp_input_set_params)) #TOFIX
 		vasp_cmd = self.get("vasp_cmd", VASP_CMD)
 		db_file = self.get("db_file", DB_FILE)
-		optimize_kwargs = self["optimize_kwargs"]
-		vasptodb_kwargs = self["vasptodb_kwargs"]
+		optimize_kwargs = self.get("optimize_kwargs", {})
+		vasptodb_kwargs = self.get("vasptodb_kwargs", {})
 
 		#Update INCAR Parameters for Static Adsorption Calculation
 		#TODO: find actual command to update incar...
