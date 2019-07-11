@@ -33,6 +33,8 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
 
     if ads_finder_params is None: ads_finder_params = {}
     if ads_structures_params is None: ads_structures_params = {}
+    if distances is None:
+        distances = [0.5, 0.87, 1.25, 1.63, 2.0]
 
     fws = []
 
@@ -57,7 +59,6 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
     sgp = slab_gen_params or {"min_slab_size": 10, "min_vacuum_size": 5}
     vasp_input_set = "" #TO. DO
 
-    distances = distances or [0.5, 0.87, 1.25, 1.63, 2.0]
     '''
     In these sets of Static FWs, if the VASP Calculation succeed the energy per atom will be made available to the rest of the FW's.
     It will be available like so:
