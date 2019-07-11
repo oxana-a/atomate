@@ -48,9 +48,8 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 		ads_structures_params = self.get("ads_structurs_params", {})
 		site_idx = self["site_idx"]
 		vasp_input_set_params = self.get("vasp_input_set_params", {})
-		if vasp_input_set is None:
-			vap_input_set = MPSurfaceSet(original_slab, user_incar_settings=vasp_input_set_params)
-		else:
+		vap_input_set = MPSurfaceSet(original_slab, user_incar_settings=vasp_input_set_params)
+		if self.get("vasp_input_set", None) is not None:
 			vasp_input_set = self.get("vasp_input_set")
 		vasp_cmd = self.get("vasp_cmd", VASP_CMD)
 		db_file = self.get("db_file", DB_FILE)
