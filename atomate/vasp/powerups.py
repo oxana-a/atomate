@@ -115,7 +115,7 @@ def use_no_vasp(original_wf, ref_dirs):
     return original_wf
 
 
-def use_fake_vasp(original_wf, ref_dirs, params_to_check=None):
+def use_fake_vasp(original_wf, ref_dirs, params_to_check=None, run_vasp_fake_kwargs = None):
     """
     Replaces all tasks with "RunVasp" (e.g. RunVaspDirect) to be RunVaspFake. Thus, we do not
     actually run VASP but copy pre-determined inputs and outputs.
@@ -124,6 +124,7 @@ def use_fake_vasp(original_wf, ref_dirs, params_to_check=None):
         original_wf (Workflow)
         ref_dirs (dict): key=firework name, value=path to the reference vasp calculation directory
         params_to_check (list): optional list of incar parameters to check.
+        run_fake_vasp_kwargs
 
     Returns:
         Workflow
@@ -131,6 +132,9 @@ def use_fake_vasp(original_wf, ref_dirs, params_to_check=None):
     if not params_to_check:
         params_to_check = ["ISPIN", "ENCUT", "ISMEAR", "SIGMA", "IBRION", "LORBIT",
                            "NBANDS", "LMAXMIX"]
+    #add feature to pass kwargs to RunVaspFake
+    if not run_vasp_fake_kwargs:
+        run_vasp_fake_kwargs = {}
     for idx_fw, fw in enumerate(original_wf.fws):
         for job_type in ref_dirs.keys():
             if job_type in fw.name:
@@ -138,7 +142,7 @@ def use_fake_vasp(original_wf, ref_dirs, params_to_check=None):
                     if "RunVasp" in str(t):
                         original_wf.fws[idx_fw].tasks[idx_t] = \
                             RunVaspFake(ref_dir=ref_dirs[job_type],
-                                        params_to_check=params_to_check)
+                                        params_to_check=params_to_check, **run_vasp_fake_kwargs)
                     if "RunVaspCustodian" in str(t) and t.get("job_type") == "neb":
                         original_wf.fws[idx_fw].tasks[idx_t] = \
                             RunNEBVaspFake(ref_dir=ref_dirs[job_type],
