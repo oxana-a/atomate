@@ -98,7 +98,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                 fws.append(DistanceOptimizationFW(original_slab = slab, site_idx = site_idx, idx = "{}_{}_{}_".format(ads_idx, slab_idx,site_idx), 
                     distances = distances, name = "Optimal Distance Analysis, Adsorbate: {}, Surface: {}, Site: {}".format(adsorbate.composition.formula, miller,site_idx), parents=fws[1:index]))
 
-    wf = Workflow(fws[0:5])
+    wf = Workflow(fws)
     wf.name = "Photocatalyst Workflow"
 
     return wf
