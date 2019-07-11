@@ -24,6 +24,9 @@ from atomate.vasp.firetasks.write_inputs import WriteVaspFromIOSet
 from atomate.vasp.fireworks.core import OptimizeFW
 from pymatgen.io.vasp.sets import MPSurfaceSet
 
+from atomate.vasp.config import HALF_KPOINTS_FIRST_RELAX, RELAX_MAX_FORCE, \
+    VASP_CMD, DB_FILE
+
 @explicit_serialize
 class LaunchVaspFromOptimumDistance(FiretaskBase):
 	'''
