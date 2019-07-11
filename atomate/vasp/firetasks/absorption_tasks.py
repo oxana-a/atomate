@@ -38,7 +38,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 		#Get variables from various places
 		idx = self["idx"]
 		print(fw_spec)
-		optimal_distance = fw_spec.get(idx)["optimal_distance"]
+		optimal_distance = fw_spec.get(idx)[0]["optimal_distance"] #when you _push to fw_spec it pushes it as an array for  some reason...
 		original_slab = self["original_slab"]
 		adsorbate = self["adsorbate"]
 		ads_finder_params = self["ads_finder_params"]
