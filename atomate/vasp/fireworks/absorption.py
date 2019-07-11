@@ -23,7 +23,7 @@ from atomate.vasp.firetasks.write_inputs import WriteVaspFromIOSet, WriteVaspSta
 from atomate.vasp.firetasks.absorption_tasks import AnalyzeStaticOptimumDistance, LaunchVaspFromOptimumDistance
 
 class DistanceOptimizationFW(Firework):
-	def __init__(self, adsorbate = None, original_slab = None, site_idx = None, idx = None, distances= None,name = "", vasp_input_set = None,
+	def __init__(self, adsorbate, original_slab = None, site_idx = None, idx = None, distances= None,name = "", vasp_input_set = None,
 		vasp_input_set_paras = None, parents = None, vasp_cmd=VASP_CMD, db_file=DB_FILE, ads_finder_params = None, ads_structures_params = None,
 		vasptodb_kwargs = None,optimize_kwargs = None , **kwargs):
 			'''

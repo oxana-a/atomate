@@ -96,7 +96,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
             miller = slab.miller_index
             ads_slabs = AdsorbateSiteFinder(slab, distance, **ads_finder_params).generate_adsorption_structures(adsorbate, **ads_structures_params)
             for site_idx, ads_slab in enumerate(ads_slabs):
-                fws.append(DistanceOptimizationFW(adsorbate =  adsorbate, original_slab = slab, site_idx = site_idx, idx = "{}_{}_{}_".format(ads_idx, slab_idx,site_idx), 
+                fws.append(DistanceOptimizationFW(adsorbate, slab, site_idx = site_idx, idx = "{}_{}_{}_".format(ads_idx, slab_idx,site_idx), 
                     distances = distances, name = "Optimal Distance Analysis, Adsorbate: {}, Surface: {}, Site: {}".format(adsorbate.composition.formula, miller,site_idx), parents=fws[1:index]))
 
     wf = Workflow(fws)
