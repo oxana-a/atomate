@@ -35,7 +35,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 	Then launches new OptimizeFW based on that that optimum distance
 	'''
 
-	required_params = ["original_slab", "adsorbate", "site_idx", "idx"]
+	required_params = ["adsorbate","original_slab", "site_idx", "idx"]
 
 	def run_task(self, fw_spec):
 
