@@ -37,12 +37,12 @@ class OptimizeFW(Firework):
     def __init__(self, structure, name="structure optimization",
                  vasp_input_set=None,
                  vasp_cmd=VASP_CMD, override_default_vasp_params=None,
-                 ediffg=None, db_file=DB_FILE,
-                 force_gamma=True, job_type="double_relaxation_run",
-                 handler_group="default", max_force_threshold=RELAX_MAX_FORCE,
+                 ediffg=None, db_file=DB_FILE, force_gamma=True,
+                 job_type="double_relaxation_run", handler_group="default",
+                 max_force_threshold=RELAX_MAX_FORCE,
                  auto_npar=">>auto_npar<<",
                  half_kpts_first_relax=HALF_KPOINTS_FIRST_RELAX, parents=None,
-                 **kwargs):
+                 vasptodb_kwargs=None, **kwargs):
         """
         Optimize the given structure.
 
@@ -63,12 +63,17 @@ class OptimizeFW(Firework):
             auto_npar (bool or str): whether to set auto_npar. defaults to env_chk: ">>auto_npar<<"
             half_kpts_first_relax (bool): whether to use half the kpoints for the first relaxation
             parents ([Firework]): Parents of this particular Firework.
+            vasptodb_kwargs (dict): kwargs to pass to VaspToDb
             \*\*kwargs: Other kwargs that are passed to Firework.__init__.
         """
         override_default_vasp_params = override_default_vasp_params or {}
         vasp_input_set = vasp_input_set or MPRelaxSet(structure,
                                                       force_gamma=force_gamma,
                                                       **override_default_vasp_params)
+        vasptodb_kwargs = vasptodb_kwargs or {}
+        if "additional_fields" not in vasptodb_kwargs:
+            vasptodb_kwargs["additional_fields"] = {}
+        vasptodb_kwargs["additional_fields"]["task_label"] = name
 
         t = []
         t.append(WriteVaspFromIOSet(structure=structure,
@@ -81,7 +86,7 @@ class OptimizeFW(Firework):
                                   half_kpts_first_relax=half_kpts_first_relax))
         t.append(PassCalcLocs(name=name))
         t.append(
-            VaspToDb(db_file=db_file, additional_fields={"task_label": name}))
+            VaspToDb(db_file=db_file, **vasptodb_kwargs))
         super(OptimizeFW, self).__init__(t, parents=parents, name="{}-{}".
                                          format(
                                              structure.composition.reduced_formula, name),
