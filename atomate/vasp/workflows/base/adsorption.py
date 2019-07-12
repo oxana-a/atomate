@@ -8,16 +8,17 @@ This module defines a workflow for adsorption on surfaces
 
 import numpy as np
 
-from fireworks import Workflow
+from fireworks import Workflow, Firework
 
 from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW
 from atomate.utils.utils import get_meta_from_structure
+from atomate.vasp.firetasks.adsorption_tasks import GenerateSlabsTask
 
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.transformations.advanced_transformations import SlabTransformation
 from pymatgen.transformations.standard_transformations import SupercellTransformation
-from pymatgen.io.vasp.sets import MVLSlabSet
+from pymatgen.io.vasp.sets import MPSurfaceSet
 
 __author__ = 'Joseph Montoya, Richard Tran'
 __email__ = 'montoyjh@lbl.gov'
@@ -318,43 +319,57 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
                                     vasp_cmd=vasp_cmd))
     return wfs
 
-
-# TODO: this will go in pymatgen eventually, but want to keep relevant changes
-#       in here for now to simplify sharing
-class MPSurfaceSet(MVLSlabSet):
+def get_wfs_from_bulk(bulk_structure, adsorbates=None, max_index=1,
+                      slab_gen_params=None, ads_site_finder_params=None,
+                      ads_structures_params=None,
+                      vasp_cmd="vasp", handler_group="md", db_file=None,
+                      add_molecules_in_box=False):
     """
-    Input class for MP slab calcs, mostly to change parameters
-    and defaults slightly
+    Convenience constructor that allows a user to construct a workflow
+    that finds all adsorption configurations (or slabs) for a given
+    max miller index.
+
+    Args:
+        bulk_structure (Structure): bulk structure from which to construct slabs
+        adsorbates ([Molecule]): adsorbates to place on surfaces
+        max_index (int): max miller index
+        slab_gen_params (dict): dictionary of kwargs for generate_all_slabs
+        ads_site_finder_params (dict): parameters to be supplied as
+            kwargs to AdsorbateSiteFinder
+        ads_structures_params (dict): dictionary of kwargs for generating
+            of adsorption structures via AdsorptionSiteFinder
+        vasp_cmd (str): vasp command
+        handler_group (str or [ErrorHandler]): custodian handler group (default "md")
+        db_file (str): location of db file
+        add_molecules_in_box (bool): whether to add molecules in a box
+            for the entire workflow
+
+    Returns:
+        Workflow
     """
-    def __init__(self, structure, bulk=False, auto_dipole=None, **kwargs):
+    # bulk
+    fws, tasks = [], []
+    vis = MPSurfaceSet(bulk_structure, bulk=True)
+    bulk_fw = OptimizeFW(structure=bulk_structure, vasp_input_set=vis,
+                          vasp_cmd=vasp_cmd, db_file=db_file,
+                          vasptodb_kwargs={'task_fields_to_push':
+                            {'bulk_structure':'output.structure',
+                             'bulk_energy':'output.energy',
+                             'bulk_fw_id':''}})
+    fws.append(bulk_fw)
+    parents = bulk_fw
+    gen_slabs_t = GenerateSlabsTask(adsorbates=adsorbates, vasp_cmd=vasp_cmd,
+                        db_file=db_file, handler_group=handler_group,
+                        slab_gen_params=slab_gen_params, max_index=max_index,
+                        ads_site_finder_params=ads_site_finder_params,
+                        ads_structures_params=ads_structures_params)
+    tasks.append(gen_slabs_t)
+    gen_slabs_fw = Firework(tasks, parents=parents, name="slab generator")
+    fws.append(gen_slabs_fw)
+    name = str(bulk_structure.composition.reduced_formula)
+    for ads in adsorbates:
+        name += " {}".format(ads.composition.reduced_formula)
+    name += " adsorption wf"
+    wf = Workflow(fws, name=name)
 
-        # If not a bulk calc, turn get_locpot/auto_dipole on by default
-        auto_dipole = auto_dipole or not bulk
-        super(MPSurfaceSet, self).__init__(
-            structure, bulk=bulk, auto_dipole=False, **kwargs)
-        # This is a hack, but should be fixed when this is ported over to
-        # pymatgen to account for vasp native dipole fix
-        if auto_dipole:
-            self._config_dict['INCAR'].update({"LDIPOL": True, "IDIPOL": 3})
-            self.auto_dipole = True
-
-    @property
-    def incar(self):
-        incar = super(MPSurfaceSet, self).incar
-
-        # Determine LDAU based on slab chemistry without adsorbates
-        ldau_elts = {'O', 'F'}
-        if self.structure.site_properties.get("surface_properties"):
-            non_adsorbate_elts = {
-                s.specie.symbol for s in self.structure
-                if not s.properties['surface_properties'] == 'adsorbate'}
-        else:
-            non_adsorbate_elts = {s.specie.symbol for s in self.structure}
-        ldau = bool(non_adsorbate_elts & ldau_elts)
-
-        # Should give better forces for optimization
-        incar_config = {"EDIFFG": -0.05, "ENAUG": 4000, "IBRION": 1,
-                        "POTIM": 1.0, "LDAU": ldau, "EDIFF": 1e-5, "ISYM": 0}
-        incar.update(incar_config)
-        incar.update(self.user_incar_settings)
-        return incar
+    return wf
