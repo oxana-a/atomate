@@ -20,6 +20,8 @@ from pymatgen.transformations.advanced_transformations import SlabTransformation
 from pymatgen.transformations.standard_transformations import SupercellTransformation
 from pymatgen.io.vasp.sets import MVLSlabSet
 
+from pymatgen.core import Molecule, Structure
+
 __author__ = 'Joseph Montoya, Richard Tran'
 __email__ = 'montoyjh@lbl.gov'
 
