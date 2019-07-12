@@ -48,8 +48,8 @@ class GenerateSlabsTask(FiretaskBase):
         db_file = self.get("db_file", None)
         handler_group = self.get("handler_group", "default")
         # TODO: these could be more well-thought out defaults
-        sgp = self.get("slab_gen_params", {"min_slab_size": 7.0,
-                                           "min_vacuum_size": 20.0})
+        sgp = self.get("slab_gen_params") or {"min_slab_size": 7.0,
+                                              "min_vacuum_size": 20.0}
         max_index = self.get("max_index", 1)
         ads_site_finder_params = self.get("ads_site_finder_params", {})
         ads_structures_params = self.get("ads_structures_params", {})
