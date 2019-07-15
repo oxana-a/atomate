@@ -16,9 +16,7 @@ __email__ = "ioandriuc@lbl.gov"
 class GenerateSlabsTask(FiretaskBase):
     """
     #TODO: write description below
-    This class transfers NEB outputs from current directory to destination directory. "label" is
-    used to determine the step of calculation and hence the final path. The corresponding structure
-    will be updated in fw_spec before files transferring.
+    This class
 
     Required params:
     Optional params:
@@ -62,15 +60,13 @@ class GenerateSlabsTask(FiretaskBase):
                             handler_group=handler_group,
                             ads_site_finder_params=ads_site_finder_params,
                             ads_structures_params=ads_structures_params)
-            slab_task.run_task()
+            slab_task.run_task(fw_spec=fw_spec)
 
 @explicit_serialize
 class AddSlabFireworks(FiretaskBase):
     """
     #TODO: write description below
-    This class transfers NEB outputs from current directory to destination directory. "label" is
-    used to determine the step of calculation and hence the final path. The corresponding structure
-    will be updated in fw_spec before files transferring.
+    This class 
 
     Required params:
         slab
@@ -94,8 +90,8 @@ class AddSlabFireworks(FiretaskBase):
         vasp_cmd = self.get("vasp_cmd", "vasp")
         db_file = self.get("db_file", None)
         handler_group = self.get("handler_group", "default")
-        ads_site_finder_params = self.get("ads_site_finder_params", {})
-        ads_structures_params = self.get("ads_structures_params", {})
+        ads_site_finder_params = self.get("ads_site_finder_params") or {}
+        ads_structures_params = self.get("ads_structures_params") or {}
 
         slab_ads_fws = []
         name = slab.composition.reduced_formula
