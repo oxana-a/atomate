@@ -354,8 +354,7 @@ def get_wfs_from_bulk(bulk_structure, adsorbates=None, max_index=1,
                           vasp_cmd=vasp_cmd, db_file=db_file,
                           vasptodb_kwargs={'task_fields_to_push':
                             {'bulk_structure':'output.structure',
-                             'bulk_energy':'output.energy',
-                             'bulk_fw_id':''}})
+                             'bulk_energy':'output.energy'}})
     fws.append(bulk_fw)
     parents = bulk_fw
     gen_slabs_t = GenerateSlabsTask(adsorbates=adsorbates, vasp_cmd=vasp_cmd,
@@ -364,6 +363,11 @@ def get_wfs_from_bulk(bulk_structure, adsorbates=None, max_index=1,
                         ads_site_finder_params=ads_site_finder_params,
                         ads_structures_params=ads_structures_params)
     tasks.append(gen_slabs_t)
+    tasks.append(PassCalcLocs(name=name))
+    tasks.append(VaspToDb(db_file=db_file, task_fields_to_push=
+                {'bulk_structure':'output.structure',
+                 'bulk_energy':'output.energy'}))
+
     gen_slabs_fw = Firework(tasks, parents=parents, name="slab generator")
     fws.append(gen_slabs_fw)
     name = str(bulk_structure.composition.reduced_formula)

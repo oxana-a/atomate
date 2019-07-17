@@ -37,11 +37,11 @@ class GenerateSlabsTask(FiretaskBase):
 
     def run_task(self, fw_spec):
 
-        fws = []
+        slab_fws, slab_fws_ids = [], []
 
         bulk_structure = fw_spec['bulk_structure']
 
-        adsorbates = self.get("adsorbates")
+        # adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd", "vasp")
         db_file = self.get("db_file", None)
         handler_group = self.get("handler_group", "default")
@@ -49,24 +49,33 @@ class GenerateSlabsTask(FiretaskBase):
         sgp = self.get("slab_gen_params") or {"min_slab_size": 7.0,
                                               "min_vacuum_size": 20.0}
         max_index = self.get("max_index", 1)
-        ads_site_finder_params = self.get("ads_site_finder_params", {})
-        ads_structures_params = self.get("ads_structures_params", {})
+        # ads_site_finder_params = self.get("ads_site_finder_params", {})
+        # ads_structures_params = self.get("ads_structures_params", {})
 
         slabs = generate_all_slabs(bulk_structure, max_index=max_index, **sgp)
 
         for slab in slabs:
-            slab_task = AddSlabFireworks(slab=slab, adsorbates=adsorbates,
-                            vasp_cmd=vasp_cmd, db_file=db_file,
-                            handler_group=handler_group,
-                            ads_site_finder_params=ads_site_finder_params,
-                            ads_structures_params=ads_structures_params)
-            slab_task.run_task(fw_spec=fw_spec)
+            name = slab.composition.reduced_formula
+            if getattr(slab, "miller_index", None):
+                name += "_{}".format(slab.miller_index)
+            vis = MPSurfaceSet(slab, bulk=False)
+            slab_fw = OptimizeFW(name=name, structure=slab, vasp_input_set=vis,
+                                 vasp_cmd=vasp_cmd, db_file=db_file,
+                                 job_type="normal", handler_group=handler_group,
+                                 vasptodb_kwargs={'task_fields_to_push':
+                                                      {'slab_structure': 'output.structure',
+                                                       'slab_energy': 'output.energy'}})
+            slab_fws.append(slab_fw)
+            slab_fws_ids.append(slab_fw.fw_id)
+
+        return FWAction(additions=slab_fws,
+                        mod_spec=[{‘_push’: {‘slab_fws_ids’: slab_fws_ids}}])
 
 @explicit_serialize
 class AddSlabFireworks(FiretaskBase):
     """
     #TODO: write description below
-    This class 
+    This class
 
     Required params:
         slab
