@@ -40,7 +40,7 @@ class GenerateSlabsTask(FiretaskBase):
 
     def run_task(self, fw_spec):
 
-        fws = []
+        slab_fws, slab_ads_fws = [], []
 
         bulk_structure = fw_spec['bulk_structure']
 
@@ -70,7 +70,7 @@ class GenerateSlabsTask(FiretaskBase):
                                  vasptodb_kwargs={'task_fields_to_push':
                                                       {'slab_structure': 'output.structure',
                                                        'slab_energy': 'output.energy'}})
-            fws.append(slab_fw)
+            slab_fws.append(slab_fw)
 
             parents = slab_fw
             slab_ads_t = SlabAdsTask(adsorbates=adsorbates, vasp_cmd=vasp_cmd,
@@ -81,12 +81,10 @@ class GenerateSlabsTask(FiretaskBase):
             # TODO: name
             tasks.append(PassCalcLocs(name="slab_ads_gen"))
             # TODO: task fields to push
-            tasks.append(VaspToDb(db_file=db_file, task_fields_to_push=
-            {'slab_structure': 'output.structure',
-             'slab_energy': 'output.energy'}))
-
+            tasks.append(VaspToDb(db_file=db_file)
+            print('parents: '+str(parents.fw_id))
             slab_ads_fw = Firework(tasks, parents=parents, name="slab ads fw")
-            fws.append(slab_ads_fw)
+            slab_ads_fws.append(slab_ads_fw)
             #
             #
             # for adsorbate in adsorbates:
@@ -108,7 +106,7 @@ class GenerateSlabsTask(FiretaskBase):
 
 
 
-        return FWAction(additions=fws)
+        return FWAction(detours=slab_fws, additions=slab_ads_fws)
                         # mod_spec=[{‘_push’: {‘slab_fws_ids’: slab_fws_ids}}])
 
 @explicit_serialize
