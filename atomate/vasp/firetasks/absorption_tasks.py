@@ -41,19 +41,24 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 
 	def run_task(self, fw_spec):
 
-		#Get variables from various places
+		#Get identifiable information
 		idx = self["idx"]
-		print(fw_spec)
+		site_idx = self["site_idx"]
+
+		#Load optimal distance from fw_spec
 		optimal_distance = fw_spec.get(idx)[0]["optimal_distance"] #when you _push to fw_spec it pushes it as an array for  some reason...
+
+		#Get slab and adsorbate
 		original_slab = self["original_slab"]
 		adsorbate = self["adsorbate"]
+
+		#Set default variables if none passed
 		ads_finder_params = self.get("ads_finder_params", {})
 		if ads_finder_params is None:
 			ads_finder_params ={}
 		ads_structures_params = self.get("ads_structures_params", {})
 		if ads_structures_params is None:
 			ads_structures_params = {}
-		site_idx = self["site_idx"]
 		vasp_input_set_params = self.get("vasp_input_set_params", {})
 		if vasp_input_set_params is None:
 			vasp_input_set_params  = {}
@@ -62,25 +67,12 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 			vasp_input_set = self.get("vasp_input_set")
 		vasp_cmd = self.get("vasp_cmd", VASP_CMD)
 		db_file = self.get("db_file", DB_FILE)
+
+		#Get custom variables
 		optimize_kwargs = self.get("optimize_kwargs", {})
 		vasptodb_kwargs = self.get("vasptodb_kwargs", {})
 
-		#Update INCAR Parameters for Static Adsorption Calculation
-		#TODO: find actual command to update incar...
-		incar = vasp_input_set.incar
-		incar["IBRION"] = -1
-		incar["ISTART"]=0
-		incar["ICHARG"] = 2
-		incar["ISIF"] = 3
-		incar["NSW"] = 0
-		incar["NELM"] = 40
-		incar['LAECHG'] = True
-		incar['LCHARG'] = True
-		incar['LVHAR'] = True
-
-		vasp_input_set.incar.update(incar)
-
-		#Create structure
+		#Create structure with optimal distance
 		structure = AdsorbateSiteFinder(
 			original_slab, optimal_distance, **ads_finder_params).generate_adsorption_structures(
 				adsorbate, **ads_structures_params)[site_idx]
@@ -102,11 +94,12 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 
 	def run_task(self, fw_spec):
 
+		#Get identifying information
 		idx = self["idx"]
 		distances = self["distances"]
 
 		#Get original structure
-		structure = fw_spec["{}{}_structure".format(idx, 0)]
+		structure = Structure.from_dict(fw_spec["{}{}_structure".format(idx, 0)])
 
 		#Setup some initial parameters
 		optimal_distance = 2.0
@@ -118,7 +111,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		second_0 = False
 		distance_0 = False
 		for distance_idx, distance in enumerate(distances):
-			energy = fw_spec["{}{}_energy".format(idx, distance_idx)]
+			energy = fw_spec["{}{}_energy".format(idx, distance_idx)]/len(structure.sites) #Normalize by amount of atoms in structure...
 			if lowest_energy >0 and energy <0 and not first_0:
 				#This is the first time the energy has dived below 0. This is probably a good guess.
 				first_0 = True
@@ -137,8 +130,6 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 				lowest_energy = energy
 				structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
 				optimal_distance = distance
-
-		print(optimal_distance)
 
 		#If lowest energy is a little too big, this is probably not a good site/absorbate... No need to run future calculations
 		if lowest_energy >0.2:

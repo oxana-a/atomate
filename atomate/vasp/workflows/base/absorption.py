@@ -68,8 +68,12 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
     It will be available like so:
         fw_spec[ads_idx _ slab_idx _ site_idx _ distance_idx _ energy] = ENERGY
         fw_spec[ads_idx _ slab_idx _ site_idx _ distance_idx _ structure] = STRUCTURE #This is probably not needed...
+        idx_to_fw_id  ->  dict() key=idx, value=fw_id -> helps keep track of parents FWS.
     '''
+
+
     #For all adsorbates passed in
+    idx_to_fw_id = dict()
     for ads_idx, adsorbate in enumerate(adsorbates):
 
         #optimize at different distances
@@ -98,21 +102,27 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                                                 "{}_{}_{}_{}_structure".format(ads_idx, slab_idx,site_idx,distance_idx):"output.structure"
                                                 }
                                             }, contcar_to_poscar=False))
+                    if not idx_to_fw_id.get("{}_{}_{}".format(ads_idx,slab_idx,site_idx), False):
+                        idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)] = [fws[-1]]
+                    else:
+                        idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)].append(fws[-1])
     
     #Processing Optimal Distance and run best adsorption - same ads_idx, slab_idx, site_idx as previous, and must pass in same distances array
-    index = len(fws)
     for ads_idx, adsorbate in enumerate(adsorbates):
         slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
         for slab_idx, slab in enumerate(slabs):
             miller = slab.miller_index
             ads_slabs = AdsorbateSiteFinder(slab, distance, **ads_finder_params).generate_adsorption_structures(adsorbate, **ads_structures_params)
             for site_idx, ads_slab in enumerate(ads_slabs):
-                print(adsorbate)
+                #Add FW that finds optimal distance from static FW and appends  adsorbate to best distance...
                 fws.append(DistanceOptimizationFW(adsorbate, slab, site_idx = site_idx, idx = "{}_{}_{}_".format(ads_idx, slab_idx,site_idx), 
-                    distances = distances, name = "Optimal Distance Analysis, Adsorbate: {}, Surface: {}, Site: {}".format(adsorbate.composition.formula, miller,site_idx), parents=fws[1:index]))
+                    distances = distances, 
+                    name = "Optimal Distance Analysis, Adsorbate: {}, Surface: {}, Site: {}".format(adsorbate.composition.formula, miller,site_idx), 
+                    parents=idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)]))
 
+    #Workflow information
     wf = Workflow(fws)
-    wf.name = "Photocatalyst Workflow"
+    wf.name = "Photocatalyst Workflow, Catalyst: {}".format(structure.composition.formula)
 
     return wf
 
