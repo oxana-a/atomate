@@ -13,6 +13,8 @@ from fireworks import Workflow, Firework
 from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW
 from atomate.utils.utils import get_meta_from_structure
 from atomate.vasp.firetasks.adsorption_tasks import GenerateSlabsTask
+from atomate.common.firetasks.glue_tasks import PassCalcLocs
+from atomate.vasp.firetasks.parse_outputs import VaspToDb
 
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
 from pymatgen.core.surface import generate_all_slabs, Slab
@@ -363,7 +365,9 @@ def get_wfs_from_bulk(bulk_structure, adsorbates=None, max_index=1,
                         ads_site_finder_params=ads_site_finder_params,
                         ads_structures_params=ads_structures_params)
     tasks.append(gen_slabs_t)
-    tasks.append(PassCalcLocs(name=name))
+    # TODO: name
+    tasks.append(PassCalcLocs(name='genslab'))
+    # TODO: task fields to push
     tasks.append(VaspToDb(db_file=db_file, task_fields_to_push=
                 {'bulk_structure':'output.structure',
                  'bulk_energy':'output.energy'}))
