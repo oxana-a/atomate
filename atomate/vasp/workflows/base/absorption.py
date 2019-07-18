@@ -33,6 +33,8 @@ __email__ = 'montoyjh@lbl.gov'
 def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, vasp_cmd = None, slab_gen_params = None, 
     max_index = 1, ads_finder_params = None, ads_structures_params = None):
 
+    
+    #Set default paramters for workshop if no custom ones are passed in
     if ads_finder_params is None: ads_finder_params = {}
     if ads_structures_params is None: ads_structures_params = {}
     if distances is None:
@@ -40,7 +42,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
 
     fws = []
 
-    #Bulk Optimization of Structure
+    #Bulk Optimization of Structure - To be modified by Oxana
     name = structure.composition.reduced_formula
     vasp_input_set = "" #TO DO
     fws.append(OptimizeFW(name=name, structure=structure,
@@ -59,28 +61,34 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
 
     #Set general parameters
     sgp = slab_gen_params or {"min_slab_size": 10, "min_vacuum_size": 5}
-    vasp_input_set = "" #TO. DO
+    vasp_input_set = "" #TODO: Custom Input Set
 
     '''
     In these sets of Static FWs, if the VASP Calculation succeed the energy per atom will be made available to the rest of the FW's.
     It will be available like so:
-        fw_spec[ads_idx _ slab_idx _ site_idx _ distance] = ENERGY
+        fw_spec[ads_idx _ slab_idx _ site_idx _ distance_idx _ energy] = ENERGY
+        fw_spec[ads_idx _ slab_idx _ site_idx _ distance_idx _ structure] = STRUCTURE #This is probably not needed...
     '''
     #For all adsorbates passed in
     for ads_idx, adsorbate in enumerate(adsorbates):
 
         #optimize at different distances
         for distance_idx, distance in enumerate(distances):
+
             #Find all possible slabs:
             slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
 
+            #For all possible slabs
             for slab_idx, slab in enumerate(slabs):
                 miller = slab.miller_index
                 ads_slabs = AdsorbateSiteFinder(slab, distance, **ads_finder_params).generate_adsorption_structures(adsorbate, **ads_structures_params)
                 
+                #For all possible 
                 for site_idx, ads_slab in enumerate(ads_slabs):
                     ads_name = "{}-{}{} distance optimization: {}. Site: {}".format(
                         adsorbate.composition.formula, structure.composition.formula,miller, distance,site_idx) #name of current FW
+
+                    #Create Static FWs to test if energy landscape is favorable and save their energy and structure for processing with DistanceOptimizationFW
                     fws.append(StaticFW(name=ads_name, structure=slab,
                                         vasp_input_set=vasp_input_set, vasp_cmd=vasp_cmd,
                                         db_file=db_file, parents=fws[0],
@@ -90,7 +98,8 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                                                 "{}_{}_{}_{}_structure".format(ads_idx, slab_idx,site_idx,distance_idx):"output.structure"
                                                 }
                                             }, contcar_to_poscar=False))
-    #Processing Optimal Distance and run best adsorption
+    
+    #Processing Optimal Distance and run best adsorption - same ads_idx, slab_idx, site_idx as previous, and must pass in same distances array
     index = len(fws)
     for ads_idx, adsorbate in enumerate(adsorbates):
         slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
@@ -98,6 +107,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
             miller = slab.miller_index
             ads_slabs = AdsorbateSiteFinder(slab, distance, **ads_finder_params).generate_adsorption_structures(adsorbate, **ads_structures_params)
             for site_idx, ads_slab in enumerate(ads_slabs):
+                print(adsorbate)
                 fws.append(DistanceOptimizationFW(adsorbate, slab, site_idx = site_idx, idx = "{}_{}_{}_".format(ads_idx, slab_idx,site_idx), 
                     distances = distances, name = "Optimal Distance Analysis, Adsorbate: {}, Surface: {}, Site: {}".format(adsorbate.composition.formula, miller,site_idx), parents=fws[1:index]))
 
