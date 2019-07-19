@@ -11,7 +11,7 @@ import numpy as np
 from fireworks import Workflow
 
 from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW, StaticFW
-from atomate.vasp.fireworks.absorption import DistanceOptimizationFW
+from atomate.vasp.fireworks.absorption import DistanceOptimizationFW, AbsorptionEnergyLandscapeFW
 from atomate.utils.utils import get_meta_from_structure
 
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
@@ -93,7 +93,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                         adsorbate.composition.formula, structure.composition.formula,miller, distance,site_idx) #name of current FW
 
                     #Create Static FWs to test if energy landscape is favorable and save their energy and structure for processing with DistanceOptimizationFW
-                    fws.append(StaticFW(name=ads_name, structure=ads_slab,
+                    fws.append(AbsorptionEnergyLandscapeFW(name=ads_name, structure=ads_slab,
                                         vasp_input_set=vasp_input_set, vasp_cmd=vasp_cmd,
                                         db_file=db_file, parents=fws[0],
                                         vasptodb_kwargs={
