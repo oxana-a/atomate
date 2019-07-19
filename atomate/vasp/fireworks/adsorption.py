@@ -1,6 +1,6 @@
 from atomate.common.firetasks.glue_tasks import PassCalcLocs
 from atomate.vasp.config import VASP_CMD, DB_FILE
-import atomate.vasp.firetasks.adsorption_tasks as at
+import atomate.vasp.firetasks as at
 from atomate.vasp.firetasks.parse_outputs import VaspToDb
 from atomate.vasp.fireworks import OptimizeFW
 from fireworks import Firework
@@ -32,7 +32,8 @@ class SlabGeneratorFW(Firework):
         """
         tasks = []
 
-        gen_slabs_t = at.GenerateSlabsTask(adsorbates=adsorbates,
+        gen_slabs_t = at.adsorption_tasks.GenerateSlabsTask(
+                                           adsorbates=adsorbates,
                                            vasp_cmd=vasp_cmd, db_file=db_file,
                                            handler_group=handler_group,
                                            slab_gen_params=slab_gen_params,
@@ -89,7 +90,7 @@ class SlabFW(Firework):
                                                    'slab_energy':
                                                        'output.energy'}})
         t = slab_fw.tasks
-        t.append(at.SlabAdsAdditionTask(adsorbates=adsorbates,
+        t.append(at.adsorption_tasks.SlabAdsAdditionTask(adsorbates=adsorbates,
                                         vasp_cmd=vasp_cmd,
                                         db_file=db_file,
                                         handler_group=handler_group,
@@ -117,7 +118,8 @@ class SlabAdsGeneratorFW(Firework):
         """
         tasks = []
 
-        gen_slabs_t = at.GenerateSlabAdsTask(adsorbates=adsorbates,
+        gen_slabs_t = at.adsorption_tasks.GenerateSlabAdsTask(
+                                             adsorbates=adsorbates,
                                              vasp_cmd=vasp_cmd,
                                              db_file=db_file,
                                              handler_group=handler_group,
