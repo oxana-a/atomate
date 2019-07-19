@@ -70,7 +70,9 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 
 		#Get custom variables
 		optimize_kwargs = self.get("optimize_kwargs", {})
+		if optimize_kwargs is None: optimize_kwargs = {}
 		vasptodb_kwargs = self.get("vasptodb_kwargs", {})
+		if vasptodb_kwargs is None: vasptodb_kwargs = {}
 
 		#Create structure with optimal distance
 		structure = AdsorbateSiteFinder(
