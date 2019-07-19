@@ -101,7 +101,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		distances = self["distances"]
 
 		#Get original structure
-		sites = len(fw_spec["{}{}_structure".format(idx, 0)]["sites"])
+		sites = len(fw_spec["{}{}_structure".format(idx, 0)].sites)
 
 		#Setup some initial parameters
 		optimal_distance = 2.0
