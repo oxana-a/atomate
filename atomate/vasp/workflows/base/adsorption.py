@@ -8,13 +8,11 @@ This module defines a workflow for adsorption on surfaces
 
 import numpy as np
 
-from fireworks import Workflow, Firework
+from fireworks import Workflow
 
 from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW
 from atomate.utils.utils import get_meta_from_structure
-from atomate.vasp.firetasks.adsorption_tasks import GenerateSlabsTask
-from atomate.common.firetasks.glue_tasks import PassCalcLocs
-from atomate.vasp.firetasks.parse_outputs import VaspToDb
+from atomate.vasp.fireworks.adsorption import SlabGeneratorFW
 
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
 from pymatgen.core.surface import generate_all_slabs, Slab
@@ -218,7 +216,7 @@ def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
     fws.append(slab_fw)
 
     for adsorbate in adsorbates:
-        ads_slabs = AdsorbateSiteFinder(slab,**ads_site_finder_params).generate_adsorption_structures(
+        ads_slabs = AdsorbateSiteFinder(slab, **ads_site_finder_params).generate_adsorption_structures(
             adsorbate, **ads_structures_params)
         for n, ads_slab in enumerate(ads_slabs):
             # Create adsorbate fw
@@ -312,7 +310,7 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     wfs = []
     for slab in slabs:
         slab_wf = get_wf_slab(slab, include_bulk_opt, adsorbates,
-                              ads_site_finder_params,ads_structures_params,
+                              ads_site_finder_params, ads_structures_params,
                               vasp_cmd, handler_group, db_file)
         wfs.append(slab_wf)
 
@@ -321,11 +319,12 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
                                     vasp_cmd=vasp_cmd))
     return wfs
 
+
 def get_wfs_from_bulk(bulk_structure, adsorbates=None, max_index=1,
                       slab_gen_params=None, ads_site_finder_params=None,
                       ads_structures_params=None,
-                      vasp_cmd="vasp", handler_group="md", db_file=None,
-                      add_molecules_in_box=False):
+                      vasp_cmd="vasp", handler_group="md", db_file=None):
+    # add_molecules_in_box=False):
     """
     Convenience constructor that allows a user to construct a workflow
     that finds all adsorption configurations (or slabs) for a given
@@ -343,36 +342,29 @@ def get_wfs_from_bulk(bulk_structure, adsorbates=None, max_index=1,
         vasp_cmd (str): vasp command
         handler_group (str or [ErrorHandler]): custodian handler group (default "md")
         db_file (str): location of db file
-        add_molecules_in_box (bool): whether to add molecules in a box
-            for the entire workflow
 
     Returns:
         Workflow
     """
     # bulk
-    fws, tasks = [], []
+    fws = []
     vis = MPSurfaceSet(bulk_structure, bulk=True)
     bulk_fw = OptimizeFW(structure=bulk_structure, vasp_input_set=vis,
-                          vasp_cmd=vasp_cmd, db_file=db_file,
-                          vasptodb_kwargs={'task_fields_to_push':
-                            {'bulk_structure':'output.structure',
-                             'bulk_energy':'output.energy'}})
+                         vasp_cmd=vasp_cmd, db_file=db_file,
+                         vasptodb_kwargs={'task_fields_to_push':
+                                      {'bulk_structure': 'output.structure',
+                                       'bulk_energy': 'output.energy'}})
     fws.append(bulk_fw)
     parents = bulk_fw
-    gen_slabs_t = GenerateSlabsTask(adsorbates=adsorbates, vasp_cmd=vasp_cmd,
-                        db_file=db_file, handler_group=handler_group,
-                        slab_gen_params=slab_gen_params, max_index=max_index,
-                        ads_site_finder_params=ads_site_finder_params,
-                        ads_structures_params=ads_structures_params)
-    tasks.append(gen_slabs_t)
-    # TODO: name
-    tasks.append(PassCalcLocs(name='genslab'))
-    # TODO: task fields to push
-    tasks.append(VaspToDb(db_file=db_file, task_fields_to_push=
-                {'bulk_structure':'output.structure',
-                 'bulk_energy':'output.energy'}))
-
-    gen_slabs_fw = Firework(tasks, parents=parents, name="slab generator")
+    gen_slabs_fw = SlabGeneratorFW(adsorbates=adsorbates, vasp_cmd=vasp_cmd,
+                                   db_file=db_file,
+                                   handler_group=handler_group,
+                                   slab_gen_params=slab_gen_params,
+                                   max_index=max_index,
+                                   ads_site_finder_params=
+                                   ads_site_finder_params,
+                                   ads_structures_params=ads_structures_params,
+                                   parents=parents)
     fws.append(gen_slabs_fw)
     name = str(bulk_structure.composition.reduced_formula)
     for ads in adsorbates:
