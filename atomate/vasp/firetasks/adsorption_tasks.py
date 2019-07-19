@@ -1,4 +1,3 @@
-import atomate.vasp.fireworks.adsorption as af
 from fireworks.core.firework import FiretaskBase, FWAction
 from fireworks.utilities.fw_utilities import explicit_serialize
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
@@ -38,7 +37,7 @@ class GenerateSlabsTask(FiretaskBase):
                        "ads_site_finder_params", "ads_structures_params"]
 
     def run_task(self, fw_spec):
-
+        import atomate.vasp.fireworks.adsorption as af
         slab_fws = []
 
         bulk_structure = fw_spec['bulk_structure']
@@ -126,6 +125,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                        "ads_site_finder_params", "ads_structures_params"]
 
     def run_task(self, fw_spec):
+        import atomate.vasp.fireworks.adsorption as af
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd", "vasp")
         db_file = self.get("db_file", None)
@@ -225,7 +225,7 @@ class GenerateSlabAdsTask(FiretaskBase):
                        "ads_site_finder_params", "ads_structures_params"]
 
     def run_task(self, fw_spec):
-
+        import atomate.vasp.fireworks.adsorption as af
         slab_ads_fws = []
 
         slab = fw_spec['slab_structure']

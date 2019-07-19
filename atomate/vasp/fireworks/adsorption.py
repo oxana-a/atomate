@@ -1,6 +1,5 @@
 from atomate.common.firetasks.glue_tasks import PassCalcLocs
 from atomate.vasp.config import VASP_CMD, DB_FILE
-import atomate.vasp.firetasks.adsorption_tasks as at
 from atomate.vasp.firetasks.parse_outputs import VaspToDb
 from atomate.vasp.fireworks import OptimizeFW
 from fireworks import Firework
@@ -30,10 +29,10 @@ class SlabGeneratorFW(Firework):
                 output parsing.
             parents ([Firework]): Parents of this particular Firework.
         """
+        import atomate.vasp.firetasks.adsorption_tasks as at
         tasks = []
 
-        gen_slabs_t = at.GenerateSlabsTask(
-                                           adsorbates=adsorbates,
+        gen_slabs_t = at.GenerateSlabsTask(adsorbates=adsorbates,
                                            vasp_cmd=vasp_cmd, db_file=db_file,
                                            handler_group=handler_group,
                                            slab_gen_params=slab_gen_params,
@@ -80,6 +79,7 @@ class SlabFW(Firework):
             parents ([Firework]): Parents of this particular Firework.
             \*\*kwargs: Other kwargs that are passed to Firework.__init__.
         """
+        import atomate.vasp.firetasks.adsorption_tasks as at
         vis = vasp_input_set or MPSurfaceSet(slab, bulk=False)
         slab_fw = OptimizeFW(name=name, structure=slab, vasp_input_set=vis,
                              vasp_cmd=vasp_cmd, db_file=db_file,
@@ -116,6 +116,7 @@ class SlabAdsGeneratorFW(Firework):
                 output parsing.
             parents ([Firework]): Parents of this particular Firework.
         """
+        import atomate.vasp.firetasks.adsorption_tasks as at
         tasks = []
 
         gen_slabs_t = at.GenerateSlabAdsTask(
