@@ -111,4 +111,4 @@ class AbsorptionEnergyLandscapeFW(Firework):
         t.append(PassCalcLocs(name=name))
         t.append(
             VaspToDb(db_file=db_file, **vasptodb_kwargs))
-        super(StaticFW, self).__init__(t, parents=parents, name=fw_name, **kwargs)
+        super(AbsorptionEnergyLandscapeFW, self).__init__(t, parents=parents, name=fw_name, **kwargs)
