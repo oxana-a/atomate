@@ -101,7 +101,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		distances = self["distances"]
 
 		#Get original structure
-		structure = Structure.from_dict(fw_spec["{}{}_structure".format(idx, 0)])
+		sites = len(fw_spec["{}{}_structure".format(idx, 0)]["sites"])
 
 		#Setup some initial parameters
 		optimal_distance = 2.0
@@ -113,7 +113,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		second_0 = False
 		distance_0 = False
 		for distance_idx, distance in enumerate(distances):
-			energy = fw_spec["{}{}_energy".format(idx, distance_idx)]/len(structure.sites) #Normalize by amount of atoms in structure...
+			energy = fw_spec["{}{}_energy".format(idx, distance_idx)]/sites #Normalize by amount of atoms in structure...
 			if lowest_energy >0 and energy <0 and not first_0:
 				#This is the first time the energy has dived below 0. This is probably a good guess.
 				first_0 = True
