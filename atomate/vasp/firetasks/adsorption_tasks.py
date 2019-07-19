@@ -1,5 +1,4 @@
-from atomate.vasp.fireworks.adsorption import SlabFW, SlabAdsGeneratorFW, \
-    SlabAdsFW
+import atomate.vasp.fireworks.adsorption as af
 from fireworks.core.firework import FiretaskBase, FWAction
 from fireworks.utilities.fw_utilities import explicit_serialize
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
@@ -63,11 +62,11 @@ class GenerateSlabsTask(FiretaskBase):
             if getattr(slab, "miller_index", None):
                 name += "_{}".format(slab.miller_index)
             vis = MPSurfaceSet(slab, bulk=False)
-            slab_fw = SlabFW(slab, name=name, vasp_input_set=vis,
-                             adsorbates=adsorbates, vasp_cmd=vasp_cmd,
-                             db_file=db_file, handler_group=handler_group,
-                             ads_site_finder_params=ads_site_finder_params,
-                             ads_structures_params=ads_structures_params)
+            slab_fw = af.SlabFW(slab, name=name, vasp_input_set=vis,
+                                adsorbates=adsorbates, vasp_cmd=vasp_cmd,
+                                db_file=db_file, handler_group=handler_group,
+                                ads_site_finder_params=ads_site_finder_params,
+                                ads_structures_params=ads_structures_params)
             slab_fws.append(slab_fw)
 
             # parents = slab_fw
@@ -134,10 +133,13 @@ class SlabAdsAdditionTask(FiretaskBase):
         ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params") or {}
 
-        fws = SlabAdsGeneratorFW(adsorbates=adsorbates, vasp_cmd=vasp_cmd,
-                                 db_file=db_file, handler_group=handler_group,
-                                 ads_site_finder_params=ads_site_finder_params,
-                                 ads_structures_params=ads_structures_params)
+        fws = af.SlabAdsGeneratorFW(adsorbates=adsorbates, vasp_cmd=vasp_cmd,
+                                    db_file=db_file,
+                                    handler_group=handler_group,
+                                    ads_site_finder_params=
+                                    ads_site_finder_params,
+                                    ads_structures_params=
+                                    ads_structures_params)
 
         return FWAction(additions=fws)
 
@@ -280,10 +282,11 @@ class GenerateSlabAdsTask(FiretaskBase):
                 slab_ads_name = "{}-{} adsorbate optimization {}".format(
                     adsorbate.composition.formula, name, n)
                 vis = MPSurfaceSet(slab_ads, bulk=False)
-                slab_ads_fw = SlabAdsFW(slab_ads, name=slab_ads_name,
-                                        vasp_input_set=vis, vasp_cmd=vasp_cmd,
-                                        db_file=db_file, job_type="normal",
-                                        handler_group=handler_group)
+                slab_ads_fw = af.SlabAdsFW(slab_ads, name=slab_ads_name,
+                                           vasp_input_set=vis,
+                                           vasp_cmd=vasp_cmd,
+                                           db_file=db_file, job_type="normal",
+                                           handler_group=handler_group)
 
                 slab_ads_fws.append(slab_ads_fw)
 

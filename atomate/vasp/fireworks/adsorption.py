@@ -1,7 +1,6 @@
 from atomate.common.firetasks.glue_tasks import PassCalcLocs
 from atomate.vasp.config import VASP_CMD, DB_FILE
-from atomate.vasp.firetasks.adsorption_tasks import GenerateSlabsTask, \
-    SlabAdsAdditionTask, GenerateSlabAdsTask
+import atomate.vasp.firetasks.adsorption_tasks as at
 from atomate.vasp.firetasks.parse_outputs import VaspToDb
 from atomate.vasp.fireworks import OptimizeFW
 from fireworks import Firework
@@ -33,15 +32,15 @@ class SlabGeneratorFW(Firework):
         """
         tasks = []
 
-        gen_slabs_t = GenerateSlabsTask(adsorbates=adsorbates,
-                                        vasp_cmd=vasp_cmd, db_file=db_file,
-                                        handler_group=handler_group,
-                                        slab_gen_params=slab_gen_params,
-                                        max_index=max_index,
-                                        ads_site_finder_params=
-                                        ads_site_finder_params,
-                                        ads_structures_params=
-                                        ads_structures_params)
+        gen_slabs_t = at.GenerateSlabsTask(adsorbates=adsorbates,
+                                           vasp_cmd=vasp_cmd, db_file=db_file,
+                                           handler_group=handler_group,
+                                           slab_gen_params=slab_gen_params,
+                                           max_index=max_index,
+                                           ads_site_finder_params=
+                                           ads_site_finder_params,
+                                           ads_structures_params=
+                                           ads_structures_params)
         tasks.append(gen_slabs_t)
         # TODO: name
         tasks.append(PassCalcLocs(name='genslab'))
@@ -90,13 +89,14 @@ class SlabFW(Firework):
                                                    'slab_energy':
                                                        'output.energy'}})
         t = slab_fw.tasks
-        t.append(SlabAdsAdditionTask(adsorbates=adsorbates, vasp_cmd=vasp_cmd,
-                                     db_file=db_file,
-                                     handler_group=handler_group,
-                                     ads_site_finder_params=
-                                     ads_site_finder_params,
-                                     ads_structures_params=
-                                     ads_structures_params))
+        t.append(at.SlabAdsAdditionTask(adsorbates=adsorbates,
+                                        vasp_cmd=vasp_cmd,
+                                        db_file=db_file,
+                                        handler_group=handler_group,
+                                        ads_site_finder_params=
+                                        ads_site_finder_params,
+                                        ads_structures_params=
+                                        ads_structures_params))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -117,13 +117,14 @@ class SlabAdsGeneratorFW(Firework):
         """
         tasks = []
 
-        gen_slabs_t = GenerateSlabAdsTask(adsorbates=adsorbates,
-                                          vasp_cmd=vasp_cmd, db_file=db_file,
-                                          handler_group=handler_group,
-                                          ads_site_finder_params=
-                                          ads_site_finder_params,
-                                          ads_structures_params=
-                                          ads_structures_params)
+        gen_slabs_t = at.GenerateSlabAdsTask(adsorbates=adsorbates,
+                                             vasp_cmd=vasp_cmd,
+                                             db_file=db_file,
+                                             handler_group=handler_group,
+                                             ads_site_finder_params=
+                                             ads_site_finder_params,
+                                             ads_structures_params=
+                                             ads_structures_params)
         tasks.append(gen_slabs_t)
         # # TODO: name
         # tasks.append(PassCalcLocs(name='genslab'))
