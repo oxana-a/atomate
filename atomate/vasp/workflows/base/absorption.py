@@ -76,17 +76,18 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
     idx_to_fw_id = dict()
     for ads_idx, adsorbate in enumerate(adsorbates):
 
-        #optimize at different distances
-        for distance_idx, distance in enumerate(distances):
-            #update ads_structure_params with new distance...
-            ads_structures_params.update({"find_args":{"distance":distance}})
 
-            #Find all possible slabs:
-            slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
+        #Find all possible slabs:
+        slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
 
-            #For all possible slabs
-            for slab_idx, slab in enumerate(slabs):
-                miller = slab.miller_index
+        #For all possible slabs
+        for slab_idx, slab in enumerate(slabs):
+            miller = slab.miller_index
+
+            #optimize at different distances
+            for distance_idx, distance in enumerate(distances):
+                #update ads_structure_params with new distance...
+                ads_structures_params.update({"find_args":{"distance":distance}})
                 ads_slabs = AdsorbateSiteFinder(slab, **ads_finder_params).generate_adsorption_structures(adsorbate, **ads_structures_params)
                 
                 #For all possible 
