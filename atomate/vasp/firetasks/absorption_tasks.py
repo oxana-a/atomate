@@ -21,7 +21,6 @@ This modules defines tasks for FWs specific to the absorption workflow
 
 from fireworks import explicit_serialize, FiretaskBase, FWAction
 from atomate.vasp.firetasks.write_inputs import WriteVaspFromIOSet
-from atomate.vasp.fireworks.absorption import AbsorptionOptimizeFW
 from pymatgen.io.vasp.sets import MPSurfaceSet
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
 
