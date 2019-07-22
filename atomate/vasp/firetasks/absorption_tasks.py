@@ -75,9 +75,12 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 		vasptodb_kwargs = self.get("vasptodb_kwargs", {})
 		if vasptodb_kwargs is None: vasptodb_kwargs = {}
 
+		#update ads_structure_params to include optimal distance
+		ads_structures_params.update({"find_args":{"distance":optimal_distance}})
+
 		#Create structure with optimal distance
 		structure = AdsorbateSiteFinder(
-			original_slab, optimal_distance, **ads_finder_params).generate_adsorption_structures(
+			original_slab, **ads_finder_params).generate_adsorption_structures(
 				adsorbate, **ads_structures_params)[site_idx]
 
 
