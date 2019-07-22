@@ -43,12 +43,12 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
     fws = []
 
     #Bulk Optimization of Structure - To be modified by Oxana
-    name = structure.composition.reduced_formula
-    vasp_input_set = "" #TO DO
-    fws.append(OptimizeFW(name=name, structure=structure,
-                        vasp_input_set=vasp_input_set, vasp_cmd=vasp_cmd,
-                        db_file=db_file, job_type="normal", 
-                        vasptodb_kwargs={"task_fields_to_push":{"bulk_relaxed_structure":"output.structure"}}))
+    # name = structure.composition.reduced_formula
+    # vasp_input_set = "" #TO DO
+    # fws.append(OptimizeFW(name=name, structure=structure,
+    #                     vasp_input_set=vasp_input_set, vasp_cmd=vasp_cmd,
+    #                     db_file=db_file, job_type="normal", 
+    #                     vasptodb_kwargs={"task_fields_to_push":{"bulk_relaxed_structure":"output.structure"}}))
 
     #Passing Bulk Optimization to different possible slabs
 
@@ -95,7 +95,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                     #Create Static FWs to test if energy landscape is favorable and save their energy and structure for processing with DistanceOptimizationFW
                     fws.append(AbsorptionEnergyLandscapeFW(name=ads_name, structure=ads_slab,
                                         vasp_input_set=vasp_input_set, vasp_cmd=vasp_cmd,
-                                        db_file=db_file, parents=fws[0],
+                                        db_file=db_file,
                                         vasptodb_kwargs={
                                             "task_fields_to_push":{
                                                 "{}_{}_{}_{}_energy".format(ads_idx, slab_idx,site_idx,distance_idx):"output.energy_per_atom",
