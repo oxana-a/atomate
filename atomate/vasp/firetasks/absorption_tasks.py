@@ -84,7 +84,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 		vasp_input_set = MPSurfaceSet(structure, user_incar_settings=vasp_input_set_params)
 
 		#Create new OptimizeFW
-		new_fw = AdsorptionOptimizeFW(structure, vasp_input_set = vasp_input_set, vasp_cmd = vasp_cmd, db_file = db_file, vasptodb_kwargs = vasptodb_kwargs,**optimize_kwargs)
+		new_fw = AbsorptionOptimizeFW(structure, vasp_input_set = vasp_input_set, vasp_cmd = vasp_cmd, db_file = db_file, vasptodb_kwargs = vasptodb_kwargs,**optimize_kwargs)
 
 		#some debugging...
 		print("firework...")
