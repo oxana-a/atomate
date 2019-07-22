@@ -52,6 +52,8 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 		adsorbate = self["adsorbate"]
 
 		#Set default variables if none passed
+		if vasp_input_set_params is None:
+			vasp_input_set_params  = {}
 		ads_finder_params = self.get("ads_finder_params", {})
 		if ads_finder_params is None:
 			ads_finder_params ={}
@@ -59,11 +61,13 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 		if ads_structures_params is None:
 			ads_structures_params = {}
 		vasp_input_set_params = self.get("vasp_input_set_params", {})
-		
-		if self.get("vasp_input_set", None) is not None:
-			vasp_input_set = self.get("vasp_input_set")
 		vasp_cmd = self.get("vasp_cmd", VASP_CMD)
 		db_file = self.get("db_file", DB_FILE)
+
+		#VASP input set
+		vasp_input_set = self.get("vasp_input_set", None)
+		if vasp_input_set is None:
+			vasp_input_set = MPSurfaceSet(structure, user_incar_settings=vasp_input_set_params)
 
 		#Get custom variables
 		optimize_kwargs = self.get("optimize_kwargs", {})
@@ -76,22 +80,10 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 			original_slab, optimal_distance, **ads_finder_params).generate_adsorption_structures(
 				adsorbate, **ads_structures_params)[site_idx]
 
-		
-
-		#Get VASP input set
-		if vasp_input_set_params is None:
-			vasp_input_set_params  = {}
-		vasp_input_set = MPSurfaceSet(structure, user_incar_settings=vasp_input_set_params)
 
 		#Create new OptimizeFW
-		from atomate.vasp.fireworks.absorption import AbsorptionOptimizeFW
+		from atomate.vasp.fireworks.absorption import AbsorptionOptimizeFW #this is bad form...
 		new_fw = AbsorptionOptimizeFW(structure, vasp_input_set = vasp_input_set, vasp_cmd = vasp_cmd, db_file = db_file, vasptodb_kwargs = vasptodb_kwargs,**optimize_kwargs)
-
-		#some debugging...
-		print("firework...")
-		print(new_fw.to_dict())
-		print("now structure...")
-		print(structure)
 
 		#launch it, we made it this far fam.
 		return FWAction(additions=new_fw)
