@@ -113,7 +113,7 @@ class AbsorptionEnergyLandscapeFW(Firework):
             VaspToDb(db_file=db_file, **vasptodb_kwargs))
         super(AbsorptionEnergyLandscapeFW, self).__init__(t, parents=parents, name=fw_name, **kwargs)
 
-class AdsorptionOptimizeFW(Firework):
+class AbsorptionOptimizeFW(Firework):
 
     def __init__(self, structure, name="structure optimization",
                  vasp_input_set=None,
@@ -164,7 +164,7 @@ class AdsorptionOptimizeFW(Firework):
         t.append(PassCalcLocs(name=name))
         t.append(
             VaspToDb(db_file=db_file, additional_fields={"task_label": name}, **vasptodb_kwargs))
-        super(AdsorptionOptimizeFW, self).__init__(t, parents=parents, name="{}-{}".
+        super(AbsorptionOptimizeFW, self).__init__(t, parents=parents, name="{}-{}".
                                          format(
                                              structure.composition.reduced_formula, name),
                                          **kwargs)
