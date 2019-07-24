@@ -86,7 +86,8 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 
 		#Create new OptimizeFW
 		from atomate.vasp.fireworks.absorption import AbsorptionOptimizeFW #this is bad form...
-		new_fw = AbsorptionOptimizeFW(structure, vasp_input_set = vasp_input_set, vasp_cmd = vasp_cmd, db_file = db_file, vasptodb_kwargs = vasptodb_kwargs,**optimize_kwargs)
+		new_fw = AbsorptionOptimizeFW(structure, vasp_input_set = vasp_input_set, vasp_cmd = vasp_cmd, db_file = db_file, 
+			vasptodb_kwargs = vasptodb_kwargs,**optimize_kwargs)
 
 		#launch it, we made it this far fam.
 		return FWAction(additions=new_fw)
