@@ -13,7 +13,7 @@ Defines custom FWs used for adsorption workflow
 from fireworks import Firework
 
 from pymatgen import Structure
-from pymatgen.io.vasp.sets import MPRelaxSet, MPStaticSet
+from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
 
 from atomate.common.firetasks.glue_tasks import PassCalcLocs
 from atomate.vasp.firetasks.glue_tasks import CopyVaspOutputs, pass_vasp_result
@@ -65,7 +65,7 @@ class AbsorptionEnergyLandscapeFW(Firework):
 
     def __init__(self, structure=None, name="static", vasp_input_set=None, vasp_input_set_params=None,
                  vasp_cmd=VASP_CMD, prev_calc_loc=True, prev_calc_dir=None, db_file=DB_FILE, vasptodb_kwargs=None,
-                 parents=None, contcar_to_poscar = True,**kwargs):
+                 parents=None, contcar_to_poscar = True,runvaspcustodian_kwargs = None,**kwargs):
         """
         Copied from StaticFW to be modified with the addition of a task
         Standard static calculation Firework - either from a previous location or from a structure.
@@ -92,6 +92,7 @@ class AbsorptionEnergyLandscapeFW(Firework):
 
         vasp_input_set_params = vasp_input_set_params or {}
         vasptodb_kwargs = vasptodb_kwargs or {}
+        runvaspcustodian_kwargs = runvaspcustodian_kwargs or {}
         if "additional_fields" not in vasptodb_kwargs:
             vasptodb_kwargs["additional_fields"] = {}
         vasptodb_kwargs["additional_fields"]["task_label"] = name
@@ -107,7 +108,7 @@ class AbsorptionEnergyLandscapeFW(Firework):
         else:
             raise ValueError("Must specify structure or previous calculation")
 
-        t.append(RunVaspCustodian(vasp_cmd=vasp_cmd, auto_npar=">>auto_npar<<"))
+        t.append(RunVaspCustodian(vasp_cmd=vasp_cmd, auto_npar=">>auto_npar<<",**runvaspcustodian_kwargs))
         t.append(PassCalcLocs(name=name))
         t.append(
             VaspToDb(db_file=db_file, **vasptodb_kwargs))
@@ -149,7 +150,7 @@ class AbsorptionOptimizeFW(Firework):
             \*\*kwargs: Other kwargs that are passed to Firework.__init__.
         """
         override_default_vasp_params = override_default_vasp_params or {}
-        vasp_input_set = vasp_input_set or MPRelaxSet(structure,
+        vasp_input_set = vasp_input_set or MPSurfaceSet(structure,
                                                       force_gamma=force_gamma,
                                                       **override_default_vasp_params)
 
