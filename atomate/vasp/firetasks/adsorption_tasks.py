@@ -225,8 +225,8 @@ class GenerateSlabAdsTask(FiretaskBase):
         ads_structures_params
     """
 
-    required_params = ["slab_structure"]
-    optional_params = ["slab_energy", "adsorbates",
+    required_params = []
+    optional_params = ["slab_structure", "slab_energy", "adsorbates",
                        "vasp_cmd", "db_file", "handler_group",
                        "ads_site_finder_params", "ads_structures_params"]
 
