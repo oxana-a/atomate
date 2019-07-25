@@ -103,9 +103,10 @@ class SlabFW(Firework):
 
 class SlabAdsGeneratorFW(Firework):
 
-    def __init__(self, adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
-                 handler_group="md", ads_site_finder_params=None,
-                 ads_structures_params=None, parents=None):
+    def __init__(self, slab_structure=None, slab_energy=None, adsorbates=None,
+                 vasp_cmd=VASP_CMD, db_file=DB_FILE, handler_group="md",
+                 ads_site_finder_params=None, ads_structures_params=None,
+                 parents=None):
         """
         Description here
 
@@ -119,7 +120,8 @@ class SlabAdsGeneratorFW(Firework):
         import atomate.vasp.firetasks.adsorption_tasks as at
         tasks = []
 
-        gen_slabs_t = at.GenerateSlabAdsTask(
+        gen_slabs_t = at.GenerateSlabAdsTask(slab_structure=slab_structure,
+                                             slab_energy=slab_energy,
                                              adsorbates=adsorbates,
                                              vasp_cmd=vasp_cmd,
                                              db_file=db_file,
@@ -133,8 +135,8 @@ class SlabAdsGeneratorFW(Firework):
         # tasks.append(PassCalcLocs(name='genslab'))
         # TODO: task fields to push or use vasptodb_kwargs??
         tasks.append(VaspToDb(db_file=db_file, task_fields_to_push=
-        {'slab_structure': 'slab_structure',
-         'slab_energy': 'slab_energy'}))
+        {'slab_structure': slab_structure,
+         'slab_energy': slab_energy}))
 
         super(SlabAdsGeneratorFW, self).__init__(tasks, parents=parents,
                                                  name="slab ads generator")

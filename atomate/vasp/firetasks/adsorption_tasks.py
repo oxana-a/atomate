@@ -133,7 +133,12 @@ class SlabAdsAdditionTask(FiretaskBase):
         ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params") or {}
 
-        fws = af.SlabAdsGeneratorFW(adsorbates=adsorbates,
+        slab_structure = fw_spec["slab_structure"]
+        slab_energy = fw_spec["slab_energy"]
+
+        fws = af.SlabAdsGeneratorFW(slab_structure=slab_structure,
+                                    slab_energy=slab_energy,
+                                    adsorbates=adsorbates,
                                     vasp_cmd=vasp_cmd,
                                     db_file=db_file,
                                     handler_group=handler_group,
@@ -220,15 +225,16 @@ class GenerateSlabAdsTask(FiretaskBase):
         ads_structures_params
     """
 
-    required_params = []
-    optional_params = ["adsorbates", "vasp_cmd", "db_file", "handler_group",
+    required_params = ["slab_structure"]
+    optional_params = ["slab_energy", "adsorbates",
+                       "vasp_cmd", "db_file", "handler_group",
                        "ads_site_finder_params", "ads_structures_params"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
         slab_ads_fws = []
 
-        slab = fw_spec['slab_structure']
+        slab = self.get('slab_structure')
 
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd", "vasp")
