@@ -28,42 +28,42 @@ class DistanceOptimizationFW(Firework):
 	def __init__(self, adsorbate, original_slab = None, site_idx = None, idx = None, distances= None,name = "", vasp_input_set = None,
 		vasp_input_set_paras = None, parents = None, vasp_cmd=VASP_CMD, db_file=DB_FILE, ads_finder_params = None, ads_structures_params = None,
 		vasptodb_kwargs = None,optimize_kwargs = None , **kwargs):
-			'''
-			This Firework will be in charge of incorporating a task to write the static distance vs. energy to a JSON file for a standard static operation
-			OR launch a relaxation calculation from a set of static calculation at the optimum distance..
+        '''
+        This Firework will be in charge of incorporating a task to write the static distance vs. energy to a JSON file for a standard static operation
+        OR launch a relaxation calculation from a set of static calculation at the optimum distance..
 
-			Args:
-			    adsorbate:		molecule to be appended to original_slab at proper optimal distance
-			    original_slab: 	original surface slab without the molecule attached
-			    site_idx: 		the enumerated site identification from generate_adsorption_structure. This method returns an array of structure given
-			    					an original structure and adsorbate, we will only pick the array item at site_idx.
-			    					Technically this is redundant from idx - its the last value...
-			    idx: 			string such as "int_int_int" where the first int is the adsorbate identification (ie CO), the second int is the slab
-			    					identifcation (ie 110) and third int is the site identification.
-			    distances: 		array of possible distances that had static calculations done
-			    name:			name of FW
-			    vasp_input_set: something like MPSurfaceSet or another vasp set that contains basic parameters for the calculations to be performed
-			    vasp_input_set_paras: input set parameters to be passed on to OptimizeFW if no input set is defined
-			    parents: 		FWs of Static distance calculations
-			    vastodb_kwargs: Passed on to VaspToDB Firetask
-			    optimize_kwargs: Passed on to OptimizeFW launched FW once optimal distance is found.
-			'''
+        Args:
+            adsorbate:		molecule to be appended to original_slab at proper optimal distance
+            original_slab: 	original surface slab without the molecule attached
+            site_idx: 		the enumerated site identification from generate_adsorption_structure. This method returns an array of structure given
+            					an original structure and adsorbate, we will only pick the array item at site_idx.
+            					Technically this is redundant from idx - its the last value...
+            idx: 			string such as "int_int_int" where the first int is the adsorbate identification (ie CO), the second int is the slab
+            					identifcation (ie 110) and third int is the site identification.
+            distances: 		array of possible distances that had static calculations done
+            name:			name of FW
+            vasp_input_set: something like MPSurfaceSet or another vasp set that contains basic parameters for the calculations to be performed
+            vasp_input_set_paras: input set parameters to be passed on to OptimizeFW if no input set is defined
+            parents: 		FWs of Static distance calculations
+            vastodb_kwargs: Passed on to VaspToDB Firetask
+            optimize_kwargs: Passed on to OptimizeFW launched FW once optimal distance is found.
+        '''
 
-            #Set ability to run even if parents fizzle
-            self.spec.update({"_allow_fizzled_parents":True})
+        #Set ability to run even if parents fizzle
+        self.spec.update({"_allow_fizzled_parents":True})
 
-			t = []
+        t = []
 
-            #need to check which parents are completed...
-			t.append(AnalyzeStaticOptimumDistance(idx = idx, distances = distances))
-			t.append(LaunchVaspFromOptimumDistance(adsorbate = adsorbate, original_slab = original_slab, site_idx = site_idx, idx = idx,
-				vasp_input_set=vasp_input_set, vasp_cmd = vasp_cmd, db_file=db_file, ads_finder_params = ads_finder_params,
-				ads_structures_params = ads_structures_params, vasptodb_kwargs=vasptodb_kwargs, optimize_kwargs = optimize_kwargs))
+        #need to check which parents are completed...
+        t.append(AnalyzeStaticOptimumDistance(idx = idx, distances = distances))
+        t.append(LaunchVaspFromOptimumDistance(adsorbate = adsorbate, original_slab = original_slab, site_idx = site_idx, idx = idx,
+        	vasp_input_set=vasp_input_set, vasp_cmd = vasp_cmd, db_file=db_file, ads_finder_params = ads_finder_params,
+        	ads_structures_params = ads_structures_params, vasptodb_kwargs=vasptodb_kwargs, optimize_kwargs = optimize_kwargs))
 
-			super(DistanceOptimizationFW, self).__init__(t, parents=parents, name="{}-{}".
-			                                 format(
-			                                     original_slab.composition.reduced_formula, name),
-			                                 **kwargs)
+        super(DistanceOptimizationFW, self).__init__(t, parents=parents, name="{}-{}".
+                                         format(
+                                             original_slab.composition.reduced_formula, name),
+                                         **kwargs)
 
 class AbsorptionEnergyLandscapeFW(Firework):
 
