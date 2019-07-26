@@ -50,8 +50,6 @@ class DistanceOptimizationFW(Firework):
                 '''
                 t = []
 
-                self.spec.update({"_allow_fizzled_parents":True}) #set ability to run even if parents are fizzled.
-
                 #need to check which parents are completed...
                 t.append(AnalyzeStaticOptimumDistance(idx = idx, distances = distances))
                 t.append(LaunchVaspFromOptimumDistance(adsorbate = adsorbate, original_slab = original_slab, site_idx = site_idx, idx = idx,
@@ -91,8 +89,7 @@ class AbsorptionEnergyLandscapeFW(Firework):
                         \*\*kwargs: Other kwargs that are passed to Firework.__init__.
                 '''
 
-                #Need to make sure information about its runtime is passed on to child.
-                self.spec.update({"_pass_job_info": True})
+
                 t = []
 
                 vasp_input_set_params = vasp_input_set_params or {}
