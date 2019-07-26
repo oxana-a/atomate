@@ -126,8 +126,8 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                 fws.append(DistanceOptimizationFW(adsorbate, slab, site_idx = site_idx, idx = "{}_{}_{}_".format(ads_idx, slab_idx,site_idx), 
                     distances = distances, optimize_kwargs={"override_default_vasp_params":{"user_incar_settings":{"IBRION":2}}},
                     name = "Optimal Distance Analysis, Adsorbate: {}, Surface: {}, Site: {}".format(adsorbate.composition.formula, miller,site_idx), 
-                    parents=idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)]),
-                    spec = {"_allow_fizzled_parents":True})
+                    parents=idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)],
+                    spec = {"_allow_fizzled_parents":True}))
 
     #Workflow information
     wf = Workflow(fws)
