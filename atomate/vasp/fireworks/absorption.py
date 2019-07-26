@@ -26,8 +26,8 @@ from pymatgen.core import Molecule, Structure
 
 class DistanceOptimizationFW(Firework):
 	def __init__(self, adsorbate, original_slab = None, site_idx = None, idx = None, distances= None,name = "", vasp_input_set = None,
-		vasp_input_set_paras = None, parents = None, vasp_cmd=VASP_CMD, db_file=DB_FILE, ads_finder_params = None, ads_structures_params = None,
-		vasptodb_kwargs = None,optimize_kwargs = None , **kwargs):
+		         vasp_input_set_paras = None, parents = None, vasp_cmd=VASP_CMD, db_file=DB_FILE, ads_finder_params = None, ads_structures_params = None,
+		         vasptodb_kwargs = None,optimize_kwargs = None , **kwargs):
         '''
         This Firework will be in charge of incorporating a task to write the static distance vs. energy to a JSON file for a standard static operation
         OR launch a relaxation calculation from a set of static calculation at the optimum distance..
@@ -68,7 +68,7 @@ class AbsorptionEnergyLandscapeFW(Firework):
     def __init__(self, structure=None, name="static", vasp_input_set=None, vasp_input_set_params=None,
                  vasp_cmd=VASP_CMD, prev_calc_loc=True, prev_calc_dir=None, db_file=DB_FILE, vasptodb_kwargs=None,
                  parents=None, contcar_to_poscar = True,runvaspcustodian_kwargs = None,**kwargs):
-        """
+        '''
         Copied from StaticFW to be modified with the addition of a task
         Standard static calculation Firework - either from a previous location or from a structure.
 
@@ -89,7 +89,7 @@ class AbsorptionEnergyLandscapeFW(Firework):
             parents (Firework): Parents of this particular Firework. FW or list of FWS.
             vasptodb_kwargs (dict): kwargs to pass to VaspToDb
             \*\*kwargs: Other kwargs that are passed to Firework.__init__.
-        """
+        '''
 
         #Need to make sure information about its runtime is passed on to child.
         self.spec.update({"_pass_job_info": True})
@@ -130,7 +130,7 @@ class AbsorptionOptimizeFW(Firework):
                  auto_npar=">>auto_npar<<",
                  half_kpts_first_relax=HALF_KPOINTS_FIRST_RELAX, parents=None,
                  vasptodb_kwargs= None,**kwargs):
-        """
+        '''
         Copied from OptimizeFW - removed parent
         Optimize the given structure.
 
@@ -153,7 +153,7 @@ class AbsorptionOptimizeFW(Firework):
             vasptodb_kwargs: Passed to VaspToDB firetask for custom tasks to be passed on. 
                 Useful to add "task_fields_to_push" parameter
             \*\*kwargs: Other kwargs that are passed to Firework.__init__.
-        """
+        '''
         override_default_vasp_params = override_default_vasp_params or {}
         vasp_input_set = vasp_input_set or MPSurfaceSet(structure,
                                                       force_gamma=force_gamma,
