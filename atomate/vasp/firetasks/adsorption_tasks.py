@@ -283,6 +283,8 @@ class GenerateSlabAdsTask(FiretaskBase):
                                                **ads_structures_params)
             for n, slab_ads in enumerate(slabs_ads):
                 # Create adsorbate fw
+                #TODO: any other way around this?
+                slab_ads.remove_site_property('magmom')
                 name = slab.composition.reduced_formula
                 if getattr(slab, "miller_index", None):
                     name += "_{}".format(slab.miller_index)
@@ -293,7 +295,7 @@ class GenerateSlabAdsTask(FiretaskBase):
                                            name=slab_ads_name,
                                            vasp_input_set=vis,
                                            vasp_cmd=vasp_cmd,
-                                           db_file=db_file, 
+                                           db_file=db_file,
                                            handler_group=handler_group)
 
                 slab_ads_fws.append(slab_ads_fw)
