@@ -293,7 +293,7 @@ class GenerateSlabAdsTask(FiretaskBase):
                                            name=slab_ads_name,
                                            vasp_input_set=vis,
                                            vasp_cmd=vasp_cmd,
-                                           db_file=db_file, job_type="normal",
+                                           db_file=db_file, 
                                            handler_group=handler_group)
 
                 slab_ads_fws.append(slab_ads_fw)
