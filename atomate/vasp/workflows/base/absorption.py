@@ -96,6 +96,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                         adsorbate.composition.formula, structure.composition.formula,miller, distance,site_idx) #name of current FW
 
                     #Create Static FWs to test if energy landscape is favorable and save their energy and structure for processing with DistanceOptimizationFW
+                    #Removed error handler since its just a static position, positive energy is okay...
                     fws.append(AbsorptionEnergyLandscapeFW(name=ads_name, structure=ads_slab,
                                         vasp_input_set=vasp_input_set, vasp_cmd=vasp_cmd,
                                         db_file=db_file,
@@ -113,6 +114,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                         idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)].append(fws[-1])
     
     #Processing Optimal Distance and run best adsorption - same ads_idx, slab_idx, site_idx as previous, and must pass in same distances array
+    #TODO: Need to make it okay if one calc fizzles! And FW needs to check for which fizzled... 
     for ads_idx, adsorbate in enumerate(adsorbates):
         slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
         for slab_idx, slab in enumerate(slabs):
