@@ -48,11 +48,9 @@ class DistanceOptimizationFW(Firework):
             vastodb_kwargs: Passed on to VaspToDB Firetask
             optimize_kwargs: Passed on to OptimizeFW launched FW once optimal distance is found.
         '''
-
-        #Set ability to run even if parents fizzle
-        self.spec.update({"_allow_fizzled_parents":True})
-
         t = []
+
+        self.spec.update({"_allow_fizzled_parents":True}) #set ability to run even if parents are fizzled.
 
         #need to check which parents are completed...
         t.append(AnalyzeStaticOptimumDistance(idx = idx, distances = distances))
