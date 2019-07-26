@@ -106,7 +106,8 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                                                 "{}_{}_{}_{}_energy".format(ads_idx, slab_idx,site_idx,distance_idx):"output.energy_per_atom",
                                                 "{}_{}_{}_{}_structure".format(ads_idx, slab_idx,site_idx,distance_idx):"output.structure"
                                                 }
-                                            }, contcar_to_poscar=False, runvaspcustodian_kwargs = {"handler_group":"no_handler"}))
+                                            }, contcar_to_poscar=False, runvaspcustodian_kwargs = {"handler_group":"no_handler"},
+                                            spec = {"_pass_job_info": True}))
                     #Setting parents for future DistanceOptimizationFW
                     if not idx_to_fw_id.get("{}_{}_{}".format(ads_idx,slab_idx,site_idx), False):
                         idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)] = [fws[-1]]
@@ -125,7 +126,8 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                 fws.append(DistanceOptimizationFW(adsorbate, slab, site_idx = site_idx, idx = "{}_{}_{}_".format(ads_idx, slab_idx,site_idx), 
                     distances = distances, optimize_kwargs={"override_default_vasp_params":{"user_incar_settings":{"IBRION":2}}},
                     name = "Optimal Distance Analysis, Adsorbate: {}, Surface: {}, Site: {}".format(adsorbate.composition.formula, miller,site_idx), 
-                    parents=idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)]))
+                    parents=idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)]),
+                    spec = {"_allow_fizzled_parents":True})
 
     #Workflow information
     wf = Workflow(fws)
