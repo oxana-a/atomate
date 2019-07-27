@@ -325,23 +325,22 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd="vasp",
                      ads_site_finder_params=None, ads_structures_params=None):
     # add_molecules_in_box=False):
     """
-    Convenience constructor that allows a user to construct a workflow
-    that finds all adsorption configurations (or slabs) for a given
-    max miller index.
+    Dynamic workflow hat finds all adsorption configurations starting from a
+    bulk structure and a list of adsorbates. Slab structures are generated from
+    the relaxed bulk structure and slab + adsorbate structures are generated
+    from the relaxed slab structure.
 
     Args:
         bulk_structure (Structure): bulk structure from which to make slabs
         adsorbates ([Molecule]): adsorbates to place on surfaces
+        vasp_cmd (str): vasp command
+        db_file (str): path to database file
         max_index (int): max miller index
         slab_gen_params (dict): dictionary of kwargs for generate_all_slabs
         ads_site_finder_params (dict): parameters to be supplied as
             kwargs to AdsorbateSiteFinder
         ads_structures_params (dict): dictionary of kwargs for generating
             of adsorption structures via AdsorptionSiteFinder
-        vasp_cmd (str): vasp command
-        handler_group (str or [ErrorHandler]): custodian handler group
-            (default "md")
-        db_file (str): location of db file
 
     Returns:
         Workflow
