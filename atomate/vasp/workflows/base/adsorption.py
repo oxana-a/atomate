@@ -320,10 +320,10 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     return wfs
 
 
-def get_wfs_from_bulk(bulk_structure, adsorbates=None, max_index=1,
-                      slab_gen_params=None, ads_site_finder_params=None,
-                      ads_structures_params=None,
-                      vasp_cmd="vasp", handler_group="md", db_file=None):
+def get_wf_from_bulk(bulk_structure, adsorbates=None, max_index=1,
+                     slab_gen_params=None, ads_site_finder_params=None,
+                     ads_structures_params=None, vasp_cmd="vasp",
+                     handler_group="md", db_file=None):
     # add_molecules_in_box=False):
     """
     Convenience constructor that allows a user to construct a workflow
@@ -331,7 +331,7 @@ def get_wfs_from_bulk(bulk_structure, adsorbates=None, max_index=1,
     max miller index.
 
     Args:
-        bulk_structure (Structure): bulk structure from which to construct slabs
+        bulk_structure (Structure): bulk structure from which to make slabs
         adsorbates ([Molecule]): adsorbates to place on surfaces
         max_index (int): max miller index
         slab_gen_params (dict): dictionary of kwargs for generate_all_slabs
@@ -340,7 +340,8 @@ def get_wfs_from_bulk(bulk_structure, adsorbates=None, max_index=1,
         ads_structures_params (dict): dictionary of kwargs for generating
             of adsorption structures via AdsorptionSiteFinder
         vasp_cmd (str): vasp command
-        handler_group (str or [ErrorHandler]): custodian handler group (default "md")
+        handler_group (str or [ErrorHandler]): custodian handler group
+            (default "md")
         db_file (str): location of db file
 
     Returns:
@@ -349,15 +350,20 @@ def get_wfs_from_bulk(bulk_structure, adsorbates=None, max_index=1,
     # bulk
     fws = []
     vis = MPSurfaceSet(bulk_structure, bulk=True)
-    bulk_fw = OptimizeFW(structure=bulk_structure, vasp_input_set=vis,
-                         vasp_cmd=vasp_cmd, db_file=db_file,
-                         vasptodb_kwargs={'task_fields_to_push':
-                                      {'bulk_structure': 'output.structure',
-                                       'bulk_energy': 'output.energy'}})
+    name = bulk_structure.composition.reduced_formula + \
+           " structure optimization"
+    bulk_fw = OptimizeFW(structure=bulk_structure, name=name,
+                         vasp_input_set=vis, vasp_cmd=vasp_cmd,
+                         db_file=db_file, vasptodb_kwargs=
+                         {'task_fields_to_push':
+                              {'bulk_structure': 'output.structure',
+                               'bulk_energy': 'output.energy'}})
     fws.append(bulk_fw)
     parents = bulk_fw
-    gen_slabs_fw = SlabGeneratorFW(adsorbates=adsorbates, vasp_cmd=vasp_cmd,
-                                   db_file=db_file,
+    name = bulk_structure.composition.reduced_formula + \
+           " slab generator"
+    gen_slabs_fw = SlabGeneratorFW(name=name, adsorbates=adsorbates,
+                                   vasp_cmd=vasp_cmd, db_file=db_file,
                                    handler_group=handler_group,
                                    slab_gen_params=slab_gen_params,
                                    max_index=max_index,
