@@ -350,11 +350,8 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, max_index=1,
     # bulk
     fws = []
     vis = MPSurfaceSet(bulk_structure, bulk=True)
-    name = bulk_structure.composition.reduced_formula + \
-           " structure optimization"
-    bulk_fw = OptimizeFW(structure=bulk_structure, name=name,
-                         vasp_input_set=vis, vasp_cmd=vasp_cmd,
-                         db_file=db_file, vasptodb_kwargs=
+    bulk_fw = OptimizeFW(structure=bulk_structure,  vasp_input_set=vis,
+                         vasp_cmd=vasp_cmd, db_file=db_file, vasptodb_kwargs=
                          {'task_fields_to_push':
                               {'bulk_structure': 'output.structure',
                                'bulk_energy': 'output.energy'}})
