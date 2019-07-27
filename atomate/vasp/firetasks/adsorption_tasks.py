@@ -278,18 +278,13 @@ class GenerateSlabAdsTask(FiretaskBase):
         # #
         # #
         for adsorbate in adsorbates:
+            # TODO: any other way around adsorbates not having magmom?
+            adsorbate.add_site_property('magmom',[0.0]*adsorbate.num_sites)
             slabs_ads = AdsorbateSiteFinder(slab, **ads_site_finder_params).\
                 generate_adsorption_structures(adsorbate,
                                                **ads_structures_params)
             for n, slab_ads in enumerate(slabs_ads):
                 # Create adsorbate fw
-                # TODO: any other way around this?
-                # why doesn't slab_ads.remove_site_property('magmom') work?
-                for site in slab_ads.sites:
-                    try:
-                        del site.properties['magmom']
-                    except KeyError:
-                        pass
                 name = slab.composition.reduced_formula
                 if getattr(slab, "miller_index", None):
                     name += "_{}".format(slab.miller_index)
