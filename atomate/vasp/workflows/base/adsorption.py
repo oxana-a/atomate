@@ -374,7 +374,8 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, max_index=1,
     fws.append(gen_slabs_fw)
     name = str(bulk_structure.composition.reduced_formula)
     for ads in adsorbates:
-        name += " {}".format(ads.composition.reduced_formula)
+        ads_name = ''.join([site.species_string for site in ads.sites])
+        name += " {}".format(ads_name)
     name += " adsorption wf"
     wf = Workflow(fws, name=name)
 

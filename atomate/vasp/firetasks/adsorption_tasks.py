@@ -112,6 +112,9 @@ class SlabAdsAdditionTask(FiretaskBase):
             name += "_{}".format(slab.miller_index)
         if getattr(slab, "shift", None):
             name += "_{:.3f}".format(slab.shift)
+        for ads in adsorbates:
+            name += ''.join([site.species_string for site
+                            in ads.sites])
         name += " slab + adsorbate generator"
 
         fws = af.SlabAdsGeneratorFW(slab, name=name, slab_energy=slab_energy,
@@ -175,8 +178,10 @@ class GenerateSlabAdsTask(FiretaskBase):
                     name += "_{}".format(slab.miller_index)
                 if getattr(slab, "shift", None):
                     name += "_{:.3f}".format(slab.shift)
+                ads_name = ''.join([site.species_string for site
+                                    in adsorbate.sites])
                 slab_ads_name = "{} {} slab + adsorbate optimization {}".\
-                    format(name, adsorbate.composition.reduced_formula, n)
+                    format(name, ads_name, n)
                 vis = MPSurfaceSet(slab_ads, bulk=False)
                 slab_ads_fw = af.SlabAdsFW(slab_ads,
                                            name=slab_ads_name,
