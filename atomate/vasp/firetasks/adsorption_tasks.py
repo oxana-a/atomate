@@ -14,6 +14,54 @@ __email__ = "ioandriuc@lbl.gov"
 
 
 @explicit_serialize
+class SlabAdditionTask(FiretaskBase):
+    """
+    #TODO: write description below
+    This class
+
+    Required params:
+        slab
+    Optional params:
+        adsorbates
+        vasp_cmd
+        db_file
+        handler_group
+        ads_site_finder_params
+        ads_structures_params
+    """
+    required_params = []
+    optional_params = ["adsorbates", "vasp_cmd", "db_file", "handler_group",
+                       "slab_gen_params", "max_index",
+                       "ads_site_finder_params", "ads_structures_params"]
+
+    def run_task(self, fw_spec):
+        import atomate.vasp.fireworks.adsorption as af
+        adsorbates = self.get("adsorbates")
+        vasp_cmd = self.get("vasp_cmd", "vasp")
+        db_file = self.get("db_file", None)
+        handler_group = self.get("handler_group", "md")
+        sgp = self.get("slab_gen_params") or {"min_slab_size": 7.0,
+                                              "min_vacuum_size": 20.0}
+        max_index = self.get("max_index", 1)
+        ads_site_finder_params = self.get("ads_site_finder_params") or {}
+        ads_structures_params = self.get("ads_structures_params") or {}
+
+        bulk_structure = fw_spec["bulk_structure"]
+        bulk_energy = fw_spec["bulk_energy"]
+
+        name = bulk_structure.composition.reduced_formula + " slab generator"
+        fw = af.SlabGeneratorFW(bulk_structure, name=name,
+                                bulk_energy=bulk_energy, adsorbates=adsorbates,
+                                vasp_cmd=vasp_cmd, db_file=db_file,
+                                handler_group=handler_group,
+                                slab_gen_params=sgp, max_index=max_index,
+                                ads_site_finder_params=ads_site_finder_params,
+                                ads_structures_params=ads_structures_params)
+
+        return FWAction(additions=fw)
+
+
+@explicit_serialize
 class GenerateSlabsTask(FiretaskBase):
     """
     #TODO: write description below
@@ -32,7 +80,8 @@ class GenerateSlabsTask(FiretaskBase):
     """
 
     required_params = []
-    optional_params = ["adsorbates", "vasp_cmd", "db_file", "handler_group",
+    optional_params = ["bulk_structure", "bulk_energy", "adsorbates",
+                       "vasp_cmd", "db_file", "handler_group",
                        "slab_gen_params", "max_index",
                        "ads_site_finder_params", "ads_structures_params"]
 
@@ -40,8 +89,8 @@ class GenerateSlabsTask(FiretaskBase):
         import atomate.vasp.fireworks.adsorption as af
         slab_fws = []
 
-        bulk_structure = fw_spec['bulk_structure']
-
+        bulk_structure = fw_spec["bulk_structure"]
+        bulk_energy = fw_spec["bulk_energy"]
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd", "vasp")
         db_file = self.get("db_file", None)
@@ -64,7 +113,8 @@ class GenerateSlabsTask(FiretaskBase):
                 name += "_{:.3f}".format(slab.shift)
             name += " slab optimization"
             vis = MPSurfaceSet(slab, bulk=False)
-            slab_fw = af.SlabFW(slab, name=name, vasp_input_set=vis,
+            slab_fw = af.SlabFW(slab, name=name, bulk_structure=bulk_structure,
+                                bulk_energy=bulk_energy, vasp_input_set=vis,
                                 adsorbates=adsorbates, vasp_cmd=vasp_cmd,
                                 db_file=db_file, handler_group=handler_group,
                                 ads_site_finder_params=ads_site_finder_params,
@@ -104,20 +154,24 @@ class SlabAdsAdditionTask(FiretaskBase):
         ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params") or {}
 
-        slab = fw_spec["slab_structure"]
+        slab_structure = fw_spec["slab_structure"]
         slab_energy = fw_spec["slab_energy"]
+        bulk_structure = fw_spec["bulk_structure"]
+        bulk_energy = fw_spec["bulk_energy"]
 
-        name = slab.composition.reduced_formula
-        if getattr(slab, "miller_index", None):
-            name += "_{}".format(slab.miller_index)
-        if getattr(slab, "shift", None):
-            name += "_{:.3f}".format(slab.shift)
+        name = slab_structure.composition.reduced_formula
+        if getattr(slab_structure, "miller_index", None):
+            name += "_{}".format(slab_structure.miller_index)
+        if getattr(slab_structure, "shift", None):
+            name += "_{:.3f}".format(slab_structure.shift)
         for ads in adsorbates:
             name += ''.join([site.species_string for site
                             in ads.sites])
         name += " slab + adsorbate generator"
 
-        fws = af.SlabAdsGeneratorFW(slab, name=name, slab_energy=slab_energy,
+        fws = af.SlabAdsGeneratorFW(slab_structure, bulk_structure=bulk_structure,
+                                    bulk_energy=bulk_energy, name=name,
+                                    slab_energy=slab_energy,
                                     adsorbates=adsorbates, vasp_cmd=vasp_cmd,
                                     db_file=db_file,
                                     handler_group=handler_group,
@@ -149,16 +203,19 @@ class GenerateSlabAdsTask(FiretaskBase):
 
     required_params = []
     optional_params = ["slab_structure", "slab_energy", "adsorbates",
-                       "vasp_cmd", "db_file", "handler_group",
-                       "ads_site_finder_params", "ads_structures_params"]
+                       "bulk_structure", "bulk_energy", "vasp_cmd", "db_file",
+                       "handler_group", "ads_site_finder_params",
+                       "ads_structures_params"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
         slab_ads_fws = []
 
-        slab = self.get('slab_structure')
-
+        slab = self.get("slab_structure")
+        slab_energy = self.get("slab_energy")
         adsorbates = self.get("adsorbates")
+        bulk_structure = self.get("bulk_structure")
+        bulk_energy = self.get("bulk_energy")
         vasp_cmd = self.get("vasp_cmd", "vasp")
         db_file = self.get("db_file", None)
         handler_group = self.get("handler_group", "md")
@@ -183,11 +240,13 @@ class GenerateSlabAdsTask(FiretaskBase):
                 slab_ads_name = "{} {} slab + adsorbate optimization {}".\
                     format(name, ads_name, n)
                 vis = MPSurfaceSet(slab_ads, bulk=False)
-                slab_ads_fw = af.SlabAdsFW(slab_ads,
-                                           name=slab_ads_name,
+                slab_ads_fw = af.SlabAdsFW(slab_ads, name=slab_ads_name,
+                                           slab_structure=slab,
+                                           slab_energy=slab_energy,
+                                           bulk_structure=bulk_structure,
+                                           bulk_energy=bulk_energy,
                                            vasp_input_set=vis,
-                                           vasp_cmd=vasp_cmd,
-                                           db_file=db_file,
+                                           vasp_cmd=vasp_cmd, db_file=db_file,
                                            handler_group=handler_group)
 
                 slab_ads_fws.append(slab_ads_fw)

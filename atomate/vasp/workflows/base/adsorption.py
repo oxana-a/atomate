@@ -12,7 +12,7 @@ from fireworks import Workflow
 
 from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW
 from atomate.utils.utils import get_meta_from_structure
-from atomate.vasp.fireworks.adsorption import SlabGeneratorFW
+from atomate.vasp.fireworks.adsorption import BulkFW
 
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
 from pymatgen.core.surface import generate_all_slabs, Slab
@@ -320,10 +320,9 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     return wfs
 
 
-def get_wf_from_bulk(bulk_structure, adsorbates=None, max_index=1,
-                     slab_gen_params=None, ads_site_finder_params=None,
-                     ads_structures_params=None, vasp_cmd="vasp",
-                     handler_group="md", db_file=None):
+def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd="vasp",
+                     db_file=None, max_index=1, slab_gen_params=None,
+                     ads_site_finder_params=None, ads_structures_params=None):
     # add_molecules_in_box=False):
     """
     Convenience constructor that allows a user to construct a workflow
@@ -350,25 +349,13 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, max_index=1,
     # bulk
     fws = []
     vis = MPSurfaceSet(bulk_structure, bulk=True)
-    bulk_fw = OptimizeFW(structure=bulk_structure,  vasp_input_set=vis,
-                         vasp_cmd=vasp_cmd, db_file=db_file, vasptodb_kwargs=
-                         {'task_fields_to_push':
-                              {'bulk_structure': 'output.structure',
-                               'bulk_energy': 'output.energy'}})
+    name = bulk_structure.composition.reduced_formula + " bulk optimization"
+    bulk_fw = BulkFW(bulk_structure, name=name, vasp_input_set=vis,
+                     adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
+                     slab_gen_params=slab_gen_params, max_index=max_index,
+                     ads_site_finder_params=ads_site_finder_params,
+                     ads_structures_params=ads_structures_params)
     fws.append(bulk_fw)
-    parents = bulk_fw
-    name = bulk_structure.composition.reduced_formula + \
-           " slab generator"
-    gen_slabs_fw = SlabGeneratorFW(name=name, adsorbates=adsorbates,
-                                   vasp_cmd=vasp_cmd, db_file=db_file,
-                                   handler_group=handler_group,
-                                   slab_gen_params=slab_gen_params,
-                                   max_index=max_index,
-                                   ads_site_finder_params=
-                                   ads_site_finder_params,
-                                   ads_structures_params=ads_structures_params,
-                                   parents=parents)
-    fws.append(gen_slabs_fw)
     name = str(bulk_structure.composition.reduced_formula)
     for ads in adsorbates:
         ads_name = ''.join([site.species_string for site in ads.sites])
