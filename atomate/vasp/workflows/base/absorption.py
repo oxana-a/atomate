@@ -100,7 +100,6 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                     fws.append(AbsorptionEnergyLandscapeFW(name=ads_name, structure=ads_slab,
                                         vasp_input_set=vasp_input_set, vasp_cmd=vasp_cmd,
                                         db_file=db_file,
-                                        vasp_input_set_params={"user_incar_settings":{"IBRION":2}},
                                         vasptodb_kwargs={
                                             "task_fields_to_push":{
                                                 "{}_{}_{}_{}_energy".format(ads_idx, slab_idx,site_idx,distance_idx):"output.energy_per_atom",
@@ -124,7 +123,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
             for site_idx, ads_slab in enumerate(ads_slabs):
                 #Add FW that finds optimal distance from static FW and appends  adsorbate to best distance... 
                 fws.append(DistanceOptimizationFW(adsorbate, slab, site_idx = site_idx, idx = "{}_{}_{}_".format(ads_idx, slab_idx,site_idx), 
-                    distances = distances, optimize_kwargs={"override_default_vasp_params":{"user_incar_settings":{"IBRION":2}}},
+                    distances = distances,
                     name = "Optimal Distance Analysis, Adsorbate: {}, Surface: {}, Site: {}".format(adsorbate.composition.formula, miller,site_idx), 
                     parents=idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)],
                     spec = {"_allow_fizzled_parents":True}))

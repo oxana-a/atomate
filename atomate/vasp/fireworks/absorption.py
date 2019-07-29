@@ -105,8 +105,7 @@ class AbsorptionEnergyLandscapeFW(Firework):
                 if structure:
                         vasp_input_set = vasp_input_set or MPStaticSet(structure)
                         t.append(WriteVaspFromIOSet(structure=structure,
-                                                                                vasp_input_set=vasp_input_set,
-                                                                                vasp_input_params=vasp_input_set_params))
+                            vasp_input_set=vasp_input_set,vasp_input_params=vasp_input_set_params))
                 else:
                         raise ValueError("Must specify structure or previous calculation")
 
@@ -152,9 +151,7 @@ class AbsorptionOptimizeFW(Firework):
                         \*\*kwargs: Other kwargs that are passed to Firework.__init__.
                 '''
                 override_default_vasp_params = override_default_vasp_params or {}
-                vasp_input_set = vasp_input_set or MPSurfaceSet(structure,
-                                                                                                            force_gamma=force_gamma,
-                                                                                                            **override_default_vasp_params)
+                vasp_input_set = vasp_input_set or MPSurfaceSet(structure,force_gamma=force_gamma,**override_default_vasp_params)
 
                 t = []
                 t.append(WriteVaspFromIOSet(structure=structure,
