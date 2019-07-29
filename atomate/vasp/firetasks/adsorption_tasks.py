@@ -37,11 +37,10 @@ class SlabAdditionTask(FiretaskBase):
         add_fw_name (str): name for the SlabGeneratorFW to be added
     """
     required_params = []
-    optional_params = ["bulk_structure", "bulk_energy", "adsorbates",
-                       "vasp_cmd", "db_file", "handler_group",
+    optional_params = ["adsorbates", "vasp_cmd", "db_file", "handler_group",
                        "slab_gen_params", "max_index",
                        "ads_site_finder_params", "ads_structures_params",
-                       "name"]
+                       "add_fw_name"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -122,7 +121,7 @@ class GenerateSlabsTask(FiretaskBase):
         for slab in slabs:
             name = slab.composition.reduced_formula
             if getattr(slab, "miller_index", None):
-                name += "_{}=".format(slab.miller_index)
+                name += "_{}".format(slab.miller_index)
             if getattr(slab, "shift", None):
                 name += "_{:.3f}".format(slab.shift)
             name += " slab optimization"
@@ -162,18 +161,18 @@ class SlabAdsAdditionTask(FiretaskBase):
         add_fw_name (str): name for the SlabAdsGeneratorFW to be added
     """
     required_params = []
-    optional_params = ["slab_structure", "slab_energy", "bulk_structure",
-                       "bulk_energy", "adsorbates", "vasp_cmd", "db_file",
-                       "handler_group", "ads_site_finder_params",
-                       "ads_structures_params", "add_fw_name"]
+    optional_params = ["bulk_structure", "bulk_energy", "adsorbates",
+                       "vasp_cmd", "db_file", "handler_group",
+                       "ads_site_finder_params", "ads_structures_params",
+                       "add_fw_name"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
 
         slab_structure = fw_spec["slab_structure"]
         slab_energy = fw_spec["slab_energy"]
-        bulk_structure = fw_spec["bulk_structure"]
-        bulk_energy = fw_spec["bulk_energy"]
+        bulk_structure = self.get("bulk_structure")
+        bulk_energy = self.get("bulk_energy")
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd", "vasp")
         db_file = self.get("db_file", None)

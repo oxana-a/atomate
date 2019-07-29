@@ -167,8 +167,8 @@ class SlabFW(Firework):
         if getattr(slab_structure, "shift", None):
             add_fw_name += "_{:.3f}".format(slab_structure.shift)
         for ads in adsorbates:
-            add_fw_name += ''.join([site.species_string for site
-                            in ads.sites])
+            add_fw_name += " " + ''.join([site.species_string for site
+                                          in ads.sites])
         add_fw_name += " slab + adsorbate generator"
 
         t.append(at.SlabAdsAdditionTask(adsorbates=adsorbates,
@@ -179,7 +179,9 @@ class SlabFW(Firework):
                                         ads_site_finder_params,
                                         ads_structures_params=
                                         ads_structures_params,
-                                        add_fw_name=add_fw_name))
+                                        add_fw_name=add_fw_name,
+                                        bulk_structure=bulk_structure,
+                                        bulk_energy=bulk_energy))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
