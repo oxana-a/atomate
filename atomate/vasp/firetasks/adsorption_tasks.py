@@ -104,8 +104,8 @@ class GenerateSlabsTask(FiretaskBase):
         import atomate.vasp.fireworks.adsorption as af
         slab_fws = []
 
-        bulk_structure = fw_spec["bulk_structure"]
-        bulk_energy = fw_spec["bulk_energy"]
+        bulk_structure = self.get("bulk_structure")
+        bulk_energy = self.get("bulk_energy")
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd", "vasp")
         db_file = self.get("db_file", None)
