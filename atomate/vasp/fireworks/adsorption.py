@@ -53,18 +53,15 @@ class BulkFW(Firework):
                              vasptodb_kwargs=vasptodb_kwargs)
         t = bulk_fw.tasks
 
-        add_fw_name = bulk_structure.composition.reduced_formula +\
-                      " slab generator"
-        t.append(at.SlabAdditionTask(adsorbates=adsorbates, vasp_cmd=vasp_cmd,
-                                     db_file=db_file,
-                                     handler_group=handler_group,
-                                     slab_gen_params=slab_gen_params,
-                                     max_index=max_index,
-                                     ads_site_finder_params=
-                                     ads_site_finder_params,
-                                     ads_structures_params=
-                                     ads_structures_params,
-                                     add_fw_name=add_fw_name))
+        t.append(at.GenerateSlabsTask(adsorbates=adsorbates,
+                                      vasp_cmd=vasp_cmd, db_file=db_file,
+                                      handler_group=handler_group,
+                                      slab_gen_params=slab_gen_params,
+                                      max_index=max_index,
+                                      ads_site_finder_params=
+                                      ads_site_finder_params,
+                                      ads_structures_params=
+                                      ads_structures_params))
         super(BulkFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -161,27 +158,15 @@ class SlabFW(Firework):
                              vasptodb_kwargs=vasptodb_kwargs)
         t = slab_fw.tasks
 
-        add_fw_name = slab_structure.composition.reduced_formula
-        if getattr(slab_structure, "miller_index", None):
-            add_fw_name += "_{}".format(slab_structure.miller_index)
-        if getattr(slab_structure, "shift", None):
-            add_fw_name += "_{:.3f}".format(slab_structure.shift)
-        for ads in adsorbates:
-            add_fw_name += " " + ''.join([site.species_string for site
-                                          in ads.sites])
-        add_fw_name += " slab + adsorbate generator"
-
-        t.append(at.SlabAdsAdditionTask(adsorbates=adsorbates,
-                                        vasp_cmd=vasp_cmd,
-                                        db_file=db_file,
+        t.append(at.GenerateSlabAdsTask(adsorbates=adsorbates,
+                                        bulk_structure=bulk_structure,
+                                        bulk_energy=bulk_energy,
+                                        vasp_cmd=vasp_cmd, db_file=db_file,
                                         handler_group=handler_group,
                                         ads_site_finder_params=
                                         ads_site_finder_params,
                                         ads_structures_params=
-                                        ads_structures_params,
-                                        add_fw_name=add_fw_name,
-                                        bulk_structure=bulk_structure,
-                                        bulk_energy=bulk_energy))
+                                        ads_structures_params))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
