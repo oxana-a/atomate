@@ -21,7 +21,8 @@ class BulkFW(Firework):
                  ads_site_finder_params=None, ads_structures_params=None,
                  parents=None, **kwargs):
         """
-        Optimize bulk structure and add a slab generator firework as addition.
+        Optimize bulk structure and add corresponding slab optimization
+        fireworks as additions.
 
         Args:
             bulk_structure (Structure): input bulk structure
@@ -47,9 +48,10 @@ class BulkFW(Firework):
         vasptodb_kwargs = {'task_fields_to_push':
                                {'bulk_structure': 'output.structure',
                                 'bulk_energy': 'output.energy'}}
-        bulk_fw = OptimizeFW(structure=bulk_structure, vasp_input_set=vis,
-                             vasp_cmd=vasp_cmd, db_file=db_file,
-                             job_type="normal", handler_group=handler_group,
+        bulk_fw = OptimizeFW(structure=bulk_structure, name=name,
+                             vasp_input_set=vis, vasp_cmd=vasp_cmd,
+                             db_file=db_file, job_type="normal",
+                             handler_group=handler_group,
                              vasptodb_kwargs=vasptodb_kwargs)
         t = bulk_fw.tasks
 
@@ -121,8 +123,8 @@ class SlabFW(Firework):
                  handler_group="md", ads_site_finder_params=None,
                  ads_structures_params=None, parents=None, **kwargs):
         """
-        Optimize slab structure and add a slab + adsorbate generator firework
-        as addition.
+        Optimize slab structure and add the corresponding slab + adsorbate
+        optimizations as additions.
 
         Args:
             slab_structure (Structure): input slab structure
@@ -152,9 +154,10 @@ class SlabFW(Firework):
                                 'slab_energy': 'output.energy',
                                 'bulk_structure': bulk_structure,
                                 'bulk_energy': bulk_energy}}
-        slab_fw = OptimizeFW(structure=slab_structure, vasp_input_set=vis,
-                             vasp_cmd=vasp_cmd, db_file=db_file,
-                             job_type="normal", handler_group=handler_group,
+        slab_fw = OptimizeFW(structure=slab_structure, name=name,
+                             vasp_input_set=vis, vasp_cmd=vasp_cmd,
+                             db_file=db_file, job_type="normal",
+                             handler_group=handler_group,
                              vasptodb_kwargs=vasptodb_kwargs)
         t = slab_fw.tasks
 
@@ -256,7 +259,7 @@ class SlabAdsFW(Firework):
                                 'slab_energy': slab_energy,
                                 'bulk_structure': bulk_structure,
                                 'bulk_energy': bulk_energy}}
-        slab_ads_fw = OptimizeFW(structure=slab_ads_structure,
+        slab_ads_fw = OptimizeFW(structure=slab_ads_structure, name=name,
                                  vasp_input_set=vis, vasp_cmd=vasp_cmd,
                                  db_file=db_file, job_type="normal",
                                  handler_group=handler_group,
