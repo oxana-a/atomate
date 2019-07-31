@@ -47,9 +47,10 @@ class BulkFW(Firework):
         vasptodb_kwargs = {'task_fields_to_push':
                                {'bulk_structure': 'output.structure',
                                 'bulk_energy': 'output.energy'}}
-        bulk_fw = OptimizeFW(structure=bulk_structure, vasp_input_set=vis,
-                             vasp_cmd=vasp_cmd, db_file=db_file,
-                             job_type="normal", handler_group=handler_group,
+        bulk_fw = OptimizeFW(structure=bulk_structure, name=name,
+                             vasp_input_set=vis, vasp_cmd=vasp_cmd,
+                             db_file=db_file, job_type="normal",
+                             handler_group=handler_group,
                              vasptodb_kwargs=vasptodb_kwargs)
         t = bulk_fw.tasks
 
@@ -155,9 +156,10 @@ class SlabFW(Firework):
                                 'slab_energy': 'output.energy',
                                 'bulk_structure': bulk_structure,
                                 'bulk_energy': bulk_energy}}
-        slab_fw = OptimizeFW(structure=slab_structure, vasp_input_set=vis,
-                             vasp_cmd=vasp_cmd, db_file=db_file,
-                             job_type="normal", handler_group=handler_group,
+        slab_fw = OptimizeFW(structure=slab_structure, name=name,
+                             vasp_input_set=vis, vasp_cmd=vasp_cmd,
+                             db_file=db_file, job_type="normal",
+                             handler_group=handler_group,
                              vasptodb_kwargs=vasptodb_kwargs)
         t = slab_fw.tasks
 
@@ -271,7 +273,7 @@ class SlabAdsFW(Firework):
                                 'slab_energy': slab_energy,
                                 'bulk_structure': bulk_structure,
                                 'bulk_energy': bulk_energy}}
-        slab_ads_fw = OptimizeFW(structure=slab_ads_structure,
+        slab_ads_fw = OptimizeFW(structure=slab_ads_structure, name=name,
                                  vasp_input_set=vis, vasp_cmd=vasp_cmd,
                                  db_file=db_file, job_type="normal",
                                  handler_group=handler_group,
