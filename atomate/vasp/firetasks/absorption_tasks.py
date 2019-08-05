@@ -108,6 +108,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		#Get identifying information
 		idx = self["idx"]
 		distances = self["distances"]
+		distance_to_state = fw_spec["distance_to_state"][0]
 
 		#Get original structure
 		sites = len(fw_spec["{}{}_structure".format(idx, 0)].sites)
@@ -122,25 +123,26 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		second_0 = False
 		distance_0 = False
 		for distance_idx, distance in enumerate(distances):
-			energy = fw_spec["{}{}_energy".format(idx, distance_idx)]/sites #Normalize by amount of atoms in structure...
-			if lowest_energy >0 and energy <0 and not first_0:
-				#This is the first time the energy has dived below 0. This is probably a good guess.
-				first_0 = True
-				distance_0 = distance
-				structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
-				optimal_distance = distance
-				lowest_energy = energy
-			elif lowest_energy <0 and energy >0 and first_0:
-				#Energy recrossed the 0 eV line, lets take an average
-				second_0 = True
-				structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
-				optimal_distance = (distance_0 + distance)/2
-				lowest_energy = energy
-			elif energy < lowest_energy and not first_0 and not second_0:
-				#If nothing has crossed 0 yet just take the lowest energy distance...
-				lowest_energy = energy
-				structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
-				optimal_distance = distance
+			if distance_to_state[distance].get("state") is "COMPLETED":
+				energy = fw_spec["{}{}_energy".format(idx, distance_idx)]/sites #Normalize by amount of atoms in structure...
+				if lowest_energy >0 and energy <0 and not first_0:
+					#This is the first time the energy has dived below 0. This is probably a good guess.
+					first_0 = True
+					distance_0 = distance
+					structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
+					optimal_distance = distance
+					lowest_energy = energy
+				elif lowest_energy <0 and energy >0 and first_0:
+					#Energy recrossed the 0 eV line, lets take an average
+					second_0 = True
+					structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
+					optimal_distance = (distance_0 + distance)/2
+					lowest_energy = energy
+				elif energy < lowest_energy and not first_0 and not second_0:
+					#If nothing has crossed 0 yet just take the lowest energy distance...
+					lowest_energy = energy
+					structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
+					optimal_distance = distance
 
 		#If lowest energy is a little too big, this is probably not a good site/absorbate... No need to run future calculations
 		if lowest_energy >0.2:

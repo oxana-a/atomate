@@ -51,7 +51,7 @@ class DistanceOptimizationFW(Firework):
                 t = []
 
                 #need to check which parents are completed...
-                t.append(GetPassedJobInformation())
+                t.append(GetPassedJobInformation(distances = distances))
                 t.append(AnalyzeStaticOptimumDistance(idx = idx, distances = distances))
                 t.append(LaunchVaspFromOptimumDistance(adsorbate = adsorbate, original_slab = original_slab, site_idx = site_idx, idx = idx,
                     vasp_input_set=vasp_input_set, vasp_cmd = vasp_cmd, db_file=db_file, ads_finder_params = ads_finder_params,
