@@ -20,7 +20,7 @@ from atomate.vasp.firetasks.glue_tasks import CopyVaspOutputs, pass_vasp_result
 from atomate.vasp.firetasks.parse_outputs import VaspToDb
 from atomate.vasp.firetasks.run_calc import RunVaspCustodian
 from atomate.vasp.firetasks.write_inputs import WriteVaspFromIOSet, WriteVaspStaticFromPrev
-from atomate.vasp.firetasks.absorption_tasks import AnalyzeStaticOptimumDistance, LaunchVaspFromOptimumDistance
+from atomate.vasp.firetasks.absorption_tasks import AnalyzeStaticOptimumDistance, LaunchVaspFromOptimumDistance, GetPassedJobInformation
 
 from pymatgen.core import Molecule, Structure
 
@@ -51,6 +51,7 @@ class DistanceOptimizationFW(Firework):
                 t = []
 
                 #need to check which parents are completed...
+                t.append(GetPassedJobInformation())
                 t.append(AnalyzeStaticOptimumDistance(idx = idx, distances = distances))
                 t.append(LaunchVaspFromOptimumDistance(adsorbate = adsorbate, original_slab = original_slab, site_idx = site_idx, idx = idx,
                     vasp_input_set=vasp_input_set, vasp_cmd = vasp_cmd, db_file=db_file, ads_finder_params = ads_finder_params,

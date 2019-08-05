@@ -152,3 +152,29 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 						'optimal_distance':optimal_distance
 					}
 				}})
+
+@explicit_serialize
+class GetPassedJobInformation(FiretaskBase):
+	'''
+	Firetask that analyzes _job_info array in FW spec to get parrent FW state and add the distance information
+	"_pass_job_info" must exist in parent FW's spec.
+	'''
+
+	required_params = ["distances"]
+
+	def run_task(self, fw_spec):
+
+		distances = self["distances"]
+
+		fw_status = {}
+
+		#Load state and correspond it to distance
+		for distance in distances:
+			for fwid in fw_spec["_job_info"]:
+				if str(distance)+"." in fwid["name"]:
+					fw_status[distance] = {"state":fwid["state"]}
+		#Modify spec for future tasks
+		return FWAction(mod_spec={"_push":{"distance_to_state":fw_status}})
+
+
+
