@@ -382,11 +382,11 @@ class AdsorptionAnalysisTask(FiretaskBase):
         task_name = self.get("name")
 
         stored_data['task_name'] = task_name
-        stored_data['output_bulk_structure'] = bulk_structure
+        stored_data['output_bulk_structure'] = bulk_structure.as_dict()
         stored_data['output_bulk_energy'] = bulk_energy
-        stored_data['output_slab_structure'] = slab_structure
+        stored_data['output_slab_structure'] = slab_structure.as_dict()
         stored_data['output_slab_energy'] = slab_energy
-        stored_data['output_slab_ads_structure'] = slab_ads_structure
+        stored_data['output_slab_ads_structure'] = slab_ads_structure.as_dict()
         stored_data['output_slab_ads_energy'] = slab_ads_energy
         stored_data['input_adsorbate'] = adsorbate
 
@@ -404,7 +404,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         if len(ads_sites) > 1:
             stored_data['adsorbate_bonds'] = {}
             for n, (site1, site2) in enumerate(combinations(ads_sites, 2)):
-                pair_name = 'pair_' + str(n) + ": " + str(site1.specie) + "-" \
+                pair_name = 'pair' + str(n) + ": " + str(site1.specie) + "-" \
                             + str(site2.specie)
                 stored_data['adsorbate_bonds'][pair_name] = \
                     {'site1': site1, 'site2': site2,
@@ -413,10 +413,10 @@ class AdsorptionAnalysisTask(FiretaskBase):
         # adsorbate surface nearest neighbors
         stored_data['nearest_surface_neighbors'] = {}
         for n, ads_site in enumerate(ads_sites):
-            ads_site_name = 'adsorbate_site_' + str(n) + ": " + \
+            ads_site_name = 'adsorbate_site' + str(n) + ": " + \
                             str(ads_site.specie)
-            neighbors = slab_ads_structure.get_neighbors\
-                (ads_site, slab_ads_structure.lattice.c)
+            neighbors = slab_ads_structure.get_neighbors(ads_site,
+                                                slab_ads_structure.lattice.c)
 
             neighbors.sort(key=lambda x: x[1])
             nearest_surface_neighbor = next(neighbor for neighbor in neighbors
