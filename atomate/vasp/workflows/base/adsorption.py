@@ -78,8 +78,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
 
     #Set general parameters for slab
     sgp = slab_gen_params or {"min_slab_size": 10, "min_vacuum_size": 5}
-    #Set general vasp parameters, print out ELFCAR for analysis
-    adsorption_energy_landscape_input_set = MPStaticSet(user_incar_settings={"LELFF":True, "NPAR":1})
+    
 
     #For all adsorbates passed in
     idx_to_fw_id = dict()
@@ -103,6 +102,10 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                 for site_idx, ads_slab in enumerate(ads_slabs):
                     ads_name = "{}-{}{} distance optimization: {}. Site: {}".format(
                         adsorbate.composition.formula, structure.composition.formula,miller, distance,site_idx) #name of current FW
+
+                    #Set general vasp parameters, print out ELFCAR for analysis
+                    adsorption_energy_landscape_input_set = MPStaticSet(ads_slab,user_incar_settings={"LELFF":True, "NPAR":1})
+
 
                     #Create Static FWs to test if energy landscape is favorable and save their energy and structure for processing with DistanceOptimizationFW
                     #Removed error handler since its just a static position, positive energy is okay...
