@@ -104,7 +104,15 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                         adsorbate.composition.formula, structure.composition.formula,miller, distance,site_idx) #name of current FW
 
                     #Set general vasp parameters, print out ELFCAR for analysis
-                    adsorption_energy_landscape_input_set = MPStaticSet(ads_slab,user_incar_settings={"LELF":True, "LORBIT":11})
+                    adsorption_energy_landscape_input_set = MPStaticSet(ads_slab,user_incar_settings={"LELF":True, 
+                                                                                                      "LORBIT":11,
+                                                                                                      "ALGO":"Fast",
+                                                                                                      "ISMEAR":1,
+                                                                                                      "ADDGRID":True,
+                                                                                                      "LREAL":False,
+                                                                                                      "LASPH":True,
+                                                                                                      "IDIPOL":3,
+                                                                                                      "LDIPOL":True})
 
 
                     #Create Static FWs to test if energy landscape is favorable and save their energy and structure for processing with DistanceOptimizationFW
