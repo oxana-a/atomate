@@ -1,6 +1,14 @@
+import json
+import numpy as np
+from itertools import combinations
+from atomate.utils.utils import get_logger
+from atomate.vasp.database import VaspCalcDb
 from fireworks.core.firework import FiretaskBase, FWAction
+from fireworks.utilities.fw_serializers import DATETIME_HANDLER
 from fireworks.utilities.fw_utilities import explicit_serialize
+from pymatgen import Structure
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
+from pymatgen.analysis.surface_analysis import EV_PER_ANG2_TO_JOULES_PER_M2
 from pymatgen.core.surface import generate_all_slabs
 from pymatgen.io.vasp.sets import MPSurfaceSet
 
@@ -11,6 +19,8 @@ Adsorption workflow firetasks.
 
 __author__ = "Oxana Andriuc"
 __email__ = "ioandriuc@lbl.gov"
+
+logger = get_logger(__name__)
 
 
 @explicit_serialize
@@ -23,12 +33,14 @@ class SlabAdditionTask(FiretaskBase):
     Optional params:
         bulk_structure (Structure): relaxed bulk structure
         bulk_energy (float): final energy of relaxed bulk structure
-        adsorbates ([Molecule]): list of molecules to place as adsorbates
+        adsorbates ([Molecule]): list of molecules to place as
+            adsorbates
         vasp_cmd (str): vasp command
         db_file (str): path to database file
-        handler_group (str or [ErrorHandler]): custodian handler group for
-            slab optimizations (default: "md")
-        slab_gen_params (dict): dictionary of kwargs for generate_all_slabs
+        handler_group (str or [ErrorHandler]): custodian handler group
+            for slab optimizations (default: "md")
+        slab_gen_params (dict): dictionary of kwargs for
+            generate_all_slabs
         max_index (int): max miller index for generate_all_slabs
         ads_site_finder_params (dict): parameters to be supplied as
             kwargs to AdsorbateSiteFinder
@@ -80,12 +92,14 @@ class GenerateSlabsTask(FiretaskBase):
     Optional params:
         bulk_structure (Structure): relaxed bulk structure
         bulk_energy (float): final energy of relaxed bulk structure
-        adsorbates ([Molecule]): list of molecules to place as adsorbates
+        adsorbates ([Molecule]): list of molecules to place as
+            adsorbates
         vasp_cmd (str): vasp command
         db_file (str): path to database file
-        handler_group (str or [ErrorHandler]): custodian handler group for
-            slab optimizations (default: "md")
-        slab_gen_params (dict): dictionary of kwargs for generate_all_slabs
+        handler_group (str or [ErrorHandler]): custodian handler group
+            for slab optimizations (default: "md")
+        slab_gen_params (dict): dictionary of kwargs for
+            generate_all_slabs
         max_index (int): max miller index for generate_all_slabs
         ads_site_finder_params (dict): parameters to be supplied as
             kwargs to AdsorbateSiteFinder
@@ -140,8 +154,8 @@ class GenerateSlabsTask(FiretaskBase):
 @explicit_serialize
 class SlabAdsAdditionTask(FiretaskBase):
     """
-    Add the SlabAdsGeneratorFW from atomate.vasp.fireworks.adsorption as an
-    addition.
+    Add the SlabAdsGeneratorFW from atomate.vasp.fireworks.adsorption as
+    an addition.
 
     Required params:
     Optional params:
@@ -149,11 +163,12 @@ class SlabAdsAdditionTask(FiretaskBase):
         slab_energy (float): final energy of relaxed slab structure
         bulk_structure (Structure): relaxed bulk structure
         bulk_energy (float): final energy of relaxed bulk structure
-        adsorbates ([Molecule]): list of molecules to place as adsorbates
+        adsorbates ([Molecule]): list of molecules to place as
+            adsorbates
         vasp_cmd (str): vasp command
         db_file (str): path to database file
-        handler_group (str or [ErrorHandler]): custodian handler group for
-            slab + adsorbate optimizations (default: "md")
+        handler_group (str or [ErrorHandler]): custodian handler group
+            for slab + adsorbate optimizations (default: "md")
         ads_site_finder_params (dict): parameters to be supplied as
             kwargs to AdsorbateSiteFinder
         ads_structures_params (dict): dictionary of kwargs for
@@ -199,8 +214,9 @@ class SlabAdsAdditionTask(FiretaskBase):
 @explicit_serialize
 class GenerateSlabAdsTask(FiretaskBase):
     """
-    Generate slab + adsorbate structures from a slab structure and add the
-    corresponding slab + adsorbate optimization fireworks as additions.
+    Generate slab + adsorbate structures from a slab structure and add
+    the corresponding slab + adsorbate optimization fireworks as
+    additions.
 
     Required params:
     Optional params:
@@ -208,11 +224,12 @@ class GenerateSlabAdsTask(FiretaskBase):
         slab_energy (float): final energy of relaxed slab structure
         bulk_structure (Structure): relaxed bulk structure
         bulk_energy (float): final energy of relaxed bulk structure
-        adsorbates ([Molecule]): list of molecules to place as adsorbates
+        adsorbates ([Molecule]): list of molecules to place as
+            adsorbates
         vasp_cmd (str): vasp command
         db_file (str): path to database file
-        handler_group (str or [ErrorHandler]): custodian handler group for
-            slab + adsorbate optimizations (default: "md")
+        handler_group (str or [ErrorHandler]): custodian handler group
+            for slab + adsorbate optimizations (default: "md")
         ads_site_finder_params (dict): parameters to be supplied as
             kwargs to AdsorbateSiteFinder
         ads_structures_params (dict): dictionary of kwargs for
@@ -264,6 +281,7 @@ class GenerateSlabAdsTask(FiretaskBase):
                                            slab_energy=slab_energy,
                                            bulk_structure=bulk_structure,
                                            bulk_energy=bulk_energy,
+                                           adsorbate=adsorbate,
                                            vasp_input_set=vis,
                                            vasp_cmd=vasp_cmd, db_file=db_file,
                                            handler_group=handler_group)
@@ -271,3 +289,145 @@ class GenerateSlabAdsTask(FiretaskBase):
                 slab_ads_fws.append(slab_ads_fw)
 
         return FWAction(additions=slab_ads_fws)
+
+
+@explicit_serialize
+class AnalysisAdditionTask(FiretaskBase):
+    """
+    Add the AdsorptionAnalysisFW from atomate.vasp.fireworks.adsorption
+    as an addition.
+
+    Required params:
+    Optional params:
+        slab_structure (Structure): relaxed slab structure
+        slab_energy (float): final energy of relaxed slab structure
+        bulk_structure (Structure): relaxed bulk structure
+        bulk_energy (float): final energy of relaxed bulk structure
+        adsorbate (Molecule): adsorbate input structure
+        analysis_fw_name (str): name for the AdsorbateAnalysisFW to be
+            added
+        db_file (str): path to database file
+    """
+    required_params = []
+    optional_params = ["slab_structure", "slab_energy", "bulk_structure",
+                       "bulk_energy", "adsorbate", "analysis_fw_name",
+                       "db_file"]
+
+    def run_task(self, fw_spec):
+        import atomate.vasp.fireworks.adsorption as af
+
+        slab_ads_structure = fw_spec["slab_ads_structure"]
+        slab_ads_energy = fw_spec["slab_ads_energy"]
+
+        slab_structure = self.get("slab_structure")
+        slab_energy = self.get("slab_energy")
+        bulk_structure = self.get("bulk_structure")
+        bulk_energy = self.get("bulk_energy")
+        adsorbate = self.get("adsorbate")
+        analysis_fw_name = self.get("analysis_fw_name") or slab_ads_structure.\
+            composition.reduced_formula + " adsorption analysis"
+        db_file = self.get("db_file", None)
+
+        fw = af.AdsorptionAnalysisFW(slab_ads_structure=slab_ads_structure,
+                                     slab_ads_energy=slab_ads_energy,
+                                     slab_structure=slab_structure,
+                                     slab_energy=slab_energy, bulk_structure=
+                                     bulk_structure, bulk_energy=bulk_energy,
+                                     adsorbate=adsorbate, name=
+                                     analysis_fw_name, db_file=db_file)
+
+        return FWAction(additions=fw)
+
+
+@explicit_serialize
+class AdsorptionAnalysisTask(FiretaskBase):
+    """
+    Analyze data from Adsorption workflow for a slab + adsorbate
+    structure and save it to database.
+
+    Required params:
+    Optional params:
+        slab_ads_structure (Structure): relaxed slab + adsorbate
+            structure
+        slab_ads_energy (float): final energy of relaxed slab +
+            adsorbate structure
+        slab_structure (Structure): relaxed slab structure
+        slab_energy (float): final energy of relaxed slab structure
+        bulk_structure (Structure): relaxed bulk structure
+        bulk_energy (float): final energy of relaxed bulk structure
+        adsorbate (Molecule): adsorbate input structure
+        db_file (str): path to database file
+    """
+
+    required_params = []
+    optional_params = ["slab_ads_structure", "slab_ads_energy",
+                       "slab_structure", "slab_energy", "bulk_structure",
+                       "bulk_energy", "adsorbate", "db_file"]
+
+    def run_task(self, fw_spec):
+        stored_data = {}
+        slab_ads_structure = self.get("slab_ads_structure")
+        slab_ads_energy = self.get("slab_ads_energy")
+        slab_structure = self.get("slab_structure")
+        slab_energy = self.get("slab_energy")
+        bulk_structure = self.get("bulk_structure")
+        bulk_energy = self.get("bulk_energy")
+        adsorbate = self.get("adsorbate")
+        db_file = self.get("db_file", None)
+
+        # cleavage energy
+        area = np.linalg.norm(np.cross(slab_structure.lattice.matrix[0],
+                                       slab_structure.lattice.matrix[1]))
+        bulk_en_per_atom = bulk_energy/bulk_structure.nsites
+        surface_energy = (slab_energy - bulk_en_per_atom * slab_structure.
+                          nsites) / (2*area) * EV_PER_ANG2_TO_JOULES_PER_M2
+        stored_data['surface_energy'] = surface_energy
+
+        ads_sites = slab_ads_structure.sites[-adsorbate.num_sites:]
+
+        # adsorbate bonds
+        if len(ads_sites) > 1:
+            stored_data['adsorbate_bonds'] = {}
+            for n, (site1, site2) in enumerate(combinations(ads_sites, 2)):
+                pair_name = 'pair ' + str(n) + ": " + str(site1.specie) + "-" \
+                            + str(site2.specie)
+                stored_data['adsorbate_bonds'][pair_name] = \
+                    {'site1': site1, 'site2': site2,
+                     'distance': site1.distance_and_image(site2)[0]}
+
+        # adsorbate surface nearest neighbors
+        stored_data['nearest_surface_neighbors'] = {}
+        for n, ads_site in enumerate(ads_sites):
+            ads_site_name = 'adsorbate site ' + str(n) + ": " + \
+                            str(ads_site.specie)
+            neighbors = slab_ads_structure.get_neighbors\
+                (ads_site, slab_ads_structure.lattice.c)
+
+            neighbors.sort(key=lambda x: x[1])
+            nearest_surface_neighbor = next(neighbor for neighbor in neighbors
+                                            if neighbor[0] not in ads_site)
+
+            stored_data['nearest_surface_neighbors'][ads_site_name] = \
+                {'adsorbate_site': ads_site,
+                 'surface_site': nearest_surface_neighbor[0],
+                 'distance': nearest_surface_neighbor[1]}
+
+        # adsorption energy
+        refs = {'H': -3.379, 'O': -7.459, 'C': -7.329}
+        scale_factor = slab_ads_structure.volume / slab_structure.volume
+        ads_comp = Structure.from_sites(ads_sites).composition
+        adsorption_en = slab_ads_energy - slab_energy * scale_factor - \
+                        sum([ads_comp.get(element, 0) * refs.get(str(element))
+                             for element in ads_comp])
+        stored_data['adsorption_energy'] = adsorption_en
+
+        if not db_file:
+            with open("task.json", "w") as f:
+                f.write(json.dumps(stored_data, default=DATETIME_HANDLER))
+        else:
+            db = VaspCalcDb.from_db_file(db_file, admin=True)
+            db.collection = db.db["adsorption"]
+            db.collection.insert_one(stored_data)
+            logger.info("Adsorption analysis complete.")
+
+        return FWAction()

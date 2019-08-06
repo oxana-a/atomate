@@ -2,6 +2,7 @@ from atomate.common.firetasks.glue_tasks import PassCalcLocs
 from atomate.vasp.config import VASP_CMD, DB_FILE
 from atomate.vasp.fireworks import OptimizeFW
 from fireworks import Firework
+from pymatgen import Structure
 from pymatgen.io.vasp.sets import MPSurfaceSet
 
 """
@@ -21,26 +22,31 @@ class BulkFW(Firework):
                  ads_site_finder_params=None, ads_structures_params=None,
                  parents=None, **kwargs):
         """
-        Optimize bulk structure and add a slab generator firework as addition.
+        Optimize bulk structure and add a slab generator firework as
+        addition.
 
         Args:
             bulk_structure (Structure): input bulk structure
-            name (str): name for the firework (default: "bulk optimization")
+            name (str): name for the firework (default: "bulk
+                optimization")
             vasp_input_set (VaspInputSet): input set to use (default:
                 MPSurfaceSet())
-            adsorbates ([Molecule]): list of molecules to place as adsorbates
+            adsorbates ([Molecule]): list of molecules to place as
+                adsorbates
             vasp_cmd (str): vasp command
             db_file (str): path to database file
-            handler_group (str or [ErrorHandler]): custodian handler group for
-                bulk optimizations (default: "default")
-            slab_gen_params (dict): dictionary of kwargs for generate_all_slabs
+            handler_group (str or [ErrorHandler]): custodian handler
+                group for bulk optimizations (default: "default")
+            slab_gen_params (dict): dictionary of kwargs for
+                generate_all_slabs
             max_index (int): max miller index for generate_all_slabs
             ads_site_finder_params (dict): parameters to be supplied as
                 kwargs to AdsorbateSiteFinder
             ads_structures_params (dict): dictionary of kwargs for
                 generate_adsorption_structures in AdsorptionSiteFinder
             parents ([Firework]): parents of this particular firework
-            \*\*kwargs: other kwargs that are passed to Firework.__init__.
+            \*\*kwargs: other kwargs that are passed to
+                Firework.__init__.
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
         vis = vasp_input_set or MPSurfaceSet(bulk_structure, bulk=True)
@@ -77,19 +83,22 @@ class SlabGeneratorFW(Firework):
                  ads_site_finder_params=None, ads_structures_params=None,
                  parents=None):
         """
-        Generate slabs from a bulk structure and add the corresponding slab
-        optimization fireworks as additions.
+        Generate slabs from a bulk structure and add the corresponding
+        slab optimization fireworks as additions.
 
         Args:
             bulk_structure (Structure): input relaxed bulk structure
-            name (str): name for the firework (default: "slab generator")
+            name (str): name for the firework (default: "slab
+                generator")
             bulk_energy (float): final energy of relaxed bulk structure
-            adsorbates ([Molecule]): list of molecules to place as adsorbates
+            adsorbates ([Molecule]): list of molecules to place as
+                adsorbates
             vasp_cmd (str): vasp command
             db_file (str): path to database file
-            handler_group (str or [ErrorHandler]): custodian handler group for
-                slab optimizations (default: "md")
-            slab_gen_params (dict): dictionary of kwargs for generate_all_slabs
+            handler_group (str or [ErrorHandler]): custodian handler
+                group for slab optimizations (default: "md")
+            slab_gen_params (dict): dictionary of kwargs for
+                generate_all_slabs
             max_index (int): max miller index for generate_all_slabs
             ads_site_finder_params (dict): parameters to be supplied as
                 kwargs to AdsorbateSiteFinder
@@ -125,29 +134,33 @@ class SlabFW(Firework):
                  handler_group="md", ads_site_finder_params=None,
                  ads_structures_params=None, parents=None, **kwargs):
         """
-        Optimize slab structure and add a slab + adsorbate generator firework
-        as addition.
+        Optimize slab structure and add a slab + adsorbate generator
+        firework as addition.
 
         Args:
             slab_structure (Structure): input slab structure
-            name (str): name for the firework (default: "slab optimization")
+            name (str): name for the firework (default: "slab
+                optimization")
             bulk_structure (Structure): relaxed bulk structure
             bulk_energy (float): final energy of relaxed bulk structure
             vasp_input_set (VaspInputSet): input set to use (default:
                 MPSurfaceSet())
-            adsorbates ([Molecule]): list of molecules to place as adsorbates
+            adsorbates ([Molecule]): list of molecules to place as
+                adsorbates
             vasp_cmd (str): vasp command
             db_file (str): path to database file
-            handler_group (str or [ErrorHandler]): custodian handler group for
-                slab optimization (default: "md")
-            slab_gen_params (dict): dictionary of kwargs for generate_all_slabs
+            handler_group (str or [ErrorHandler]): custodian handler
+                group for slab optimization (default: "md")
+            slab_gen_params (dict): dictionary of kwargs for
+                generate_all_slabs
             max_index (int): max miller index for generate_all_slabs
             ads_site_finder_params (dict): parameters to be supplied as
                 kwargs to AdsorbateSiteFinder
             ads_structures_params (dict): dictionary of kwargs for
                 generate_adsorption_structures in AdsorptionSiteFinder
             parents ([Firework]): parents of this particular firework
-            \*\*kwargs: Other kwargs that are passed to Firework.__init__.
+            \*\*kwargs: Other kwargs that are passed to
+                Firework.__init__.
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
         vis = vasp_input_set or MPSurfaceSet(slab_structure, bulk=False)
@@ -195,21 +208,23 @@ class SlabAdsGeneratorFW(Firework):
                  handler_group="md", ads_site_finder_params=None,
                  ads_structures_params=None, parents=None):
         """
-        Generate slab + adsorbate structures from a slab structure and add the
-        corresponding slab + adsorbate optimization fireworks as additions.
+        Generate slab + adsorbate structures from a slab structure and
+        add the corresponding slab + adsorbate optimization fireworks as
+        additions.
 
         Args:
             slab_structure (Structure): input relaxed slab structure
-            name (str): name for the firework (default: "slab + adsorbate
-                generator")
+            name (str): name for the firework (default: "slab +
+                adsorbate generator")
             slab_energy (float): final energy of relaxed slab structure
             bulk_structure (Structure): relaxed bulk structure
             bulk_energy (float): final energy of relaxed bulk structure
-            adsorbates ([Molecule]): list of molecules to place as adsorbates
+            adsorbates ([Molecule]): list of molecules to place as
+                adsorbates
             vasp_cmd (str): vasp command
             db_file (str): path to database file
-            handler_group (str or [ErrorHandler]): custodian handler group for
-                slab + adsorbate optimizations (default: "md")
+            handler_group (str or [ErrorHandler]): custodian handler
+                group for slab + adsorbate optimizations (default: "md")
             ads_site_finder_params (dict): parameters to be supplied as
                 kwargs to AdsorbateSiteFinder
             ads_structures_params (dict): dictionary of kwargs for
@@ -243,28 +258,32 @@ class SlabAdsFW(Firework):
     def __init__(self, slab_ads_structure,
                  name="slab + adsorbate optimization", slab_structure=None,
                  slab_energy=None, bulk_structure=None, bulk_energy=None,
-                 vasp_input_set=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
-                 handler_group="md", parents=None, **kwargs):
+                 adsorbate=None, vasp_input_set=None, vasp_cmd=VASP_CMD,
+                 db_file=DB_FILE, handler_group="md", parents=None, **kwargs):
         """
         Optimize slab + adsorbate structure.
 
         Args:
-            slab_ads_structure (Structure): input slab + adsorbate structure
-            name (str): name for the firework (default: "slab + adsorbate
-                optimization")
+            slab_ads_structure (Structure): input slab + adsorbate
+                structure
+            name (str): name for the firework (default: "slab +
+                adsorbate optimization")
             slab_structure (Structure): relaxed slab structure
             slab_energy (float): final energy of relaxed slab structure
             bulk_structure (Structure): relaxed bulk structure
             bulk_energy (float): final energy of relaxed bulk structure
+            adsorbate (Molecule): adsorbate input structure
             vasp_input_set (VaspInputSet): input set to use (default:
                 MPSurfaceSet())
             vasp_cmd (str): vasp command
             db_file (str): path to database file
-            handler_group (str or [ErrorHandler]): custodian handler group for
-                slab + adsorbate optimization (default: "md")
+            handler_group (str or [ErrorHandler]): custodian handler
+                group for slab + adsorbate optimization (default: "md")
             parents ([Firework]): parents of this particular firework
-            \*\*kwargs: Other kwargs that are passed to Firework.__init__.
+            \*\*kwargs: Other kwargs that are passed to
+                Firework.__init__.
         """
+        import atomate.vasp.firetasks.adsorption_tasks as at
         vis = vasp_input_set or MPSurfaceSet(slab_ads_structure, bulk=False)
         vasptodb_kwargs = {'task_fields_to_push':
                                {'slab_ads_structure': 'output.structure',
@@ -272,7 +291,8 @@ class SlabAdsFW(Firework):
                                 'slab_structure': slab_structure,
                                 'slab_energy': slab_energy,
                                 'bulk_structure': bulk_structure,
-                                'bulk_energy': bulk_energy}}
+                                'bulk_energy': bulk_energy,
+                                'adsorbate': adsorbate}}
         slab_ads_fw = OptimizeFW(structure=slab_ads_structure, name=name,
                                  vasp_input_set=vis, vasp_cmd=vasp_cmd,
                                  db_file=db_file, job_type="normal",
@@ -280,5 +300,61 @@ class SlabAdsFW(Firework):
                                  vasptodb_kwargs=vasptodb_kwargs)
         t = slab_ads_fw.tasks
 
+        analysis_fw_name = name.replace("slab + adsorbate optimization",
+                                        "adsorption analysis")
+        if "adsorption analysis" not in analysis_fw_name:
+            analysis_fw_name = slab_ads_structure.composition.reduced_formula \
+                               + " adsorption analysis"
+        t.append(at.AnalysisAdditionTask(slab_structure=slab_structure,
+                                         slab_energy=slab_energy,
+                                         bulk_structure=bulk_structure,
+                                         bulk_energy=bulk_energy,
+                                         adsorbate=adsorbate,
+                                         analysis_fw_name=analysis_fw_name,
+                                         db_file=db_file))
+
         super(SlabAdsFW, self).__init__(t, parents=parents, name=name,
                                         **kwargs)
+
+
+class AdsorptionAnalysisFW(Firework):
+
+    def __init__(self, slab_ads_structure=None, slab_ads_energy=None,
+                 slab_structure=None, slab_energy=None, bulk_structure=None,
+                 bulk_energy=None, adsorbate=None, name="adsorption analysis",
+                 db_file=DB_FILE, parents=None):
+        """
+        Analyze data from Adsorption workflow for a slab + adsorbate
+        structure and save it to database.
+
+        Args:
+            slab_ads_structure (Structure): relaxed slab + adsorbate
+                structure
+            slab_ads_energy (float): final energy of relaxed slab +
+                adsorbate structure
+            slab_structure (Structure): relaxed slab structure
+            slab_energy (float): final energy of relaxed slab structure
+            bulk_structure (Structure): relaxed bulk structure
+            bulk_energy (float): final energy of relaxed bulk structure
+            adsorbate (Molecule): adsorbate input structure
+            db_file (str): path to database file
+            name (str): name for the firework (default: "adsorption
+                analysis")
+        """
+        import atomate.vasp.firetasks.adsorption_tasks as at
+
+        tasks = []
+
+        ads_an_t = at.AdsorptionAnalysisTask(slab_ads_structure=
+                                             slab_ads_structure,
+                                             slab_ads_energy=slab_ads_energy,
+                                             slab_structure=slab_structure,
+                                             slab_energy=slab_energy,
+                                             bulk_structure=bulk_structure,
+                                             bulk_energy=bulk_energy,
+                                             adsorbate=adsorbate, db_file=
+                                             db_file)
+        tasks.append(ads_an_t)
+
+        super(AdsorptionAnalysisFW, self).__init__(tasks, parents=parents,
+                                                   name=name)
