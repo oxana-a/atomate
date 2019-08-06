@@ -31,10 +31,10 @@ from atomate.vasp.config import HALF_KPOINTS_FIRST_RELAX, RELAX_MAX_FORCE, \
 
 @explicit_serialize
 class LaunchVaspFromOptimumDistance(FiretaskBase):
-	'''
+	"""
 	Firetask that gets optimal distance information from AnalyzeStaticOptimumDistance firetask.
 	Then launches new OptimizeFW based on that that optimum distance
-	'''
+	"""
 
 	required_params = ["adsorbate","original_slab", "site_idx", "idx"]
 
@@ -46,6 +46,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 
 		#Load optimal distance from fw_spec
 		optimal_distance = fw_spec.get(idx)[0]["optimal_distance"] #when you _push to fw_spec it pushes it as an array for  some reason...
+
 
 		#Get slab and adsorbate
 		original_slab = self["original_slab"]
@@ -97,9 +98,9 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 
 @explicit_serialize
 class AnalyzeStaticOptimumDistance(FiretaskBase):
-	'''
+	"""
 	Firetask that analyzes a bunch of static calculations to figure out optimal distance to place an adsorbate on specific site
-	'''
+	"""
 
 	required_params = ["idx", "distances"]
 
@@ -111,13 +112,22 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		distance_to_state = fw_spec["distance_to_state"][0]
 
 		#Get original structure
-		sites = len(fw_spec["{}{}_structure".format(idx, 0)].sites)
+		bulk_structure = fw_spec["{}{}_structure".format(idx, 0)]
+		sites = len(bulk_structure.sites)
+		import numpy as np
+		area = np.linalg.norm(np.cross(bulk_structure.lattice.matrix[0],bulk_structure.lattice.matrix[1]))
 
 		#Setup some initial parameters
 		optimal_distance = 2.0
 		lowest_energy = 10000
 
-		#Find optimal distance based on energy
+		#Get Slab energy and Bulk  Energy from previous Optimize FWs (in spec):
+		bulk_energy = fw_spec.get("bulk_energy", False)
+		slab_energy = fw_spec.get("slab_energy", False)
+		surface_energy = (slab_energy - bulk_energy*sites)/(2 * area)
+		scale = 1 #TODO: get volume of slab / volume of slab+vacuum ??
+
+
 
 		first_0 = False
 		second_0 = False
@@ -144,23 +154,36 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 					structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
 					optimal_distance = distance
 
+		#Optimal Energy for current slab with adsorbate:
+		refs = {"H": -6.4795 / 2, "O": (-62.3500 / 4) - -6.4795, "C":-4.9355}
+		ads_e = lowest_energy - surface_energy*scale - sum([ads_comp.get(elt, 0) * refs.get(elt) for elt in refs])
+
+
 		#If lowest energy is a little too big, this is probably not a good site/absorbate... No need to run future calculations
-		if lowest_energy >0.2:
-			#Let's exit the rest of the FW's if energy is too high.
-			return FWAction(exit=True)
+		if ads_e>0.2:
+			#Let's exit the rest of the FW's if energy is too high, but still push the data
+			return FWAction(exit=True,
+							mod_spec = {"_push":{
+							idx:{
+							'lowest_energy':lowest_energy,
+							'adsorbate_energy':ads_e,
+							'optimal_distance':optimal_distance
+							}
+							}})
 		return FWAction(mod_spec={"_push":{
 					idx:{
 						'lowest_energy':lowest_energy,
+						'adsorbate_energy':ads_e,
 						'optimal_distance':optimal_distance
 					}
 				}})
 
 @explicit_serialize
 class GetPassedJobInformation(FiretaskBase):
-	'''
+	"""
 	Firetask that analyzes _job_info array in FW spec to get parrent FW state and add the distance information
 	"_pass_job_info" must exist in parent FW's spec.
-	'''
+	"""
 
 	required_params = ["distances"]
 

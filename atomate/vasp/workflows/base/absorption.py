@@ -30,11 +30,32 @@ __email__ = 'montoyjh@lbl.gov'
 # TODO: Add framework for including vibrations and free energy
 
 
-def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, vasp_cmd = None, slab_gen_params = None, 
+def get_absorption_wf(structure, absorbates, distances  = None, db_file=None, vasp_cmd = None, slab_gen_params = None, 
     max_index = 1, ads_finder_params = None, ads_structures_params = None):
+    """
+    Returns an absorption workflow for a structure and list of adsorbates
+
+    Args:
+        structure (Structure) - catalyst bulk structure
+        absorbates [list of Molecules] - adsorbates to test
+        distances [list of distances (float)] - distances for static calculations to run, by default it will be set
+            to [0.5, 0.87, 1.25, 1.63, 2.0]
+        db_file - DB command for  Fireworks
+        vasp_cmd - VASP command for Fireworks
+        slab_gen_params (dict) - dictionary to be able to generate slabs, by default vacuum size is set to 10A,
+            slab is set to 5A.
+        max_index (int) - maximum miller  index to test, default is 1 (100, 110, 111)
+        ads_finder_params (dict) - dictionary passed to AdsorbateSiteFinder class - can include  tolerance, etc.
+        ads_structures_params (dict) - dictionary passed to the generate structure method of the AdsorbateSiteFinder
+            class, distance key gets updated...
+
+    Returns:
+        Workflow object
+
+    """
 
     
-    #Set default paramters for workshop if no custom ones are passed in
+    #Set default paramters for workflow if no custom ones are passed in
     if ads_finder_params is None: ads_finder_params = {}
     if ads_structures_params is None: ads_structures_params = {}
     if distances is None:
@@ -42,39 +63,27 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
 
     fws = []
 
-    #Bulk Optimization of Structure - To be modified by Oxana
-    # name = structure.composition.reduced_formula
-    # vasp_input_set = "" #TO DO
-    # fws.append(OptimizeFW(name=name, structure=structure,
-    #                     vasp_input_set=vasp_input_set, vasp_cmd=vasp_cmd,
-    #                     db_file=db_file, job_type="normal", 
-    #                     vasptodb_kwargs={"task_fields_to_push":{"bulk_relaxed_structure":"output.structure"}}))
-
-    #Passing Bulk Optimization to different possible slabs
+    #Oxana's code here
 
 
-    #Finding Possible Adsorbate Sites on Clean Slabs and Correlating to Relaxed Slabs with frozen bulk layers
-    #Must create some type of function where a relaxed structure can be inputted, the miller plane as well as the distance between adsorbate & slab...
-
-    #define slabs:
-
-
-    #Set general parameters
-    sgp = slab_gen_params or {"min_slab_size": 10, "min_vacuum_size": 5}
-    vasp_input_set = "" #TODO: Custom Input Set
+    
 
     '''
     In these sets of Static FWs, if the VASP Calculation succeed the energy per atom will be made available to the rest of the FW's.
     It will be available like so:
         fw_spec[ads_idx _ slab_idx _ site_idx _ distance_idx _ energy] = ENERGY
-        fw_spec[ads_idx _ slab_idx _ site_idx _ distance_idx _ structure] = STRUCTURE #This is probably not needed...
+        fw_spec[ads_idx _ slab_idx _ site_idx _ distance_idx _ structure] = STRUCTURE - needed for scaling factor!
         idx_to_fw_id  ->  dict() key=idx, value=fw_id -> helps keep track of parents FWS.
     '''
 
+    #Set general parameters for slab
+    sgp = slab_gen_params or {"min_slab_size": 10, "min_vacuum_size": 5}
+    #Set general vasp parameters, print out ELFCAR for analysis
+    adsorption_energy_landscape_input_set = MPStaticSet(user_incar_settings={"LELFF":True, "NPAR":1})
 
     #For all adsorbates passed in
     idx_to_fw_id = dict()
-    for ads_idx, adsorbate in enumerate(adsorbates):
+    for ads_idx, adsorbate in enumerate(absorbates):
 
 
         #Find all possible slabs:
@@ -98,7 +107,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                     #Create Static FWs to test if energy landscape is favorable and save their energy and structure for processing with DistanceOptimizationFW
                     #Removed error handler since its just a static position, positive energy is okay...
                     fws.append(AbsorptionEnergyLandscapeFW(name=ads_name, structure=ads_slab,
-                                        vasp_input_set=vasp_input_set, vasp_cmd=vasp_cmd,
+                                        vasp_input_set=adsorption_energy_landscape_input_set, vasp_cmd=vasp_cmd,
                                         db_file=db_file,
                                         vasptodb_kwargs={
                                             "task_fields_to_push":{
@@ -115,7 +124,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
     
     #Processing Optimal Distance and run best adsorption - same ads_idx, slab_idx, site_idx as previous, and must pass in same distances array
     #TODO: Need to make it okay if one calc fizzles! And FW needs to check for which fizzled... 
-    for ads_idx, adsorbate in enumerate(adsorbates):
+    for ads_idx, adsorbate in enumerate(absorbates):
         slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
         for slab_idx, slab in enumerate(slabs):
             miller = slab.miller_index
