@@ -277,10 +277,10 @@ class GenerateSlabAdsTask(FiretaskBase):
                 # Create adsorbate fw
                 ads_name = ''.join([site.species_string for site
                                     in adsorbate.sites])
-                slab_ads_name = "{} {} slab + adsorbate optimization {}".\
-                    format(slab_name, ads_name, n)
+                slab_ads_name = "{} {} {}".format(slab_name, ads_name, n)
+                fw_name = slab_ads_name + " slab + adsorbate optimization"
                 vis = MPSurfaceSet(slab_ads, bulk=False)
-                slab_ads_fw = af.SlabAdsFW(slab_ads, name=slab_ads_name,
+                slab_ads_fw = af.SlabAdsFW(slab_ads, name=fw_name,
                                            slab_structure=slab_structure,
                                            slab_energy=slab_energy,
                                            bulk_structure=bulk_structure,
@@ -289,7 +289,8 @@ class GenerateSlabAdsTask(FiretaskBase):
                                            vasp_input_set=vis,
                                            vasp_cmd=vasp_cmd, db_file=db_file,
                                            handler_group=handler_group,
-                                           slab_name=slab_name)
+                                           slab_name=slab_name, slab_ads_name=
+                                           slab_ads_name)
 
                 slab_ads_fws.append(slab_ads_fw)
 
@@ -312,11 +313,15 @@ class AnalysisAdditionTask(FiretaskBase):
         analysis_fw_name (str): name for the AdsorbateAnalysisFW to be
             added
         db_file (str): path to database file
+        slab_name (str): name for the slab
+            (format: Formula_MillerIndex_Shift)
+        slab_ads_name (str): name for the slab + adsorbate
+            (format: Formula_MillerIndex_Shift AdsorbateFormula Number)
     """
     required_params = []
     optional_params = ["slab_structure", "slab_energy", "bulk_structure",
                        "bulk_energy", "adsorbate", "analysis_fw_name",
-                       "db_file"]
+                       "db_file", "slab_name", "slab_ads_name"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -332,14 +337,17 @@ class AnalysisAdditionTask(FiretaskBase):
         analysis_fw_name = self.get("analysis_fw_name") or slab_ads_structure.\
             composition.reduced_formula + " adsorption analysis"
         db_file = self.get("db_file", None)
+        slab_name = self.get("slab_name")
+        slab_ads_name = self.get("slab_ads_name")
 
         fw = af.AdsorptionAnalysisFW(slab_ads_structure=slab_ads_structure,
                                      slab_ads_energy=slab_ads_energy,
                                      slab_structure=slab_structure,
                                      slab_energy=slab_energy, bulk_structure=
                                      bulk_structure, bulk_energy=bulk_energy,
-                                     adsorbate=adsorbate, name=
-                                     analysis_fw_name, db_file=db_file)
+                                     adsorbate=adsorbate, db_file=db_file,
+                                     name=analysis_fw_name, slab_name=
+                                     slab_name, slab_ads_name=slab_ads_name)
 
         return FWAction(additions=fw)
 
@@ -362,12 +370,18 @@ class AdsorptionAnalysisTask(FiretaskBase):
         bulk_energy (float): final energy of relaxed bulk structure
         adsorbate (Molecule): adsorbate input structure
         db_file (str): path to database file
+        slab_name (str): name for the slab
+            (format: Formula_MillerIndex_Shift)
+        slab_ads_name (str): name for the slab + adsorbate
+            (format: Formula_MillerIndex_Shift AdsorbateFormula Number)
+
     """
 
     required_params = []
     optional_params = ["slab_ads_structure", "slab_ads_energy",
                        "slab_structure", "slab_energy", "bulk_structure",
-                       "bulk_energy", "adsorbate", "db_file", "name"]
+                       "bulk_energy", "adsorbate", "db_file", "name",
+                       "slab_name", "slab_ads_name"]
 
     def run_task(self, fw_spec):
         stored_data = {}
@@ -380,8 +394,16 @@ class AdsorptionAnalysisTask(FiretaskBase):
         adsorbate = self.get("adsorbate")
         db_file = self.get("db_file")
         task_name = self.get("name")
+        slab_name = self.get("slab_name")
+        slab_ads_name = self.get("slab_ads_name")
 
         stored_data['task_name'] = task_name
+        stored_data['bulk_formula'] = bulk_structure.composition.\
+            reduced_formula
+        stored_data['adsorbate_formula'] = ''.join([site.species_string for
+                                                    site in adsorbate.sites])
+        stored_data['slab_name'] = slab_name
+        stored_data['slab_ads_name'] = slab_ads_name
         stored_data['output_bulk_structure'] = bulk_structure.as_dict()
         stored_data['output_bulk_energy'] = bulk_energy
         stored_data['output_slab_structure'] = slab_structure.as_dict()

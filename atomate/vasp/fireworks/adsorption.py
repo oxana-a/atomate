@@ -264,7 +264,7 @@ class SlabAdsFW(Firework):
                  slab_energy=None, bulk_structure=None, bulk_energy=None,
                  adsorbate=None, vasp_input_set=None, vasp_cmd=VASP_CMD,
                  db_file=DB_FILE, handler_group="md", slab_name=None,
-                 parents=None, **kwargs):
+                 slab_ads_name=None, parents=None, **kwargs):
         """
         Optimize slab + adsorbate structure.
 
@@ -286,6 +286,8 @@ class SlabAdsFW(Firework):
                 group for slab + adsorbate optimization (default: "md")
             slab_name (str): name for the slab
                 (format: Formula_MillerIndex_Shift)
+            slab_ads_name (str): name for the slab + adsorbate
+                (format: Formula_MillerIndex_Shift AdsorbateFormula Number)
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: Other kwargs that are passed to
                 Firework.__init__.
@@ -320,7 +322,8 @@ class SlabAdsFW(Firework):
                                          bulk_energy=bulk_energy,
                                          adsorbate=adsorbate,
                                          analysis_fw_name=analysis_fw_name,
-                                         db_file=db_file))
+                                         db_file=db_file, slab_name=slab_name,
+                                         slab_ads_name=slab_ads_name))
 
         super(SlabAdsFW, self).__init__(t, parents=parents, name=name,
                                         **kwargs)
@@ -330,8 +333,9 @@ class AdsorptionAnalysisFW(Firework):
 
     def __init__(self, slab_ads_structure=None, slab_ads_energy=None,
                  slab_structure=None, slab_energy=None, bulk_structure=None,
-                 bulk_energy=None, adsorbate=None, name="adsorption analysis",
-                 db_file=DB_FILE, parents=None):
+                 bulk_energy=None, adsorbate=None, db_file=DB_FILE,
+                 name="adsorption analysis", slab_name=None,
+                 slab_ads_name=None, parents=None):
         """
         Analyze data from Adsorption workflow for a slab + adsorbate
         structure and save it to database.
@@ -349,6 +353,10 @@ class AdsorptionAnalysisFW(Firework):
             db_file (str): path to database file
             name (str): name for the firework (default: "adsorption
                 analysis")
+            slab_name (str): name for the slab
+                (format: Formula_MillerIndex_Shift)
+            slab_ads_name (str): name for the slab + adsorbate
+                (format: Formula_MillerIndex_Shift AdsorbateFormula Number)
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
 
@@ -362,7 +370,9 @@ class AdsorptionAnalysisFW(Firework):
                                              bulk_structure=bulk_structure,
                                              bulk_energy=bulk_energy,
                                              adsorbate=adsorbate, db_file=
-                                             db_file, name=name)
+                                             db_file, name=name, slab_name=
+                                             slab_name, slab_ads_name=
+                                             slab_ads_name)
         tasks.append(ads_an_t)
 
         super(AdsorptionAnalysisFW, self).__init__(tasks, parents=parents,
