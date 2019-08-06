@@ -1,3 +1,10 @@
+"""
+Adsorption workflow firetasks.
+"""
+
+__author__ = "Oxana Andriuc"
+__email__ = "ioandriuc@lbl.gov"
+
 import json
 from monty.json import jsanitize
 import numpy as np
@@ -9,17 +16,8 @@ from fireworks.utilities.fw_serializers import DATETIME_HANDLER
 from fireworks.utilities.fw_utilities import explicit_serialize
 from pymatgen import Structure
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
-from pymatgen.analysis.surface_analysis import EV_PER_ANG2_TO_JOULES_PER_M2
 from pymatgen.core.surface import generate_all_slabs
 from pymatgen.io.vasp.sets import MPSurfaceSet
-
-
-"""
-Adsorption workflow firetasks.
-"""
-
-__author__ = "Oxana Andriuc"
-__email__ = "ioandriuc@lbl.gov"
 
 logger = get_logger(__name__)
 ref_elem_energy = {'H': -3.379, 'O': -7.459, 'C': -7.329}
@@ -73,13 +71,12 @@ class SlabAdditionTask(FiretaskBase):
         ads_structures_params = self.get("ads_structures_params") or {}
         add_fw_name = self.get("add_fw_name") or "slab generator"
 
-        fw = af.SlabGeneratorFW(bulk_structure, name=add_fw_name,
-                                bulk_energy=bulk_energy, adsorbates=adsorbates,
-                                vasp_cmd=vasp_cmd, db_file=db_file,
-                                handler_group=handler_group,
-                                slab_gen_params=sgp, max_index=max_index,
-                                ads_site_finder_params=ads_site_finder_params,
-                                ads_structures_params=ads_structures_params)
+        fw = af.SlabGeneratorFW(
+            bulk_structure, name=add_fw_name, bulk_energy=bulk_energy,
+            adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
+            handler_group=handler_group, slab_gen_params=sgp,
+            max_index=max_index, ads_site_finder_params=ads_site_finder_params,
+            ads_structures_params=ads_structures_params)
 
         return FWAction(additions=fw)
 
@@ -200,17 +197,13 @@ class SlabAdsAdditionTask(FiretaskBase):
         add_fw_name = self.get("add_fw_name") or "slab + adsorbate generator"
         slab_name = self.get("slab_name")
 
-        fw = af.SlabAdsGeneratorFW(slab_structure,
-                                   slab_energy=slab_energy,
-                                   bulk_structure=bulk_structure,
-                                   bulk_energy=bulk_energy, name=add_fw_name,
-                                   adsorbates=adsorbates, vasp_cmd=vasp_cmd,
-                                   db_file=db_file,
-                                   handler_group=handler_group,
-                                   ads_site_finder_params=
-                                   ads_site_finder_params,
-                                   ads_structures_params=
-                                   ads_structures_params, slab_name=slab_name)
+        fw = af.SlabAdsGeneratorFW(
+            slab_structure, slab_energy=slab_energy,
+            bulk_structure=bulk_structure, bulk_energy=bulk_energy,
+            name=add_fw_name, adsorbates=adsorbates, vasp_cmd=vasp_cmd,
+            db_file=db_file, handler_group=handler_group,
+            ads_site_finder_params=ads_site_finder_params,
+            ads_structures_params=ads_structures_params, slab_name=slab_name)
 
         return FWAction(additions=fw)
 
@@ -268,10 +261,10 @@ class GenerateSlabAdsTask(FiretaskBase):
         for adsorbate in adsorbates:
             # TODO: any other way around adsorbates not having magmom?
             adsorbate.add_site_property('magmom', [0.0]*adsorbate.num_sites)
-            slabs_ads = AdsorbateSiteFinder(slab_structure,
-                                            **ads_site_finder_params).\
-                generate_adsorption_structures(adsorbate,
-                                               **ads_structures_params)
+            slabs_ads = (AdsorbateSiteFinder(
+                slab_structure, **ads_site_finder_params)
+                .generate_adsorption_structures(
+                adsorbate, **ads_structures_params))
             for n, slab_ads in enumerate(slabs_ads):
                 # Create adsorbate fw
                 ads_name = ''.join([site.species_string for site
@@ -279,17 +272,13 @@ class GenerateSlabAdsTask(FiretaskBase):
                 slab_ads_name = "{} {} {}".format(slab_name, ads_name, n)
                 fw_name = slab_ads_name + " slab + adsorbate optimization"
                 vis = MPSurfaceSet(slab_ads, bulk=False)
-                slab_ads_fw = af.SlabAdsFW(slab_ads, name=fw_name,
-                                           slab_structure=slab_structure,
-                                           slab_energy=slab_energy,
-                                           bulk_structure=bulk_structure,
-                                           bulk_energy=bulk_energy,
-                                           adsorbate=adsorbate,
-                                           vasp_input_set=vis,
-                                           vasp_cmd=vasp_cmd, db_file=db_file,
-                                           handler_group=handler_group,
-                                           slab_name=slab_name, slab_ads_name=
-                                           slab_ads_name)
+                slab_ads_fw = af.SlabAdsFW(
+                    slab_ads, name=fw_name, slab_structure=slab_structure,
+                    slab_energy=slab_energy, bulk_structure=bulk_structure,
+                    bulk_energy=bulk_energy, adsorbate=adsorbate,
+                    vasp_input_set=vis, vasp_cmd=vasp_cmd, db_file=db_file,
+                    handler_group=handler_group, slab_name=slab_name,
+                    slab_ads_name=slab_ads_name)
 
                 slab_ads_fws.append(slab_ads_fw)
 
@@ -333,20 +322,20 @@ class AnalysisAdditionTask(FiretaskBase):
         bulk_structure = self.get("bulk_structure")
         bulk_energy = self.get("bulk_energy")
         adsorbate = self.get("adsorbate")
-        analysis_fw_name = self.get("analysis_fw_name") or slab_ads_structure.\
-            composition.reduced_formula + " adsorption analysis"
+        analysis_fw_name = self.get("analysis_fw_name") or (
+                slab_ads_structure.composition.reduced_formula
+                + " adsorption analysis")
         db_file = self.get("db_file", None)
         slab_name = self.get("slab_name")
         slab_ads_name = self.get("slab_ads_name")
 
-        fw = af.AdsorptionAnalysisFW(slab_ads_structure=slab_ads_structure,
-                                     slab_ads_energy=slab_ads_energy,
-                                     slab_structure=slab_structure,
-                                     slab_energy=slab_energy, bulk_structure=
-                                     bulk_structure, bulk_energy=bulk_energy,
-                                     adsorbate=adsorbate, db_file=db_file,
-                                     name=analysis_fw_name, slab_name=
-                                     slab_name, slab_ads_name=slab_ads_name)
+        fw = af.AdsorptionAnalysisFW(
+            slab_ads_structure=slab_ads_structure,
+            slab_ads_energy=slab_ads_energy, slab_structure=slab_structure,
+            slab_energy=slab_energy, bulk_structure=bulk_structure,
+            bulk_energy=bulk_energy, adsorbate=adsorbate, db_file=db_file,
+            name=analysis_fw_name, slab_name=slab_name,
+            slab_ads_name=slab_ads_name)
 
         return FWAction(additions=fw)
 
@@ -397,8 +386,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         slab_ads_name = self.get("slab_ads_name")
 
         stored_data['task_name'] = task_name
-        stored_data['bulk_formula'] = bulk_structure.composition.\
-            reduced_formula
+        stored_data['bulk_formula'] = (bulk_structure.composition.
+                                       reduced_formula)
         stored_data['adsorbate_formula'] = ''.join([site.species_string for
                                                     site in adsorbate.sites])
         stored_data['slab_name'] = slab_name
@@ -425,28 +414,28 @@ class AdsorptionAnalysisTask(FiretaskBase):
         if len(ads_sites) > 1:
             stored_data['adsorbate_bonds'] = {}
             for n, (site1, site2) in enumerate(combinations(ads_sites, 2)):
-                pair_name = 'pair [' + str(n) + "]: " + str(site1.specie) + "-" \
-                            + str(site2.specie)
-                stored_data['adsorbate_bonds'][pair_name] = \
-                    {'site1': site1.as_dict(), 'site2': site2.as_dict(),
-                     'distance': site1.distance_and_image(site2)[0]}
+                pair_name = ('pair [' + str(n) + "]: " + str(site1.specie)
+                             + "-" + str(site2.specie))
+                stored_data['adsorbate_bonds'][pair_name] = {
+                    'site1': site1.as_dict(), 'site2': site2.as_dict(),
+                    'distance': site1.distance_and_image(site2)[0]}
 
         # adsorbate surface nearest neighbors
         stored_data['nearest_surface_neighbors'] = {}
         for n, ads_site in enumerate(ads_sites):
-            ads_site_name = 'adsorbate_site [' + str(n) + "]: " + \
-                            str(ads_site.specie)
-            neighbors = slab_ads_structure.get_neighbors(ads_site,
-                                                slab_ads_structure.lattice.c)
+            ads_site_name = ('adsorbate_site [' + str(n) + "]: "
+                             + str(ads_site.specie))
+            neighbors = slab_ads_structure.get_neighbors(
+                ads_site, slab_ads_structure.lattice.c)
 
             neighbors.sort(key=lambda x: x[1])
             nearest_surface_neighbor = next(neighbor for neighbor in neighbors
                                             if neighbor[0] not in ads_sites)
 
-            stored_data['nearest_surface_neighbors'][ads_site_name] = \
-                {'adsorbate_site': ads_site.as_dict(),
-                 'surface_site': nearest_surface_neighbor[0].as_dict(),
-                 'distance': nearest_surface_neighbor[1]}
+            stored_data['nearest_surface_neighbors'][ads_site_name] = {
+                'adsorbate_site': ads_site.as_dict(),
+                'surface_site': nearest_surface_neighbor[0].as_dict(),
+                'distance': nearest_surface_neighbor[1]}
 
         # adsorption energy
         scale_factor = slab_ads_structure.volume / slab_structure.volume

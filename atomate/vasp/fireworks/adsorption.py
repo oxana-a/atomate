@@ -1,16 +1,16 @@
-from atomate.common.firetasks.glue_tasks import PassCalcLocs
-from atomate.vasp.config import VASP_CMD, DB_FILE
-from atomate.vasp.fireworks import OptimizeFW
-from fireworks import Firework
-from pymatgen import Structure
-from pymatgen.io.vasp.sets import MPSurfaceSet
-
 """
 Adsorption workflow fireworks.
 """
 
 __author__ = "Oxana Andriuc"
 __email__ = "ioandriuc@lbl.gov"
+
+from atomate.common.firetasks.glue_tasks import PassCalcLocs
+from atomate.vasp.config import VASP_CMD, DB_FILE
+from atomate.vasp.fireworks import OptimizeFW
+from fireworks import Firework
+from pymatgen import Structure
+from pymatgen.io.vasp.sets import MPSurfaceSet
 
 
 class BulkFW(Firework):
@@ -19,8 +19,8 @@ class BulkFW(Firework):
                  vasp_input_set=None, adsorbates=None, vasp_cmd=VASP_CMD,
                  db_file=DB_FILE, handler_group="default",
                  slab_gen_params=None, max_index=1,
-                 ads_site_finder_params=None, ads_structures_params=None,
-                 parents=None, **kwargs):
+                 ads_site_finder_params=None,
+                 ads_structures_params=None, parents=None, **kwargs):
         """
         Optimize bulk structure and add a slab generator firework as
         addition.
@@ -60,18 +60,14 @@ class BulkFW(Firework):
                              vasptodb_kwargs=vasptodb_kwargs)
         t = bulk_fw.tasks
 
-        add_fw_name = bulk_structure.composition.reduced_formula +\
-                      " slab generator"
-        t.append(at.SlabAdditionTask(adsorbates=adsorbates, vasp_cmd=vasp_cmd,
-                                     db_file=db_file,
-                                     handler_group=handler_group,
-                                     slab_gen_params=slab_gen_params,
-                                     max_index=max_index,
-                                     ads_site_finder_params=
-                                     ads_site_finder_params,
-                                     ads_structures_params=
-                                     ads_structures_params,
-                                     add_fw_name=add_fw_name))
+        add_fw_name = (bulk_structure.composition.reduced_formula
+                       + " slab generator")
+        t.append(at.SlabAdditionTask(
+            adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
+            handler_group=handler_group, slab_gen_params=slab_gen_params,
+            max_index=max_index, ads_site_finder_params=ads_site_finder_params,
+            ads_structures_params=ads_structures_params,
+            add_fw_name=add_fw_name))
         super(BulkFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -108,17 +104,12 @@ class SlabGeneratorFW(Firework):
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
         tasks = []
-        gen_slabs_t = at.GenerateSlabsTask(bulk_structure=bulk_structure,
-                                           bulk_energy=bulk_energy,
-                                           adsorbates=adsorbates,
-                                           vasp_cmd=vasp_cmd, db_file=db_file,
-                                           handler_group=handler_group,
-                                           slab_gen_params=slab_gen_params,
-                                           max_index=max_index,
-                                           ads_site_finder_params=
-                                           ads_site_finder_params,
-                                           ads_structures_params=
-                                           ads_structures_params)
+        gen_slabs_t = at.GenerateSlabsTask(
+            bulk_structure=bulk_structure, bulk_energy=bulk_energy,
+            adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
+            handler_group=handler_group, slab_gen_params=slab_gen_params,
+            max_index=max_index, ads_site_finder_params=ads_site_finder_params,
+            ads_structures_params=ads_structures_params)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
@@ -164,11 +155,11 @@ class SlabFW(Firework):
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
         vis = vasp_input_set or MPSurfaceSet(slab_structure, bulk=False)
-        vasptodb_kwargs = {'task_fields_to_push':
-                               {'slab_structure': 'output.structure',
-                                'slab_energy': 'output.energy',
-                                'bulk_structure': bulk_structure,
-                                'bulk_energy': bulk_energy}}
+        vasptodb_kwargs = {
+            'task_fields_to_push': {'slab_structure': 'output.structure',
+                                    'slab_energy': 'output.energy',
+                                    'bulk_structure': bulk_structure,
+                                    'bulk_energy': bulk_energy}}
         slab_fw = OptimizeFW(structure=slab_structure, name=name,
                              vasp_input_set=vis, vasp_cmd=vasp_cmd,
                              db_file=db_file, job_type="normal",
@@ -181,23 +172,19 @@ class SlabFW(Firework):
             slab_name += "_{}".format(slab_structure.miller_index)
         if getattr(slab_structure, "shift", None):
             slab_name += "_{:.3f}".format(slab_structure.shift)
+        add_fw_name = slab_name
         for ads in adsorbates:
-            add_fw_name = slab_name + " " + ''.join([site.species_string for
-                                                     site in ads.sites])
+            add_fw_name += " " + ''.join([site.species_string for site in
+                                          ads.sites])
         add_fw_name += " slab + adsorbate generator"
 
-        t.append(at.SlabAdsAdditionTask(adsorbates=adsorbates,
-                                        vasp_cmd=vasp_cmd,
-                                        db_file=db_file,
-                                        handler_group=handler_group,
-                                        ads_site_finder_params=
-                                        ads_site_finder_params,
-                                        ads_structures_params=
-                                        ads_structures_params,
-                                        add_fw_name=add_fw_name,
-                                        bulk_structure=bulk_structure,
-                                        bulk_energy=bulk_energy,
-                                        slab_name=slab_name))
+        t.append(at.SlabAdsAdditionTask(
+            adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
+            handler_group=handler_group,
+            ads_site_finder_params=ads_site_finder_params,
+            ads_structures_params=ads_structures_params,
+            add_fw_name=add_fw_name, bulk_structure=bulk_structure,
+            bulk_energy=bulk_energy, slab_name=slab_name))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -237,19 +224,14 @@ class SlabAdsGeneratorFW(Firework):
         import atomate.vasp.firetasks.adsorption_tasks as at
 
         tasks = []
-        gen_slabs_t = at.GenerateSlabAdsTask(slab_structure=slab_structure,
-                                             slab_energy=slab_energy,
-                                             adsorbates=adsorbates,
-                                             bulk_structure=bulk_structure,
-                                             bulk_energy=bulk_energy,
-                                             vasp_cmd=vasp_cmd,
-                                             db_file=db_file,
-                                             handler_group=handler_group,
-                                             ads_site_finder_params=
-                                             ads_site_finder_params,
-                                             ads_structures_params=
-                                             ads_structures_params,
-                                             slab_name=slab_name)
+        gen_slabs_t = at.GenerateSlabAdsTask(
+            slab_structure=slab_structure, slab_energy=slab_energy,
+            adsorbates=adsorbates, bulk_structure=bulk_structure,
+            bulk_energy=bulk_energy, vasp_cmd=vasp_cmd, db_file=db_file,
+            handler_group=handler_group,
+            ads_site_finder_params=ads_site_finder_params,
+            ads_structures_params=ads_structures_params,
+            slab_name=slab_name)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
@@ -294,14 +276,14 @@ class SlabAdsFW(Firework):
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
         vis = vasp_input_set or MPSurfaceSet(slab_ads_structure, bulk=False)
-        vasptodb_kwargs = {'task_fields_to_push':
-                               {'slab_ads_structure': 'output.structure',
-                                'slab_ads_energy': 'output.energy',
-                                'slab_structure': slab_structure,
-                                'slab_energy': slab_energy,
-                                'bulk_structure': bulk_structure,
-                                'bulk_energy': bulk_energy,
-                                'adsorbate': adsorbate}}
+        vasptodb_kwargs = {
+            'task_fields_to_push': {'slab_ads_structure': 'output.structure',
+                                    'slab_ads_energy': 'output.energy',
+                                    'slab_structure': slab_structure,
+                                    'slab_energy': slab_energy,
+                                    'bulk_structure': bulk_structure,
+                                    'bulk_energy': bulk_energy,
+                                    'adsorbate': adsorbate}}
         slab_ads_fw = OptimizeFW(structure=slab_ads_structure, name=name,
                                  vasp_input_set=vis, vasp_cmd=vasp_cmd,
                                  db_file=db_file, job_type="normal",
@@ -314,16 +296,14 @@ class SlabAdsFW(Firework):
         if "adsorption analysis" not in analysis_fw_name:
             ads_name = ''.join([site.species_string for site
                                 in adsorbate.sites])
-            analysis_fw_name = slab_name + " " + ads_name + " adsorption " \
-                                                            "analysis"
-        t.append(at.AnalysisAdditionTask(slab_structure=slab_structure,
-                                         slab_energy=slab_energy,
-                                         bulk_structure=bulk_structure,
-                                         bulk_energy=bulk_energy,
-                                         adsorbate=adsorbate,
-                                         analysis_fw_name=analysis_fw_name,
-                                         db_file=db_file, slab_name=slab_name,
-                                         slab_ads_name=slab_ads_name))
+            analysis_fw_name = (slab_name + " " + ads_name
+                                + " adsorption analysis")
+        t.append(at.AnalysisAdditionTask(
+            slab_structure=slab_structure, slab_energy=slab_energy,
+            bulk_structure=bulk_structure, bulk_energy=bulk_energy,
+            adsorbate=adsorbate, analysis_fw_name=analysis_fw_name,
+            db_file=db_file, slab_name=slab_name,
+            slab_ads_name=slab_ads_name))
 
         super(SlabAdsFW, self).__init__(t, parents=parents, name=name,
                                         **kwargs)
@@ -362,17 +342,12 @@ class AdsorptionAnalysisFW(Firework):
 
         tasks = []
 
-        ads_an_t = at.AdsorptionAnalysisTask(slab_ads_structure=
-                                             slab_ads_structure,
-                                             slab_ads_energy=slab_ads_energy,
-                                             slab_structure=slab_structure,
-                                             slab_energy=slab_energy,
-                                             bulk_structure=bulk_structure,
-                                             bulk_energy=bulk_energy,
-                                             adsorbate=adsorbate, db_file=
-                                             db_file, name=name, slab_name=
-                                             slab_name, slab_ads_name=
-                                             slab_ads_name)
+        ads_an_t = at.AdsorptionAnalysisTask(
+            slab_ads_structure=slab_ads_structure,
+            slab_ads_energy=slab_ads_energy, slab_structure=slab_structure,
+            slab_energy=slab_energy, bulk_structure=bulk_structure,
+            bulk_energy=bulk_energy, adsorbate=adsorbate, db_file=db_file,
+            name=name, slab_name=slab_name, slab_ads_name=slab_ads_name)
         tasks.append(ads_an_t)
 
         super(AdsorptionAnalysisFW, self).__init__(tasks, parents=parents,
