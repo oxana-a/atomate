@@ -1,4 +1,5 @@
 import json
+from monty.json import jsanitize
 import numpy as np
 from itertools import combinations
 from atomate.utils.utils import get_logger, env_chk
@@ -379,9 +380,9 @@ class AdsorptionAnalysisTask(FiretaskBase):
         # cleavage energy
         area = np.linalg.norm(np.cross(slab_structure.lattice.matrix[0],
                                        slab_structure.lattice.matrix[1]))
-        bulk_en_per_atom = bulk_energy/bulk_structure.nsites
+        bulk_en_per_atom = bulk_energy/bulk_structure.num_sites
         surface_energy = (slab_energy - bulk_en_per_atom * slab_structure.
-                          nsites) / (2*area) * EV_PER_ANG2_TO_JOULES_PER_M2
+                          num_sites) / (2*area) * EV_PER_ANG2_TO_JOULES_PER_M2
         stored_data['surface_energy'] = surface_energy
 
         ads_sites = slab_ads_structure.sites[-adsorbate.num_sites:]
@@ -406,7 +407,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
             neighbors.sort(key=lambda x: x[1])
             nearest_surface_neighbor = next(neighbor for neighbor in neighbors
-                                            if neighbor[0] not in ads_site)
+                                            if neighbor[0] not in ads_sites)
 
             stored_data['nearest_surface_neighbors'][ads_site_name] = \
                 {'adsorbate_site': ads_site,
@@ -420,6 +421,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
             [ads_comp.get(element, 0) * ref_elem_energy.get(str(element)) for
              element in ads_comp])
         stored_data['adsorption_energy'] = adsorption_en
+
+        stored_data = jsanitize(stored_data)
 
         db_file = env_chk(db_file, fw_spec)
 
