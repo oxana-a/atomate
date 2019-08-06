@@ -388,7 +388,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         stored_data['output_slab_energy'] = slab_energy
         stored_data['output_slab_ads_structure'] = slab_ads_structure.as_dict()
         stored_data['output_slab_ads_energy'] = slab_ads_energy
-        stored_data['input_adsorbate'] = adsorbate
+        stored_data['input_adsorbate'] = adsorbate.as_dict()
 
         # cleavage energy
         area = np.linalg.norm(np.cross(slab_structure.lattice.matrix[0],
@@ -404,16 +404,16 @@ class AdsorptionAnalysisTask(FiretaskBase):
         if len(ads_sites) > 1:
             stored_data['adsorbate_bonds'] = {}
             for n, (site1, site2) in enumerate(combinations(ads_sites, 2)):
-                pair_name = 'pair' + str(n) + ": " + str(site1.specie) + "-" \
+                pair_name = 'pair [' + str(n) + "]: " + str(site1.specie) + "-" \
                             + str(site2.specie)
                 stored_data['adsorbate_bonds'][pair_name] = \
-                    {'site1': site1, 'site2': site2,
+                    {'site1': site1.as_dict(), 'site2': site2.as_dict(),
                      'distance': site1.distance_and_image(site2)[0]}
 
         # adsorbate surface nearest neighbors
         stored_data['nearest_surface_neighbors'] = {}
         for n, ads_site in enumerate(ads_sites):
-            ads_site_name = 'adsorbate_site' + str(n) + ": " + \
+            ads_site_name = 'adsorbate_site [' + str(n) + "]: " + \
                             str(ads_site.specie)
             neighbors = slab_ads_structure.get_neighbors(ads_site,
                                                 slab_ads_structure.lattice.c)
@@ -423,8 +423,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                             if neighbor[0] not in ads_sites)
 
             stored_data['nearest_surface_neighbors'][ads_site_name] = \
-                {'adsorbate_site': ads_site,
-                 'surface_site': nearest_surface_neighbor[0],
+                {'adsorbate_site': ads_site.as_dict(),
+                 'surface_site': nearest_surface_neighbor[0].as_dict(),
                  'distance': nearest_surface_neighbor[1]}
 
         # adsorption energy
