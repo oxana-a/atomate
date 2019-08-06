@@ -11,7 +11,7 @@ import numpy as np
 from fireworks import Workflow
 
 from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW, StaticFW
-from atomate.vasp.fireworks.adsorption import DistanceOptimizationFW, AbsorptionEnergyLandscapeFW
+from atomate.vasp.fireworks.adsorption import DistanceOptimizationFW, AdsorptionEnergyLandscapeFW
 from atomate.utils.utils import get_meta_from_structure
 
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
