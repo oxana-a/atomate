@@ -92,21 +92,18 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
             fws.append(OptimizeFW(structure=m_struct, job_type="normal",
                                   vasp_input_set=vis, db_file=db_file,
                                   vasp_cmd=vasp_cmd))
-        if dos_molecule:
-            m_struct = adsorbate.get_boxed_structure(10, 10, 10,
-                                                    offset=np.array([5, 5, 5]))
-            vis = MPStaticSet(m_struct,user_incar_settings={"LELF":True, 
-                                                            "LORBIT":11,
-                                                            "ALGO":"Fast",
-                                                            "ISMEAR":1,
-                                                            "ADDGRID":True,
-                                                            "LREAL":False,
-                                                            "LASPH":True,
-                                                            "IDIPOL":3,
-                                                            "LDIPOL":True})
-            fws.append(StaticFW(structure=m_struct,
-                                  vasp_input_set=vis, db_file=db_file,
-                                  vasp_cmd=vasp_cmd))
+            if dos_molecule:
+                vis = MPStaticSet(m_struct,user_incar_settings={"LELF":True, 
+                                                                "LORBIT":11,
+                                                                "ALGO":"Fast",
+                                                                "ISMEAR":1,
+                                                                "ADDGRID":True,
+                                                                "LREAL":False,
+                                                                "LASPH":True,
+                                                                "IDIPOL":3,
+                                                                "LDIPOL":True})
+                fws.append(StaticFW(parents=fws[-1], vasp_input_set=vis, db_file=db_file,
+                                    vasp_cmd=vasp_cmd))
 
 
         #Find all possible slabs:
