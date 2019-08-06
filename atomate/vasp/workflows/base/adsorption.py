@@ -31,7 +31,7 @@ __email__ = 'montoyjh@lbl.gov'
 
 
 def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, vasp_cmd = None, slab_gen_params = None, 
-    max_index = 1, ads_finder_params = None, ads_structures_params = None):
+    max_index = 1, ads_finder_params = None, ads_structures_params = None, dos_slab=True, dos_molecule=True, relax_molecule=True):
     """
     Returns an adsorption workflow for a structure and list of adsorbates
 
@@ -84,6 +84,30 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
     idx_to_fw_id = dict()
     for ads_idx, adsorbate in enumerate(adsorbates):
 
+        #Need electron density/energy of molecule
+        if relax_molecule:
+            m_struct = adsorbate.get_boxed_structure(10, 10, 10,
+                                                    offset=np.array([5, 5, 5]))
+            vis = MPSurfaceSet(m_struct)
+            fws.append(OptimizeFW(structure=m_struct, job_type="normal",
+                                  vasp_input_set=vis, db_file=db_file,
+                                  vasp_cmd=vasp_cmd))
+        if dos_molecule:
+            m_struct = adsorbate.get_boxed_structure(10, 10, 10,
+                                                    offset=np.array([5, 5, 5]))
+            vis = MPStaticSet(m_struct,user_incar_settings={"LELF":True, 
+                                                            "LORBIT":11,
+                                                            "ALGO":"Fast",
+                                                            "ISMEAR":1,
+                                                            "ADDGRID":True,
+                                                            "LREAL":False,
+                                                            "LASPH":True,
+                                                            "IDIPOL":3,
+                                                            "LDIPOL":True})
+            fws.append(StaticFW(structure=m_struct,
+                                  vasp_input_set=vis, db_file=db_file,
+                                  vasp_cmd=vasp_cmd))
+
 
         #Find all possible slabs:
         slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
@@ -91,6 +115,21 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
         #For all possible slabs
         for slab_idx, slab in enumerate(slabs):
             miller = slab.miller_index
+
+            #Get DOS for slabs, for later analysis
+            if dos_slab:
+                vis = MPStaticSet(slab,user_incar_settings={"LELF":True, 
+                                                            "LORBIT":11,
+                                                            "ALGO":"Fast",
+                                                            "ISMEAR":1,
+                                                            "ADDGRID":True,
+                                                            "LREAL":False,
+                                                            "LASPH":True,
+                                                            "IDIPOL":3,
+                                                            "LDIPOL":True})
+                fws.append(StaticFW(structure=m_struct,
+                                      vasp_input_set=vis, db_file=db_file,
+                                      vasp_cmd=vasp_cmd))
 
             #optimize at different distances
             for distance_idx, distance in enumerate(distances):
