@@ -30,14 +30,14 @@ __email__ = 'montoyjh@lbl.gov'
 # TODO: Add framework for including vibrations and free energy
 
 
-def get_absorption_wf(structure, absorbates, distances  = None, db_file=None, vasp_cmd = None, slab_gen_params = None, 
+def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, vasp_cmd = None, slab_gen_params = None, 
     max_index = 1, ads_finder_params = None, ads_structures_params = None):
     """
-    Returns an absorption workflow for a structure and list of adsorbates
+    Returns an adsorption workflow for a structure and list of adsorbates
 
     Args:
         structure (Structure) - catalyst bulk structure
-        absorbates [list of Molecules] - adsorbates to test
+        adsorbates [list of Molecules] - adsorbates to test
         distances [list of distances (float)] - distances for static calculations to run, by default it will be set
             to [0.5, 0.87, 1.25, 1.63, 2.0]
         db_file - DB command for  Fireworks
@@ -83,7 +83,7 @@ def get_absorption_wf(structure, absorbates, distances  = None, db_file=None, va
 
     #For all adsorbates passed in
     idx_to_fw_id = dict()
-    for ads_idx, adsorbate in enumerate(absorbates):
+    for ads_idx, adsorbate in enumerate(adsorbates):
 
 
         #Find all possible slabs:
@@ -106,7 +106,7 @@ def get_absorption_wf(structure, absorbates, distances  = None, db_file=None, va
 
                     #Create Static FWs to test if energy landscape is favorable and save their energy and structure for processing with DistanceOptimizationFW
                     #Removed error handler since its just a static position, positive energy is okay...
-                    fws.append(AbsorptionEnergyLandscapeFW(name=ads_name, structure=ads_slab,
+                    fws.append(AdsorptionEnergyLandscapeFW(name=ads_name, structure=ads_slab,
                                         vasp_input_set=adsorption_energy_landscape_input_set, vasp_cmd=vasp_cmd,
                                         db_file=db_file,
                                         vasptodb_kwargs={
@@ -124,7 +124,7 @@ def get_absorption_wf(structure, absorbates, distances  = None, db_file=None, va
     
     #Processing Optimal Distance and run best adsorption - same ads_idx, slab_idx, site_idx as previous, and must pass in same distances array
     #TODO: Need to make it okay if one calc fizzles! And FW needs to check for which fizzled... 
-    for ads_idx, adsorbate in enumerate(absorbates):
+    for ads_idx, adsorbate in enumerate(adsorbates):
         slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
         for slab_idx, slab in enumerate(slabs):
             miller = slab.miller_index
