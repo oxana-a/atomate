@@ -176,14 +176,14 @@ class SlabFW(Firework):
                              vasptodb_kwargs=vasptodb_kwargs)
         t = slab_fw.tasks
 
-        add_fw_name = slab_structure.composition.reduced_formula
+        slab_name = slab_structure.composition.reduced_formula
         if getattr(slab_structure, "miller_index", None):
-            add_fw_name += "_{}".format(slab_structure.miller_index)
+            slab_name += "_{}".format(slab_structure.miller_index)
         if getattr(slab_structure, "shift", None):
-            add_fw_name += "_{:.3f}".format(slab_structure.shift)
+            slab_name += "_{:.3f}".format(slab_structure.shift)
         for ads in adsorbates:
-            add_fw_name += " " + ''.join([site.species_string for site
-                                          in ads.sites])
+            add_fw_name = slab_name + " " + ''.join([site.species_string for
+                                                     site in ads.sites])
         add_fw_name += " slab + adsorbate generator"
 
         t.append(at.SlabAdsAdditionTask(adsorbates=adsorbates,
@@ -196,7 +196,8 @@ class SlabFW(Firework):
                                         ads_structures_params,
                                         add_fw_name=add_fw_name,
                                         bulk_structure=bulk_structure,
-                                        bulk_energy=bulk_energy))
+                                        bulk_energy=bulk_energy,
+                                        slab_name=slab_name))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -206,7 +207,7 @@ class SlabAdsGeneratorFW(Firework):
                  slab_energy=None, bulk_structure=None, bulk_energy=None,
                  adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
                  handler_group="md", ads_site_finder_params=None,
-                 ads_structures_params=None, parents=None):
+                 ads_structures_params=None, slab_name=None, parents=None):
         """
         Generate slab + adsorbate structures from a slab structure and
         add the corresponding slab + adsorbate optimization fireworks as
@@ -229,6 +230,8 @@ class SlabAdsGeneratorFW(Firework):
                 kwargs to AdsorbateSiteFinder
             ads_structures_params (dict): dictionary of kwargs for
                 generate_adsorption_structures in AdsorptionSiteFinder
+            slab_name (str): name for the slab
+                (format: Formula_MillerIndex_Shift)
             parents ([Firework]): parents of this particular firework
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
@@ -245,7 +248,8 @@ class SlabAdsGeneratorFW(Firework):
                                              ads_site_finder_params=
                                              ads_site_finder_params,
                                              ads_structures_params=
-                                             ads_structures_params)
+                                             ads_structures_params,
+                                             slab_name=slab_name)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
@@ -259,7 +263,8 @@ class SlabAdsFW(Firework):
                  name="slab + adsorbate optimization", slab_structure=None,
                  slab_energy=None, bulk_structure=None, bulk_energy=None,
                  adsorbate=None, vasp_input_set=None, vasp_cmd=VASP_CMD,
-                 db_file=DB_FILE, handler_group="md", parents=None, **kwargs):
+                 db_file=DB_FILE, handler_group="md", slab_name=None,
+                 parents=None, **kwargs):
         """
         Optimize slab + adsorbate structure.
 
@@ -279,6 +284,8 @@ class SlabAdsFW(Firework):
             db_file (str): path to database file
             handler_group (str or [ErrorHandler]): custodian handler
                 group for slab + adsorbate optimization (default: "md")
+            slab_name (str): name for the slab
+                (format: Formula_MillerIndex_Shift)
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: Other kwargs that are passed to
                 Firework.__init__.
@@ -303,8 +310,10 @@ class SlabAdsFW(Firework):
         analysis_fw_name = name.replace("slab + adsorbate optimization",
                                         "adsorption analysis")
         if "adsorption analysis" not in analysis_fw_name:
-            analysis_fw_name = slab_ads_structure.composition.reduced_formula \
-                               + " adsorption analysis"
+            ads_name = ''.join([site.species_string for site
+                                in adsorbate.sites])
+            analysis_fw_name = slab_name + " " + ads_name + " adsorption " \
+                                                            "analysis"
         t.append(at.AnalysisAdditionTask(slab_structure=slab_structure,
                                          slab_energy=slab_energy,
                                          bulk_structure=bulk_structure,
@@ -353,7 +362,7 @@ class AdsorptionAnalysisFW(Firework):
                                              bulk_structure=bulk_structure,
                                              bulk_energy=bulk_energy,
                                              adsorbate=adsorbate, db_file=
-                                             db_file)
+                                             db_file, name=name)
         tasks.append(ads_an_t)
 
         super(AdsorptionAnalysisFW, self).__init__(tasks, parents=parents,

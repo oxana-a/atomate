@@ -176,12 +176,14 @@ class SlabAdsAdditionTask(FiretaskBase):
         ads_structures_params (dict): dictionary of kwargs for
             generate_adsorption_structures in AdsorptionSiteFinder
         add_fw_name (str): name for the SlabAdsGeneratorFW to be added
+        slab_name (str): name for the slab
+            (format: Formula_MillerIndex_Shift)
     """
     required_params = []
     optional_params = ["bulk_structure", "bulk_energy", "adsorbates",
                        "vasp_cmd", "db_file", "handler_group",
                        "ads_site_finder_params", "ads_structures_params",
-                       "add_fw_name"]
+                       "add_fw_name", "slab_name"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -197,6 +199,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params") or {}
         add_fw_name = self.get("add_fw_name") or "slab + adsorbate generator"
+        slab_name = self.get("slab_name")
 
         fw = af.SlabAdsGeneratorFW(slab_structure,
                                    slab_energy=slab_energy,
@@ -208,7 +211,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                                    ads_site_finder_params=
                                    ads_site_finder_params,
                                    ads_structures_params=
-                                   ads_structures_params)
+                                   ads_structures_params, slab_name=slab_name)
 
         return FWAction(additions=fw)
 
@@ -236,13 +239,15 @@ class GenerateSlabAdsTask(FiretaskBase):
             kwargs to AdsorbateSiteFinder
         ads_structures_params (dict): dictionary of kwargs for
             generate_adsorption_structures in AdsorptionSiteFinder
+        slab_name (str): name for the slab
+            (format: Formula_MillerIndex_Shift)
     """
 
     required_params = []
     optional_params = ["slab_structure", "slab_energy", "bulk_structure",
                        "bulk_energy", "adsorbates", "vasp_cmd", "db_file",
                        "handler_group", "ads_site_finder_params",
-                       "ads_structures_params"]
+                       "ads_structures_params", "slab_name"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -258,6 +263,8 @@ class GenerateSlabAdsTask(FiretaskBase):
         handler_group = self.get("handler_group", "md")
         ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params") or {}
+        slab_name = self.get("slab_name",
+                             slab_structure.composition.reduced_formula)
 
         for adsorbate in adsorbates:
             # TODO: any other way around adsorbates not having magmom?
@@ -268,15 +275,10 @@ class GenerateSlabAdsTask(FiretaskBase):
                                                **ads_structures_params)
             for n, slab_ads in enumerate(slabs_ads):
                 # Create adsorbate fw
-                name = slab_structure.composition.reduced_formula
-                if getattr(slab_structure, "miller_index", None):
-                    name += "_{}".format(slab_structure.miller_index)
-                if getattr(slab_structure, "shift", None):
-                    name += "_{:.3f}".format(slab_structure.shift)
                 ads_name = ''.join([site.species_string for site
                                     in adsorbate.sites])
                 slab_ads_name = "{} {} slab + adsorbate optimization {}".\
-                    format(name, ads_name, n)
+                    format(slab_name, ads_name, n)
                 vis = MPSurfaceSet(slab_ads, bulk=False)
                 slab_ads_fw = af.SlabAdsFW(slab_ads, name=slab_ads_name,
                                            slab_structure=slab_structure,
@@ -286,7 +288,8 @@ class GenerateSlabAdsTask(FiretaskBase):
                                            adsorbate=adsorbate,
                                            vasp_input_set=vis,
                                            vasp_cmd=vasp_cmd, db_file=db_file,
-                                           handler_group=handler_group)
+                                           handler_group=handler_group,
+                                           slab_name=slab_name)
 
                 slab_ads_fws.append(slab_ads_fw)
 
@@ -364,7 +367,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
     required_params = []
     optional_params = ["slab_ads_structure", "slab_ads_energy",
                        "slab_structure", "slab_energy", "bulk_structure",
-                       "bulk_energy", "adsorbate", "db_file"]
+                       "bulk_energy", "adsorbate", "db_file", "name"]
 
     def run_task(self, fw_spec):
         stored_data = {}
@@ -376,6 +379,16 @@ class AdsorptionAnalysisTask(FiretaskBase):
         bulk_energy = self.get("bulk_energy")
         adsorbate = self.get("adsorbate")
         db_file = self.get("db_file")
+        task_name = self.get("name")
+
+        stored_data['task_name'] = task_name
+        stored_data['output_bulk_structure'] = bulk_structure
+        stored_data['output_bulk_energy'] = bulk_energy
+        stored_data['output_slab_structure'] = slab_structure
+        stored_data['output_slab_energy'] = slab_energy
+        stored_data['output_slab_ads_structure'] = slab_ads_structure
+        stored_data['output_slab_ads_energy'] = slab_ads_energy
+        stored_data['input_adsorbate'] = adsorbate
 
         # cleavage energy
         area = np.linalg.norm(np.cross(slab_structure.lattice.matrix[0],
@@ -391,7 +404,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         if len(ads_sites) > 1:
             stored_data['adsorbate_bonds'] = {}
             for n, (site1, site2) in enumerate(combinations(ads_sites, 2)):
-                pair_name = 'pair ' + str(n) + ": " + str(site1.specie) + "-" \
+                pair_name = 'pair_' + str(n) + ": " + str(site1.specie) + "-" \
                             + str(site2.specie)
                 stored_data['adsorbate_bonds'][pair_name] = \
                     {'site1': site1, 'site2': site2,
@@ -400,7 +413,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         # adsorbate surface nearest neighbors
         stored_data['nearest_surface_neighbors'] = {}
         for n, ads_site in enumerate(ads_sites):
-            ads_site_name = 'adsorbate site ' + str(n) + ": " + \
+            ads_site_name = 'adsorbate_site_' + str(n) + ": " + \
                             str(ads_site.specie)
             neighbors = slab_ads_structure.get_neighbors\
                 (ads_site, slab_ads_structure.lattice.c)
