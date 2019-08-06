@@ -18,7 +18,7 @@ from pymatgen.analysis.adsorption import AdsorbateSiteFinder
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.transformations.advanced_transformations import SlabTransformation
 from pymatgen.transformations.standard_transformations import SupercellTransformation
-from pymatgen.io.vasp.sets import MVLSlabSet
+from pymatgen.io.vasp.sets import MVLSlabSet, MPStaticSet
 
 from pymatgen.core import Molecule, Structure
 
