@@ -41,8 +41,7 @@ class OptimizeFW(Firework):
                  force_gamma=True, job_type="double_relaxation_run",
                  handler_group="default", max_force_threshold=RELAX_MAX_FORCE,
                  auto_npar=">>auto_npar<<",
-                 half_kpts_first_relax=HALF_KPOINTS_FIRST_RELAX, parents=None,
-                 vasptodb_kwargs= None,**kwargs):
+                 half_kpts_first_relax=HALF_KPOINTS_FIRST_RELAX, parents=None,**kwargs):
         """
         Optimize the given structure.
 
