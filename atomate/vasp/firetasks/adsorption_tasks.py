@@ -91,8 +91,8 @@ class GenerateSlabsTask(FiretaskBase):
     optimization fireworks as additions.
 
     Required params:
-    Optional params:
         bulk_structure (Structure): relaxed bulk structure
+    Optional params:
         bulk_energy (float): final energy of relaxed bulk structure
         adsorbates ([Molecule]): list of molecules to place as
             adsorbates
@@ -109,10 +109,9 @@ class GenerateSlabsTask(FiretaskBase):
             generate_adsorption_structures in AdsorptionSiteFinder
     """
 
-    required_params = []
-    optional_params = ["bulk_structure", "bulk_energy", "adsorbates",
-                       "vasp_cmd", "db_file", "handler_group",
-                       "slab_gen_params", "max_index",
+    required_params = ["bulk_structure"]
+    optional_params = ["bulk_energy", "adsorbates", "vasp_cmd", "db_file",
+                       "handler_group", "slab_gen_params", "max_index",
                        "ads_site_finder_params", "ads_structures_params"]
 
     def run_task(self, fw_spec):
@@ -224,13 +223,13 @@ class GenerateSlabAdsTask(FiretaskBase):
     additions.
 
     Required params:
-    Optional params:
         slab_structure (Structure): relaxed slab structure
+        adsorbates ([Molecule]): list of molecules to place as
+            adsorbates
+    Optional params:
         slab_energy (float): final energy of relaxed slab structure
         bulk_structure (Structure): relaxed bulk structure
         bulk_energy (float): final energy of relaxed bulk structure
-        adsorbates ([Molecule]): list of molecules to place as
-            adsorbates
         vasp_cmd (str): vasp command
         db_file (str): path to database file
         handler_group (str or [ErrorHandler]): custodian handler group
@@ -243,11 +242,11 @@ class GenerateSlabAdsTask(FiretaskBase):
             (format: Formula_MillerIndex_Shift)
     """
 
-    required_params = []
-    optional_params = ["slab_structure", "slab_energy", "bulk_structure",
-                       "bulk_energy", "adsorbates", "vasp_cmd", "db_file",
-                       "handler_group", "ads_site_finder_params",
-                       "ads_structures_params", "slab_name"]
+    required_params = ["slab_structure", "adsorbates"]
+    optional_params = ["slab_energy", "bulk_structure", "bulk_energy",
+                       "vasp_cmd", "db_file", "handler_group",
+                       "ads_site_finder_params", "ads_structures_params",
+                       "slab_name"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -417,8 +416,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                        slab_structure.lattice.matrix[1]))
         bulk_en_per_atom = bulk_energy/bulk_structure.num_sites
         surface_energy = (slab_energy - bulk_en_per_atom * slab_structure.
-                          num_sites) / (2*area) * EV_PER_ANG2_TO_JOULES_PER_M2
-        stored_data['surface_energy'] = surface_energy
+                          num_sites) / (2*area)
+        stored_data['surface_energy'] = surface_energy  # eV/A^2
 
         ads_sites = slab_ads_structure.sites[-adsorbate.num_sites:]
 
