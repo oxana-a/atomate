@@ -163,12 +163,12 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                                             "task_fields_to_push":{
                                                 "{}_{}_{}_{}_energy".format(ads_idx, slab_idx,site_idx,distance_idx):"output.energy_per_atom",
                                                 "{}_{}_{}_{}_structure".format(ads_idx, slab_idx,site_idx,distance_idx):"output.structure"
-                                                }
+                                                },
+                                            "defuse_unsuccessful":True
                                             }, 
                                         contcar_to_poscar=False, 
                                         runvaspcustodian_kwargs = {
-                                            "handler_group":"no_handler",
-                                            "defuse_unsuccessful":True},
+                                            "handler_group":"no_handler"},
                                         spec = {"_pass_job_info": True}))
                     #Setting parents for future DistanceOptimizationFW
                     if not idx_to_fw_id.get("{}_{}_{}".format(ads_idx,slab_idx,site_idx), False):
