@@ -1,7 +1,7 @@
 import json
 import numpy as np
 from itertools import combinations
-from atomate.utils.utils import get_logger
+from atomate.utils.utils import get_logger, env_chk
 from atomate.vasp.database import VaspCalcDb
 from fireworks.core.firework import FiretaskBase, FWAction
 from fireworks.utilities.fw_serializers import DATETIME_HANDLER
@@ -21,6 +21,7 @@ __author__ = "Oxana Andriuc"
 __email__ = "ioandriuc@lbl.gov"
 
 logger = get_logger(__name__)
+ref_elem_energy = {'H': -3.379, 'O': -7.459, 'C': -7.329}
 
 
 @explicit_serialize
@@ -373,7 +374,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         bulk_structure = self.get("bulk_structure")
         bulk_energy = self.get("bulk_energy")
         adsorbate = self.get("adsorbate")
-        db_file = self.get("db_file", None)
+        db_file = self.get("db_file")
 
         # cleavage energy
         area = np.linalg.norm(np.cross(slab_structure.lattice.matrix[0],
@@ -413,13 +414,14 @@ class AdsorptionAnalysisTask(FiretaskBase):
                  'distance': nearest_surface_neighbor[1]}
 
         # adsorption energy
-        refs = {'H': -3.379, 'O': -7.459, 'C': -7.329}
         scale_factor = slab_ads_structure.volume / slab_structure.volume
         ads_comp = Structure.from_sites(ads_sites).composition
-        adsorption_en = slab_ads_energy - slab_energy * scale_factor - \
-                        sum([ads_comp.get(element, 0) * refs.get(str(element))
-                             for element in ads_comp])
+        adsorption_en = slab_ads_energy - slab_energy * scale_factor - sum(
+            [ads_comp.get(element, 0) * ref_elem_energy.get(str(element)) for
+             element in ads_comp])
         stored_data['adsorption_energy'] = adsorption_en
+
+        db_file = env_chk(db_file, fw_spec)
 
         if not db_file:
             with open("task.json", "w") as f:
