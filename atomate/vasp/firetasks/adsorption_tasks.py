@@ -16,7 +16,7 @@ import glob
 from pymatgen.core import Structure
 
 '''
-This modules defines tasks for FWs specific to the absorption workflow
+This modules defines tasks for FWs specific to the adsorption workflow
 '''
 
 from fireworks import explicit_serialize, FiretaskBase, FWAction
@@ -86,8 +86,8 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 
 
 		#Create new OptimizeFW
-		from atomate.vasp.fireworks.absorption import AbsorptionOptimizeFW #this is bad form...
-		new_fw = AbsorptionOptimizeFW(structure, vasp_input_set = vasp_input_set, vasp_cmd = vasp_cmd, db_file = db_file, 
+		from atomate.vasp.fireworks.adsorption import AdsorptionOptimizeFW #this is bad form...
+		new_fw = AdsorptionOptimizeFW(structure, vasp_input_set = vasp_input_set, vasp_cmd = vasp_cmd, db_file = db_file, 
 			vasptodb_kwargs = vasptodb_kwargs,**optimize_kwargs)
 		new_fw.spec["_fworker"] = fw_spec["_fworker"]
 		new_fw.spec["optimal_distance"] = optimal_distance
@@ -159,7 +159,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		ads_e = lowest_energy - surface_energy*scale - sum([ads_comp.get(elt, 0) * refs.get(elt) for elt in refs])
 
 
-		#If lowest energy is a little too big, this is probably not a good site/absorbate... No need to run future calculations
+		#If lowest energy is a little too big, this is probably not a good site/adsorbate... No need to run future calculations
 		if ads_e>0.2:
 			#Let's exit the rest of the FW's if energy is too high, but still push the data
 			return FWAction(exit=True,

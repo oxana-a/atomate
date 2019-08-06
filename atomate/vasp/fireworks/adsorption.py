@@ -20,7 +20,7 @@ from atomate.vasp.firetasks.glue_tasks import CopyVaspOutputs, pass_vasp_result
 from atomate.vasp.firetasks.parse_outputs import VaspToDb
 from atomate.vasp.firetasks.run_calc import RunVaspCustodian
 from atomate.vasp.firetasks.write_inputs import WriteVaspFromIOSet, WriteVaspStaticFromPrev
-from atomate.vasp.firetasks.absorption_tasks import AnalyzeStaticOptimumDistance, LaunchVaspFromOptimumDistance, GetPassedJobInformation
+from atomate.vasp.firetasks.adsorption_tasks import AnalyzeStaticOptimumDistance, LaunchVaspFromOptimumDistance, GetPassedJobInformation
 
 from pymatgen.core import Molecule, Structure
 
@@ -63,7 +63,7 @@ class DistanceOptimizationFW(Firework):
                                                                                          original_slab.composition.reduced_formula, name),
                                                                                  **kwargs)
 
-class AbsorptionEnergyLandscapeFW(Firework):
+class AdsorptionEnergyLandscapeFW(Firework):
 
         def __init__(self, structure=None, name="static", vasp_input_set=None, vasp_input_set_params=None,
                                  vasp_cmd=VASP_CMD, prev_calc_loc=True, prev_calc_dir=None, db_file=DB_FILE, vasptodb_kwargs=None,
@@ -115,9 +115,9 @@ class AbsorptionEnergyLandscapeFW(Firework):
                 t.append(PassCalcLocs(name=name))
                 t.append(
                         VaspToDb(db_file=db_file, **vasptodb_kwargs))
-                super(AbsorptionEnergyLandscapeFW, self).__init__(t, parents=parents, name=fw_name, **kwargs)
+                super(AdsorptionEnergyLandscapeFW, self).__init__(t, parents=parents, name=fw_name, **kwargs)
 
-class AbsorptionOptimizeFW(Firework):
+class AdsorptionOptimizeFW(Firework):
 
         def __init__(self, structure, name="structure optimization",
                                  vasp_input_set=None,
@@ -167,7 +167,7 @@ class AbsorptionOptimizeFW(Firework):
                 t.append(PassCalcLocs(name=name))
                 t.append(
                         VaspToDb(db_file=db_file, additional_fields={"task_label": name}, **vasptodb_kwargs))
-                super(AbsorptionOptimizeFW, self).__init__(t, parents=parents, name="{}-{}".
+                super(AdsorptionOptimizeFW, self).__init__(t, parents=parents, name="{}-{}".
                                                                                  format(
                                                                                          structure.composition.reduced_formula, name),
                                                                                  **kwargs)
