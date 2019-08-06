@@ -5,4 +5,4 @@ from .neb_tasks import *
 from .parse_outputs import *
 from .run_calc import *
 from .write_inputs import *
-from .absorption_tasks import *
+from .adsorption_tasks import *
