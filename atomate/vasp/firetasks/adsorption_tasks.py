@@ -46,13 +46,20 @@ class SlabAdditionTask(FiretaskBase):
             kwargs to AdsorbateSiteFinder
         ads_structures_params (dict): dictionary of kwargs for
             generate_adsorption_structures in AdsorptionSiteFinder
+        min_lw (float): minimum length/width for slab and
+            slab + adsorbate structures (overridden by slab_gen_params
+            and ads_structures_params if they contain min_slab_size and
+            min_lw, respectively)
         add_fw_name (str): name for the SlabGeneratorFW to be added
+        selective_dynamics (bool): flag for whether to freeze
+            non-surface sites in the slab + adsorbate structures during
+            relaxations
     """
     required_params = []
     optional_params = ["adsorbates", "vasp_cmd", "db_file", "handler_group",
                        "slab_gen_params", "max_index",
                        "ads_site_finder_params", "ads_structures_params",
-                       "add_fw_name"]
+                       "min_lw", "add_fw_name", "selective_dynamics"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -60,23 +67,24 @@ class SlabAdditionTask(FiretaskBase):
         bulk_structure = fw_spec["bulk_structure"]
         bulk_energy = fw_spec["bulk_energy"]
         adsorbates = self.get("adsorbates")
-        vasp_cmd = self.get("vasp_cmd", "vasp")
-        db_file = self.get("db_file", None)
-        handler_group = self.get("handler_group", "md")
-        # TODO: these could be more well-thought out defaults
-        sgp = self.get("slab_gen_params") or {"min_slab_size": 7.0,
-                                              "min_vacuum_size": 20.0}
-        max_index = self.get("max_index", 1)
-        ads_site_finder_params = self.get("ads_site_finder_params") or {}
-        ads_structures_params = self.get("ads_structures_params") or {}
+        vasp_cmd = self.get("vasp_cmd")
+        db_file = self.get("db_file")
+        handler_group = self.get("handler_group")
+        sgp = self.get("slab_gen_params")
+        max_index = self.get("max_index")
+        ads_site_finder_params = self.get("ads_site_finder_params")
+        ads_structures_params = self.get("ads_structures_params")
+        min_lw = self.get("min_lw")
         add_fw_name = self.get("add_fw_name") or "slab generator"
+        selective_dynamics = self.get("selective_dynamics")
 
         fw = af.SlabGeneratorFW(
             bulk_structure, name=add_fw_name, bulk_energy=bulk_energy,
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
             handler_group=handler_group, slab_gen_params=sgp,
             max_index=max_index, ads_site_finder_params=ads_site_finder_params,
-            ads_structures_params=ads_structures_params)
+            ads_structures_params=ads_structures_params, min_lw=min_lw,
+            selective_dynamics=selective_dynamics)
 
         return FWAction(additions=fw)
 
@@ -104,12 +112,20 @@ class GenerateSlabsTask(FiretaskBase):
             kwargs to AdsorbateSiteFinder
         ads_structures_params (dict): dictionary of kwargs for
             generate_adsorption_structures in AdsorptionSiteFinder
+        min_lw (float): minimum length/width for slab and
+            slab + adsorbate structures (overridden by slab_gen_params
+            and ads_structures_params if they contain min_slab_size and
+            min_lw, respectively)
+        selective_dynamics (bool): flag for whether to freeze
+            non-surface sites in the slab + adsorbate structures during
+            relaxations
     """
 
     required_params = ["bulk_structure"]
     optional_params = ["bulk_energy", "adsorbates", "vasp_cmd", "db_file",
                        "handler_group", "slab_gen_params", "max_index",
-                       "ads_site_finder_params", "ads_structures_params"]
+                       "ads_site_finder_params", "ads_structures_params",
+                       "min_lw", "selective_dynamics"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -118,15 +134,23 @@ class GenerateSlabsTask(FiretaskBase):
         bulk_structure = self.get("bulk_structure")
         bulk_energy = self.get("bulk_energy")
         adsorbates = self.get("adsorbates")
-        vasp_cmd = self.get("vasp_cmd", "vasp")
-        db_file = self.get("db_file", None)
-        handler_group = self.get("handler_group", "md")
+        vasp_cmd = self.get("vasp_cmd")
+        db_file = self.get("db_file")
+        handler_group = self.get("handler_group")
+        sgp = self.get("slab_gen_params") or {}
+        min_lw = self.get("min_lw")
         # TODO: these could be more well-thought out defaults
-        sgp = self.get("slab_gen_params") or {"min_slab_size": 7.0,
-                                              "min_vacuum_size": 20.0}
-        max_index = self.get("max_index", 1)
-        ads_site_finder_params = self.get("ads_site_finder_params") or {}
-        ads_structures_params = self.get("ads_structures_params") or {}
+        if "min_slab_size" not in sgp:
+            if min_lw:
+                sgp["min_slab_size"] = min_lw
+            else:
+                sgp["min_slab_size"] = 10.0
+        if "min_vacuum_size" not in sgp:
+            sgp["min_vacuum_size"] = 20.0
+        max_index = self.get("max_index") or 1
+        ads_site_finder_params = self.get("ads_site_finder_params")
+        ads_structures_params = self.get("ads_structures_params")
+        selective_dynamics = self.get("selective_dynamics")
 
         slabs = generate_all_slabs(bulk_structure, max_index=max_index, **sgp)
 
@@ -143,7 +167,9 @@ class GenerateSlabsTask(FiretaskBase):
                                 adsorbates=adsorbates, vasp_cmd=vasp_cmd,
                                 db_file=db_file, handler_group=handler_group,
                                 ads_site_finder_params=ads_site_finder_params,
-                                ads_structures_params=ads_structures_params)
+                                ads_structures_params=ads_structures_params,
+                                min_lw=min_lw,
+                                selective_dynamics=selective_dynamics)
             slab_fws.append(slab_fw)
 
         return FWAction(additions=slab_fws)
@@ -171,15 +197,23 @@ class SlabAdsAdditionTask(FiretaskBase):
             kwargs to AdsorbateSiteFinder
         ads_structures_params (dict): dictionary of kwargs for
             generate_adsorption_structures in AdsorptionSiteFinder
+        min_lw (float): minimum length/width for slab and
+            slab + adsorbate structures (overridden by slab_gen_params
+            and ads_structures_params if they contain min_slab_size and
+            min_lw, respectively)
         add_fw_name (str): name for the SlabAdsGeneratorFW to be added
         slab_name (str): name for the slab
             (format: Formula_MillerIndex_Shift)
+        selective_dynamics (bool): flag for whether to freeze
+            non-surface sites in the slab + adsorbate structures during
+            relaxations
     """
     required_params = []
     optional_params = ["bulk_structure", "bulk_energy", "adsorbates",
                        "vasp_cmd", "db_file", "handler_group",
                        "ads_site_finder_params", "ads_structures_params",
-                       "add_fw_name", "slab_name"]
+                       "min_lw", "add_fw_name", "slab_name",
+                       "selective_dynamics"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -192,10 +226,12 @@ class SlabAdsAdditionTask(FiretaskBase):
         vasp_cmd = self.get("vasp_cmd", "vasp")
         db_file = self.get("db_file", None)
         handler_group = self.get("handler_group", "md")
-        ads_site_finder_params = self.get("ads_site_finder_params") or {}
-        ads_structures_params = self.get("ads_structures_params") or {}
+        ads_site_finder_params = self.get("ads_site_finder_params")
+        ads_structures_params = self.get("ads_structures_params")
+        min_lw = self.get("min_lw")
         add_fw_name = self.get("add_fw_name") or "slab + adsorbate generator"
         slab_name = self.get("slab_name")
+        selective_dynamics = self.get("selective_dynamics")
 
         fw = af.SlabAdsGeneratorFW(
             slab_structure, slab_energy=slab_energy,
@@ -203,7 +239,8 @@ class SlabAdsAdditionTask(FiretaskBase):
             name=add_fw_name, adsorbates=adsorbates, vasp_cmd=vasp_cmd,
             db_file=db_file, handler_group=handler_group,
             ads_site_finder_params=ads_site_finder_params,
-            ads_structures_params=ads_structures_params, slab_name=slab_name)
+            ads_structures_params=ads_structures_params, min_lw=min_lw,
+            slab_name=slab_name, selective_dynamics=selective_dynamics)
 
         return FWAction(additions=fw)
 
@@ -231,15 +268,22 @@ class GenerateSlabAdsTask(FiretaskBase):
             kwargs to AdsorbateSiteFinder
         ads_structures_params (dict): dictionary of kwargs for
             generate_adsorption_structures in AdsorptionSiteFinder
+        min_lw (float): minimum length/width for slab and
+            slab + adsorbate structures (overridden by slab_gen_params
+            and ads_structures_params if they contain min_slab_size and
+            min_lw, respectively)
         slab_name (str): name for the slab
             (format: Formula_MillerIndex_Shift)
+        selective_dynamics (bool): flag for whether to freeze
+            non-surface sites in the slab + adsorbate structures during
+            relaxations
     """
 
     required_params = ["slab_structure", "adsorbates"]
     optional_params = ["slab_energy", "bulk_structure", "bulk_energy",
                        "vasp_cmd", "db_file", "handler_group",
                        "ads_site_finder_params", "ads_structures_params",
-                       "slab_name"]
+                       "min_lw", "slab_name", "selective_dynamics"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -251,10 +295,20 @@ class GenerateSlabAdsTask(FiretaskBase):
         bulk_energy = self.get("bulk_energy")
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd", "vasp")
-        db_file = self.get("db_file", None)
+        db_file = self.get("db_file")
         handler_group = self.get("handler_group", "md")
         ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params") or {}
+        selective_dynamics = self.get("selective_dynamics")
+        min_lw = self.get("min_lw")
+        if "min_lw" not in ads_structures_params:
+            if min_lw:
+                ads_structures_params["min_lw"] = min_lw
+            else:
+                ads_structures_params["min_lw"] = 10.0
+        if ("selective_dynamics" not in ads_site_finder_params
+                and selective_dynamics):
+            ads_site_finder_params["selective_dynamics"] = selective_dynamics
         slab_name = self.get("slab_name",
                              slab_structure.composition.reduced_formula)
 

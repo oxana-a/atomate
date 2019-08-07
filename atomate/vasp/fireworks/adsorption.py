@@ -17,10 +17,10 @@ class BulkFW(Firework):
 
     def __init__(self, bulk_structure, name="bulk optimization",
                  vasp_input_set=None, adsorbates=None, vasp_cmd=VASP_CMD,
-                 db_file=DB_FILE, handler_group="default",
-                 slab_gen_params=None, max_index=1,
-                 ads_site_finder_params=None,
-                 ads_structures_params=None, parents=None, **kwargs):
+                 db_file=DB_FILE, bulk_handler_group="default",
+                 slab_handler_group="md", slab_gen_params=None, max_index=1,
+                 ads_site_finder_params=None, ads_structures_params=None,
+                 min_lw=None, selective_dynamics=None, parents=None, **kwargs):
         """
         Optimize bulk structure and add a slab generator firework as
         addition.
@@ -35,8 +35,12 @@ class BulkFW(Firework):
                 adsorbates
             vasp_cmd (str): vasp command
             db_file (str): path to database file
-            handler_group (str or [ErrorHandler]): custodian handler
-                group for bulk optimizations (default: "default")
+            bulk_handler_group (str or [ErrorHandler]): custodian
+                handler group for bulk optimizations
+                (default: "default")
+            slab_handler_group (str or [ErrorHandler]): custodian
+                handler group for slab and slab + adsorbate
+                optimizations (default: "md")
             slab_gen_params (dict): dictionary of kwargs for
                 generate_all_slabs
             max_index (int): max miller index for generate_all_slabs
@@ -44,6 +48,13 @@ class BulkFW(Firework):
                 kwargs to AdsorbateSiteFinder
             ads_structures_params (dict): dictionary of kwargs for
                 generate_adsorption_structures in AdsorptionSiteFinder
+            min_lw (float): minimum length/width for slab and
+                slab + adsorbate structures (overridden by
+                slab_gen_params and ads_structures_params if they
+                contain min_slab_size and min_lw, respectively)
+            selective_dynamics (bool): flag for whether to freeze
+                non-surface sites in the slab + adsorbate structures
+                during relaxations
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: other kwargs that are passed to
                 Firework.__init__.
@@ -56,7 +67,7 @@ class BulkFW(Firework):
         bulk_fw = OptimizeFW(structure=bulk_structure, name=name,
                              vasp_input_set=vis, vasp_cmd=vasp_cmd,
                              db_file=db_file, job_type="normal",
-                             handler_group=handler_group,
+                             handler_group=bulk_handler_group,
                              vasptodb_kwargs=vasptodb_kwargs)
         t = bulk_fw.tasks
 
@@ -64,10 +75,10 @@ class BulkFW(Firework):
                        + " slab generator")
         t.append(at.SlabAdditionTask(
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
-            handler_group=handler_group, slab_gen_params=slab_gen_params,
+            handler_group=slab_handler_group, slab_gen_params=slab_gen_params,
             max_index=max_index, ads_site_finder_params=ads_site_finder_params,
-            ads_structures_params=ads_structures_params,
-            add_fw_name=add_fw_name))
+            ads_structures_params=ads_structures_params, min_lw=min_lw,
+            add_fw_name=add_fw_name, selective_dynamics=selective_dynamics))
         super(BulkFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -77,7 +88,7 @@ class SlabGeneratorFW(Firework):
                  adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
                  handler_group="md", slab_gen_params=None, max_index=1,
                  ads_site_finder_params=None, ads_structures_params=None,
-                 parents=None):
+                 min_lw=None, selective_dynamics=None, parents=None):
         """
         Generate slabs from a bulk structure and add the corresponding
         slab optimization fireworks as additions.
@@ -100,6 +111,13 @@ class SlabGeneratorFW(Firework):
                 kwargs to AdsorbateSiteFinder
             ads_structures_params (dict): dictionary of kwargs for
                 generate_adsorption_structures in AdsorptionSiteFinder
+            min_lw (float): minimum length/width for slab and
+                slab + adsorbate structures (overridden by
+                slab_gen_params and ads_structures_params if they
+                contain min_slab_size and min_lw, respectively)
+            selective_dynamics (bool): flag for whether to freeze
+                non-surface sites in the slab + adsorbate structures
+                during relaxations
             parents ([Firework]): parents of this particular firework
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
@@ -109,7 +127,8 @@ class SlabGeneratorFW(Firework):
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
             handler_group=handler_group, slab_gen_params=slab_gen_params,
             max_index=max_index, ads_site_finder_params=ads_site_finder_params,
-            ads_structures_params=ads_structures_params)
+            ads_structures_params=ads_structures_params, min_lw=min_lw,
+            selective_dynamics=selective_dynamics)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
@@ -123,7 +142,8 @@ class SlabFW(Firework):
                  bulk_structure=None, bulk_energy=None, vasp_input_set=None,
                  adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
                  handler_group="md", ads_site_finder_params=None,
-                 ads_structures_params=None, parents=None, **kwargs):
+                 ads_structures_params=None, min_lw=None,
+                 selective_dynamics=None, parents=None, **kwargs):
         """
         Optimize slab structure and add a slab + adsorbate generator
         firework as addition.
@@ -149,6 +169,13 @@ class SlabFW(Firework):
                 kwargs to AdsorbateSiteFinder
             ads_structures_params (dict): dictionary of kwargs for
                 generate_adsorption_structures in AdsorptionSiteFinder
+            min_lw (float): minimum length/width for slab and
+                slab + adsorbate structures (overridden by
+                slab_gen_params and ads_structures_params if they
+                contain min_slab_size and min_lw, respectively)
+            selective_dynamics (bool): flag for whether to freeze
+                non-surface sites in the slab + adsorbate structures
+                during relaxations
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: Other kwargs that are passed to
                 Firework.__init__.
@@ -182,9 +209,10 @@ class SlabFW(Firework):
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
             handler_group=handler_group,
             ads_site_finder_params=ads_site_finder_params,
-            ads_structures_params=ads_structures_params,
+            ads_structures_params=ads_structures_params, min_lw=min_lw,
             add_fw_name=add_fw_name, bulk_structure=bulk_structure,
-            bulk_energy=bulk_energy, slab_name=slab_name))
+            bulk_energy=bulk_energy, slab_name=slab_name,
+            selective_dynamics=selective_dynamics))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -194,7 +222,8 @@ class SlabAdsGeneratorFW(Firework):
                  slab_energy=None, bulk_structure=None, bulk_energy=None,
                  adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
                  handler_group="md", ads_site_finder_params=None,
-                 ads_structures_params=None, slab_name=None, parents=None):
+                 ads_structures_params=None, min_lw=None,
+                 selective_dynamics=None, slab_name=None, parents=None):
         """
         Generate slab + adsorbate structures from a slab structure and
         add the corresponding slab + adsorbate optimization fireworks as
@@ -217,6 +246,13 @@ class SlabAdsGeneratorFW(Firework):
                 kwargs to AdsorbateSiteFinder
             ads_structures_params (dict): dictionary of kwargs for
                 generate_adsorption_structures in AdsorptionSiteFinder
+            min_lw (float): minimum length/width for slab and
+                slab + adsorbate structures (overridden by
+                slab_gen_params and ads_structures_params if they
+                contain min_slab_size and min_lw, respectively)
+            selective_dynamics (bool): flag for whether to freeze
+                non-surface sites in the slab + adsorbate structures
+                during relaxations
             slab_name (str): name for the slab
                 (format: Formula_MillerIndex_Shift)
             parents ([Firework]): parents of this particular firework
@@ -230,8 +266,8 @@ class SlabAdsGeneratorFW(Firework):
             bulk_energy=bulk_energy, vasp_cmd=vasp_cmd, db_file=db_file,
             handler_group=handler_group,
             ads_site_finder_params=ads_site_finder_params,
-            ads_structures_params=ads_structures_params,
-            slab_name=slab_name)
+            ads_structures_params=ads_structures_params, min_lw=min_lw,
+            slab_name=slab_name, selective_dynamics=selective_dynamics)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
