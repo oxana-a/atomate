@@ -283,7 +283,8 @@ class SlabAdsFW(Firework):
                                     'slab_energy': slab_energy,
                                     'bulk_structure': bulk_structure,
                                     'bulk_energy': bulk_energy,
-                                    'adsorbate': adsorbate}}
+                                    'adsorbate': adsorbate,
+                                    'slab_ads_task_id': 'task_id'}}
         slab_ads_fw = OptimizeFW(structure=slab_ads_structure, name=name,
                                  vasp_input_set=vis, vasp_cmd=vasp_cmd,
                                  db_file=db_file, job_type="normal",
@@ -315,7 +316,7 @@ class AdsorptionAnalysisFW(Firework):
                  slab_structure=None, slab_energy=None, bulk_structure=None,
                  bulk_energy=None, adsorbate=None, db_file=DB_FILE,
                  name="adsorption analysis", slab_name=None,
-                 slab_ads_name=None, parents=None):
+                 slab_ads_name=None, slab_ads_task_id=None, parents=None):
         """
         Analyze data from Adsorption workflow for a slab + adsorbate
         structure and save it to database.
@@ -337,6 +338,8 @@ class AdsorptionAnalysisFW(Firework):
                 (format: Formula_MillerIndex_Shift)
             slab_ads_name (str): name for the slab + adsorbate
                 (format: Formula_MillerIndex_Shift AdsorbateFormula Number)
+            slab_ads_task_id (int): the corresponding slab + adsorbate
+                optimization task id
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
 
@@ -347,7 +350,8 @@ class AdsorptionAnalysisFW(Firework):
             slab_ads_energy=slab_ads_energy, slab_structure=slab_structure,
             slab_energy=slab_energy, bulk_structure=bulk_structure,
             bulk_energy=bulk_energy, adsorbate=adsorbate, db_file=db_file,
-            name=name, slab_name=slab_name, slab_ads_name=slab_ads_name)
+            name=name, slab_name=slab_name, slab_ads_name=slab_ads_name,
+            slab_ads_task_id=slab_ads_task_id)
         tasks.append(ads_an_t)
 
         super(AdsorptionAnalysisFW, self).__init__(tasks, parents=parents,

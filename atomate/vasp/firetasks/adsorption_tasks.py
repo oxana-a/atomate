@@ -316,6 +316,7 @@ class AnalysisAdditionTask(FiretaskBase):
 
         slab_ads_structure = fw_spec["slab_ads_structure"]
         slab_ads_energy = fw_spec["slab_ads_energy"]
+        slab_ads_task_id = fw_spec["slab_ads_task_id"]
 
         slab_structure = self.get("slab_structure")
         slab_energy = self.get("slab_energy")
@@ -335,7 +336,7 @@ class AnalysisAdditionTask(FiretaskBase):
             slab_energy=slab_energy, bulk_structure=bulk_structure,
             bulk_energy=bulk_energy, adsorbate=adsorbate, db_file=db_file,
             name=analysis_fw_name, slab_name=slab_name,
-            slab_ads_name=slab_ads_name)
+            slab_ads_name=slab_ads_name, slab_ads_task_id=slab_ads_task_id)
 
         return FWAction(additions=fw)
 
@@ -362,14 +363,15 @@ class AdsorptionAnalysisTask(FiretaskBase):
             (format: Formula_MillerIndex_Shift)
         slab_ads_name (str): name for the slab + adsorbate
             (format: Formula_MillerIndex_Shift AdsorbateFormula Number)
-
+        slab_ads_task_id (int): the corresponding slab + adsorbate
+            optimization task id
     """
 
     required_params = []
     optional_params = ["slab_ads_structure", "slab_ads_energy",
                        "slab_structure", "slab_energy", "bulk_structure",
                        "bulk_energy", "adsorbate", "db_file", "name",
-                       "slab_name", "slab_ads_name"]
+                       "slab_name", "slab_ads_name", "slab_ads_task_id"]
 
     def run_task(self, fw_spec):
         stored_data = {}
@@ -384,10 +386,11 @@ class AdsorptionAnalysisTask(FiretaskBase):
         task_name = self.get("name")
         slab_name = self.get("slab_name")
         slab_ads_name = self.get("slab_ads_name")
+        slab_ads_task_id = self.get("slab_ads_task_id")
 
         stored_data['task_name'] = task_name
-        stored_data['bulk_formula'] = (bulk_structure.composition.
-                                       reduced_formula)
+        stored_data['bulk_formula'] = (bulk_structure.composition
+                                       .reduced_formula)
         stored_data['adsorbate_formula'] = ''.join([site.species_string for
                                                     site in adsorbate.sites])
         stored_data['slab_name'] = slab_name
@@ -404,8 +407,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         area = np.linalg.norm(np.cross(slab_structure.lattice.matrix[0],
                                        slab_structure.lattice.matrix[1]))
         bulk_en_per_atom = bulk_energy/bulk_structure.num_sites
-        surface_energy = (slab_energy - bulk_en_per_atom * slab_structure.
-                          num_sites) / (2*area)
+        surface_energy = (slab_energy - bulk_en_per_atom * slab_structure
+                          .num_sites) / (2*area)
         stored_data['surface_energy'] = surface_energy  # eV/A^2
 
         ads_sites = slab_ads_structure.sites[-adsorbate.num_sites:]
@@ -444,6 +447,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
             [ads_comp.get(element, 0) * ref_elem_energy.get(str(element)) for
              element in ads_comp])
         stored_data['adsorption_energy'] = adsorption_en
+        stored_data['slab_ads_task_id'] = slab_ads_task_id
 
         stored_data = jsanitize(stored_data)
 
