@@ -31,7 +31,8 @@ __email__ = 'montoyjh@lbl.gov'
 
 
 def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, vasp_cmd = None, slab_gen_params = None, 
-    max_index = 1, ads_finder_params = None, ads_structures_params = None, dos_slab=True, dos_molecule=True, relax_molecule=True):
+    max_index = 1, ads_finder_params = None, ads_structures_params = None, dos_slab=True, dos_molecule=True, relax_molecule=True,
+    optimize_distance=True):
     """
     Returns an adsorption workflow for a structure and list of adsorbates
 
@@ -91,7 +92,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
             vis = MPSurfaceSet(m_struct)
             fws.append(OptimizeFW(structure=m_struct, job_type="normal",
                                   vasp_input_set=vis, db_file=db_file,
-                                  vasp_cmd=vasp_cmd))
+                                  vasp_cmd=vasp_cmd, name="Adsorbate Relaxation Calculation"))
             if dos_molecule:
                 vis = MPStaticSet(m_struct,user_incar_settings={"LELF":True, 
                                                                 "LORBIT":11,
@@ -103,7 +104,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                                                                 "IDIPOL":3,
                                                                 "LDIPOL":True})
                 fws.append(StaticFW(parents=fws[-1], vasp_input_set=vis, db_file=db_file,
-                                    vasp_cmd=vasp_cmd))
+                                    vasp_cmd=vasp_cmd, name="Adsorbate Static Calculation"))
 
 
         #Find all possible slabs:
@@ -124,69 +125,71 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                                                             "LASPH":True,
                                                             "IDIPOL":3,
                                                             "LDIPOL":True})
-                fws.append(StaticFW(structure=m_struct,
+                fws.append(StaticFW(structure=slab,
                                       vasp_input_set=vis, db_file=db_file,
-                                      vasp_cmd=vasp_cmd))
+                                      vasp_cmd=vasp_cmd, name="Slab Static Calculation"))
 
             #optimize at different distances
-            for distance_idx, distance in enumerate(distances):
-                #update ads_structure_params with new distance...
-                ads_structures_params.update({"find_args":{"distance":distance}})
-                ads_slabs = AdsorbateSiteFinder(slab, **ads_finder_params).generate_adsorption_structures(adsorbate, **ads_structures_params)
-                
-                #For all possible 
-                for site_idx, ads_slab in enumerate(ads_slabs):
-                    ads_name = "{}-{}{} distance optimization: {}. Site: {}".format(
-                        adsorbate.composition.formula, structure.composition.formula,miller, distance,site_idx) #name of current FW
+            if optimize_distance:
+                for distance_idx, distance in enumerate(distances):
+                    #update ads_structure_params with new distance...
+                    ads_structures_params.update({"find_args":{"distance":distance}})
+                    ads_slabs = AdsorbateSiteFinder(slab, **ads_finder_params).generate_adsorption_structures(adsorbate, **ads_structures_params)
+                    
+                    #For all possible 
+                    for site_idx, ads_slab in enumerate(ads_slabs):
+                        ads_name = "{}-{}{} distance optimization: {}. Site: {}".format(
+                            adsorbate.composition.formula, structure.composition.formula,miller, distance,site_idx) #name of current FW
 
-                    #Set general vasp parameters, print out ELFCAR for analysis
-                    adsorption_energy_landscape_input_set = MPStaticSet(ads_slab,user_incar_settings={"LELF":True, 
-                                                                                                      "LORBIT":11,
-                                                                                                      "ALGO":"Fast",
-                                                                                                      "ISMEAR":1,
-                                                                                                      "ADDGRID":True,
-                                                                                                      "LREAL":False,
-                                                                                                      "LASPH":True,
-                                                                                                      "IDIPOL":3,
-                                                                                                      "LDIPOL":True})
+                        #Set general vasp parameters, print out ELFCAR for analysis
+                        adsorption_energy_landscape_input_set = MPStaticSet(ads_slab,user_incar_settings={"LELF":True, 
+                                                                                                          "LORBIT":11,
+                                                                                                          "ALGO":"Fast",
+                                                                                                          "ISMEAR":1,
+                                                                                                          "ADDGRID":True,
+                                                                                                          "LREAL":False,
+                                                                                                          "LASPH":True,
+                                                                                                          "IDIPOL":3,
+                                                                                                          "LDIPOL":True})
 
 
-                    #Create Static FWs to test if energy landscape is favorable and save their energy and structure for processing with DistanceOptimizationFW
-                    #Removed error handler since its just a static position, positive energy is okay...
-                    fws.append(AdsorptionEnergyLandscapeFW(name=ads_name, structure=ads_slab,
-                                        vasp_input_set=adsorption_energy_landscape_input_set, vasp_cmd=vasp_cmd,
-                                        db_file=db_file,
-                                        vasptodb_kwargs={
-                                            "task_fields_to_push":{
-                                                "{}_{}_{}_{}_energy".format(ads_idx, slab_idx,site_idx,distance_idx):"output.energy_per_atom",
-                                                "{}_{}_{}_{}_structure".format(ads_idx, slab_idx,site_idx,distance_idx):"output.structure"
-                                                },
-                                            "defuse_unsuccessful":True
-                                            }, 
-                                        contcar_to_poscar=False, 
-                                        runvaspcustodian_kwargs = {
-                                            "handler_group":"no_handler"},
-                                        spec = {"_pass_job_info": True}))
-                    #Setting parents for future DistanceOptimizationFW
-                    if not idx_to_fw_id.get("{}_{}_{}".format(ads_idx,slab_idx,site_idx), False):
-                        idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)] = [fws[-1]]
-                    else:
-                        idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)].append(fws[-1])
+                        #Create Static FWs to test if energy landscape is favorable and save their energy and structure for processing with DistanceOptimizationFW
+                        #Removed error handler since its just a static position, positive energy is okay...
+                        fws.append(AdsorptionEnergyLandscapeFW(name=ads_name, structure=ads_slab,
+                                            vasp_input_set=adsorption_energy_landscape_input_set, vasp_cmd=vasp_cmd,
+                                            db_file=db_file,
+                                            vasptodb_kwargs={
+                                                "task_fields_to_push":{
+                                                    "{}_{}_{}_{}_energy".format(ads_idx, slab_idx,site_idx,distance_idx):"output.energy_per_atom",
+                                                    "{}_{}_{}_{}_structure".format(ads_idx, slab_idx,site_idx,distance_idx):"output.structure"
+                                                    },
+                                                "defuse_unsuccessful":True
+                                                }, 
+                                            contcar_to_poscar=False, 
+                                            runvaspcustodian_kwargs = {
+                                                "handler_group":"no_handler"},
+                                            spec = {"_pass_job_info": True}))
+                        #Setting parents for future DistanceOptimizationFW
+                        if not idx_to_fw_id.get("{}_{}_{}".format(ads_idx,slab_idx,site_idx), False):
+                            idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)] = [fws[-1]]
+                        else:
+                            idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)].append(fws[-1])
     
     #Processing Optimal Distance and run best adsorption - same ads_idx, slab_idx, site_idx as previous, and must pass in same distances array
     #TODO: Need to make it okay if one calc fizzles! And FW needs to check for which fizzled... 
-    for ads_idx, adsorbate in enumerate(adsorbates):
-        slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
-        for slab_idx, slab in enumerate(slabs):
-            miller = slab.miller_index
-            ads_slabs = AdsorbateSiteFinder(slab, distance, **ads_finder_params).generate_adsorption_structures(adsorbate, **ads_structures_params)
-            for site_idx, ads_slab in enumerate(ads_slabs):
-                #Add FW that finds optimal distance from static FW and appends  adsorbate to best distance... 
-                fws.append(DistanceOptimizationFW(adsorbate, slab, site_idx = site_idx, idx = "{}_{}_{}_".format(ads_idx, slab_idx,site_idx), 
-                    distances = distances,
-                    name = "Optimal Distance Analysis, Adsorbate: {}, Surface: {}, Site: {}".format(adsorbate.composition.formula, miller,site_idx), 
-                    parents=idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)],
-                    spec = {"_allow_fizzled_parents":True}))
+    if optimize_distance:
+        for ads_idx, adsorbate in enumerate(adsorbates):
+            slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
+            for slab_idx, slab in enumerate(slabs):
+                miller = slab.miller_index
+                ads_slabs = AdsorbateSiteFinder(slab, distance, **ads_finder_params).generate_adsorption_structures(adsorbate, **ads_structures_params)
+                for site_idx, ads_slab in enumerate(ads_slabs):
+                    #Add FW that finds optimal distance from static FW and appends  adsorbate to best distance... 
+                    fws.append(DistanceOptimizationFW(adsorbate, slab, site_idx = site_idx, idx = "{}_{}_{}_".format(ads_idx, slab_idx,site_idx), 
+                        distances = distances,
+                        name = "Optimal Distance Analysis, Adsorbate: {}, Surface: {}, Site: {}".format(adsorbate.composition.formula, miller,site_idx), 
+                        parents=idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)],
+                        spec = {"_allow_fizzled_parents":True}))
 
     #Workflow information
     wf = Workflow(fws)
