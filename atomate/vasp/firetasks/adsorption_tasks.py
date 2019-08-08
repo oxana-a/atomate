@@ -498,9 +498,9 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     stored_data['nearest_surface_neighbors'][ads_site]]
                    for ads_site in stored_data['nearest_surface_neighbors']]
 
+        stored_data['adsorption_site'] = {}
         adsorption_site, surface_site, distance = min(nn_list,
                                                       key=lambda x: x[-1])[1:]
-
         stored_data['adsorption_site']['species'] = (
                 adsorption_site['species'][0]['element'] + "-"
                 + surface_site['species'][0]['element'])
