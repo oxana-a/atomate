@@ -502,8 +502,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                                       key=lambda x: x[-1])[1:]
 
         stored_data['adsorption_site']['species'] = (
-                adsorption_site.species_string + "-"
-                + surface_site.species_string)
+                adsorption_site['species'][0]['element'] + "-"
+                + surface_site['species'][0]['element'])
         stored_data['adsorption_site']['adsorbate_site'] = adsorption_site
         stored_data['adsorption_site']['surface_site'] = surface_site
         stored_data['adsorption_site']['distance'] = distance
