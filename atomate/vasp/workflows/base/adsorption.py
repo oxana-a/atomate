@@ -85,12 +85,12 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
     #Kpoints for static - need to have same density of points to compare CHGCAR
     mesh = np.array(MPStaticSet(structure).kpoints.kpts)*2 #need more density than bulk
     mesh[0][2] = 1 #c axis can be set to 1, don't need as much density
-    kp_static = Kpoints.monkhorst_automatic(kpts=mesh) #create kpoints for static calculations
+    kp_static = Kpoints.monkhorst_automatic(kpts=mesh[0]) #create kpoints for static calculations
 
     #For all adsorbates passed in
     idx_to_fw_id = dict()
     for ads_idx, adsorbate in enumerate(adsorbates):
-
+        #To do: relax molecule and then load it as a molecule and pass it to rest of FWs...
 
         #Find all possible slabs:
         slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
