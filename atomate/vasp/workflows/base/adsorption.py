@@ -20,6 +20,7 @@ from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.transformations.advanced_transformations import SlabTransformation
 from pymatgen.transformations.standard_transformations import SupercellTransformation
 from pymatgen.io.vasp.sets import MVLSlabSet, MPStaticSet
+from pymatgen.io.vasp.inputs import Kpoints
 
 from pymatgen.core import Molecule, Structure
 
