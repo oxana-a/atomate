@@ -83,7 +83,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
     sgp = slab_gen_params or {"min_slab_size": 10, "min_vacuum_size": 5}
     
     #Kpoints for static - need to have same density of points to compare CHGCAR
-    mesh = np.array(MPStaticSet(structure).kpoints.kpts)*2 #need more density than bulk
+    mesh = np.array(MPStaticSet(structure).kpoints.kpts) #need more density than bulk
     mesh[0][2] = 1 #c axis can be set to 1, don't need as much density
     kp_static = Kpoints.monkhorst_automatic(kpts=mesh[0]) #create kpoints for static calculations
 
@@ -139,7 +139,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                                               user_kpoints_settings=kp_static)
                             fws.append(StaticFW(structure=remove_everything_but_adsorbates(ads_slab),
                                                   vasp_input_set=vis, db_file=db_file,
-                                                  vasp_cmd=vasp_cmd, name="Adsorbate Static Calculation for Site: {} of {}".format(site_idx, miller)))
+                                                  vasp_cmd=vasp_cmd, name="Adsorbate Static Calculation for Site: {} of {} at {}".format(site_idx, miller, distance)))
 
 
 
