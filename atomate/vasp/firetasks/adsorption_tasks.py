@@ -31,8 +31,6 @@ class SlabAdditionTask(FiretaskBase):
 
     Required params:
     Optional params:
-        bulk_structure (Structure): relaxed bulk structure
-        bulk_energy (float): final energy of relaxed bulk structure
         adsorbates ([Molecule]): list of molecules to place as
             adsorbates
         vasp_cmd (str): vasp command
@@ -493,6 +491,22 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'adsorbate_site': ads_site.as_dict(),
                 'surface_site': nearest_surface_neighbor[0].as_dict(),
                 'distance': nearest_surface_neighbor[1]}
+
+        nn_list = [[ads_site] +
+                   [stored_data['nearest_surface_neighbors'][ads_site][item]
+                    for item in
+                    stored_data['nearest_surface_neighbors'][ads_site]]
+                   for ads_site in stored_data['nearest_surface_neighbors']]
+
+        adsorption_site, surface_site, distance = min(nn_list,
+                                                      key=lambda x: x[-1])[1:]
+
+        stored_data['adsorption_site']['species'] = (
+                adsorption_site.species_string + "-"
+                + surface_site.species_string)
+        stored_data['adsorption_site']['adsorbate_site'] = adsorption_site
+        stored_data['adsorption_site']['surface_site'] = surface_site
+        stored_data['adsorption_site']['distance'] = distance
 
         # adsorption energy
         scale_factor = slab_ads_structure.volume / slab_structure.volume
