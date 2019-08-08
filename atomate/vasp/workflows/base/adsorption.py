@@ -7,6 +7,7 @@ This module defines a workflow for adsorption on surfaces
 """
 
 import numpy as np
+from copy import deepcopy
 
 from fireworks import Workflow
 
@@ -80,31 +81,14 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
     #Set general parameters for slab
     sgp = slab_gen_params or {"min_slab_size": 10, "min_vacuum_size": 5}
     
+    #Kpoints for static - need to have same density of points to compare CHGCAR
+    mesh = np.array(MPStaticSet(struct).kpoints.kpts)*2 #need more density than bulk
+    mesh[0][2] = 1 #c axis can be set to 1, don't need as much density
+    kp_static = Kpoints.monkhorst_automatic(kpts=mesh) #create kpoints for static calculations
 
     #For all adsorbates passed in
     idx_to_fw_id = dict()
     for ads_idx, adsorbate in enumerate(adsorbates):
-
-        #Need electron density/energy of molecule
-        if relax_molecule:
-            m_struct = adsorbate.get_boxed_structure(10, 10, 10,
-                                                    offset=np.array([5, 5, 5]))
-            vis = MPSurfaceSet(m_struct)
-            fws.append(OptimizeFW(structure=m_struct, job_type="normal",
-                                  vasp_input_set=vis, db_file=db_file,
-                                  vasp_cmd=vasp_cmd, name="Adsorbate Relaxation Calculation"))
-            if dos_molecule:
-                vis = MPStaticSet(m_struct,user_incar_settings={"LELF":True, 
-                                                                "LORBIT":11,
-                                                                "ALGO":"Fast",
-                                                                "ISMEAR":1,
-                                                                "ADDGRID":True,
-                                                                "LREAL":False,
-                                                                "LASPH":True,
-                                                                "IDIPOL":3,
-                                                                "LDIPOL":True})
-                fws.append(StaticFW(parents=fws[-1], vasp_input_set=vis, db_file=db_file,
-                                    vasp_cmd=vasp_cmd, name="Adsorbate Static Calculation"))
 
 
         #Find all possible slabs:
@@ -114,7 +98,6 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
         for slab_idx, slab in enumerate(slabs):
             miller = slab.miller_index
 
-            #Get DOS for slabs, for later analysis
             if dos_slab:
                 vis = MPStaticSet(slab,user_incar_settings={"LELF":True, 
                                                             "LORBIT":11,
@@ -124,10 +107,11 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                                                             "LREAL":False,
                                                             "LASPH":True,
                                                             "IDIPOL":3,
-                                                            "LDIPOL":True})
+                                                            "LDIPOL":True},
+                                  user_kpoints_settings=kp_static)
                 fws.append(StaticFW(structure=slab,
                                       vasp_input_set=vis, db_file=db_file,
-                                      vasp_cmd=vasp_cmd, name="Slab Static Calculation"))
+                                      vasp_cmd=vasp_cmd, name="Slab Static Calculation for {}".format(miller)))
 
             #optimize at different distances
             if optimize_distance:
@@ -138,6 +122,26 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                     
                     #For all possible 
                     for site_idx, ads_slab in enumerate(ads_slabs):
+
+
+                        #Get DOS for just adsorbate, for later CHGCAR analysis
+                        if dos_molecule:
+                            vis = MPStaticSet(ads_slab,user_incar_settings={"LELF":True, 
+                                                                        "LORBIT":11,
+                                                                        "ALGO":"Fast",
+                                                                        "ISMEAR":1,
+                                                                        "ADDGRID":True,
+                                                                        "LREAL":False,
+                                                                        "LASPH":True,
+                                                                        "IDIPOL":3,
+                                                                        "LDIPOL":True},
+                                              user_kpoints_settings=kp_static)
+                            fws.append(StaticFW(structure=remove_everything_but_adsorbates(ads_slab),
+                                                  vasp_input_set=vis, db_file=db_file,
+                                                  vasp_cmd=vasp_cmd, name="Adsorbate Static Calculation for Site: {} of {}".format(site_idx, miller)))
+
+
+
                         ads_name = "{}-{}{} distance optimization: {}. Site: {}".format(
                             adsorbate.composition.formula, structure.composition.formula,miller, distance,site_idx) #name of current FW
 
@@ -150,7 +154,8 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                                                                                                           "LREAL":False,
                                                                                                           "LASPH":True,
                                                                                                           "IDIPOL":3,
-                                                                                                          "LDIPOL":True})
+                                                                                                          "LDIPOL":True},
+                                                                            user_kpoints_settings=kp_static)
 
 
                         #Create Static FWs to test if energy landscape is favorable and save their energy and structure for processing with DistanceOptimizationFW
@@ -197,8 +202,31 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
 
     return wf
 
+def remove_everything_but_adsorbates(structure):
+    '''
+    This function takes a structure that has been created by the AdsorbateSiteFinder and removes every sites besides the adsorbate.
+    This is to aid in comparing CHGCAR densities.
+    '''
+    just_adsorbate = deepcopy(structure)
+    sites_to_remove = []
+    for n,site in enumerate(structure):
+        if site.properties["surface_properties"] is not "adsorbate":
+            sites_to_remove.append(n)
+    just_adsorbate.remove_sites(sites_to_remove)
+    return just_adsorbate
 
-
+def remove_everything_but_slab(structure):
+    '''
+    This function takes a structure that has been created by the AdsorbateSiteFinder and removes every adsorbate slab.
+    This is to aid in comparing CHGCAR densities.
+    '''
+    just_slab = deepcopy(structure)
+    sites_to_remove = []
+    for n,site in enumerate(structure):
+        if site.properties["surface_properties"] is "adsorbate":
+            sites_to_remove.append(n)
+    just_slab.remove_sites(sites_to_remove)
+    return just_slab
 
 
 
