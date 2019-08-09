@@ -127,13 +127,14 @@ class SlabGeneratorFW(Firework):
         import atomate.vasp.firetasks.adsorption_tasks as at
         tasks = []
         print(bulk_dir)
+        slabgen_dir = os.getcwd()
         gen_slabs_t = at.GenerateSlabsTask(
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
             handler_group=handler_group, slab_gen_params=slab_gen_params,
             max_index=max_index, ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
-            selective_dynamics=selective_dynamics)
+            selective_dynamics=selective_dynamics, slabgen_dir=slabgen_dir)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
@@ -148,7 +149,8 @@ class SlabFW(Firework):
                  adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
                  handler_group="md", ads_site_finder_params=None,
                  ads_structures_params=None, min_lw=None,
-                 selective_dynamics=None, parents=None, **kwargs):
+                 selective_dynamics=None, slabgen_dir=None, parents=None,
+                 **kwargs):
         """
         Optimize slab structure and add a slab + adsorbate generator
         firework as addition.

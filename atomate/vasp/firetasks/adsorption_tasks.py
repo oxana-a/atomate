@@ -125,7 +125,7 @@ class GenerateSlabsTask(FiretaskBase):
     optional_params = ["bulk_energy", "adsorbates", "vasp_cmd", "db_file",
                        "handler_group", "slab_gen_params", "max_index",
                        "ads_site_finder_params", "ads_structures_params",
-                       "min_lw", "selective_dynamics"]
+                       "min_lw", "selective_dynamics", "slabgen_dir"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -151,6 +151,7 @@ class GenerateSlabsTask(FiretaskBase):
         ads_site_finder_params = self.get("ads_site_finder_params")
         ads_structures_params = self.get("ads_structures_params")
         selective_dynamics = self.get("selective_dynamics")
+        slabgen_dir = self.get("slabgen_dir")
 
         slabs = generate_all_slabs(bulk_structure, max_index=max_index, **sgp)
 
@@ -169,7 +170,8 @@ class GenerateSlabsTask(FiretaskBase):
                                 ads_site_finder_params=ads_site_finder_params,
                                 ads_structures_params=ads_structures_params,
                                 min_lw=min_lw,
-                                selective_dynamics=selective_dynamics)
+                                selective_dynamics=selective_dynamics,
+                                slabgen_dir=slabgen_dir)
             slab_fws.append(slab_fw)
 
         return FWAction(additions=slab_fws)
