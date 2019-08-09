@@ -340,10 +340,9 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
         vasp_cmd (str): vasp command
         db_file (str): path to database file
         bulk_handler_group (str or [ErrorHandler]): custodian handler
-            group for bulk optimizations (default: "default")
+            group for bulk optimizations
         slab_handler_group (str or [ErrorHandler]): custodian handler
             group for slab and slab + adsorbate optimizations
-            (default: "md")
         max_index (int): max miller index
         slab_gen_params (dict): dictionary of kwargs for
             generate_all_slabs

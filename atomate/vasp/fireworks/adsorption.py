@@ -5,6 +5,7 @@ Adsorption workflow fireworks.
 __author__ = "Oxana Andriuc"
 __email__ = "ioandriuc@lbl.gov"
 
+import os
 from atomate.common.firetasks.glue_tasks import PassCalcLocs
 from atomate.vasp.config import VASP_CMD, DB_FILE
 from atomate.vasp.fireworks import OptimizeFW
@@ -73,12 +74,14 @@ class BulkFW(Firework):
 
         add_fw_name = (bulk_structure.composition.reduced_formula
                        + " slab generator")
+        bulk_dir = os.getcwd()
         t.append(at.SlabAdditionTask(
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
             handler_group=slab_handler_group, slab_gen_params=slab_gen_params,
             max_index=max_index, ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
-            add_fw_name=add_fw_name, selective_dynamics=selective_dynamics))
+            add_fw_name=add_fw_name, selective_dynamics=selective_dynamics,
+            bulk_dir=bulk_dir))
         super(BulkFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -88,7 +91,8 @@ class SlabGeneratorFW(Firework):
                  adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
                  handler_group="md", slab_gen_params=None, max_index=1,
                  ads_site_finder_params=None, ads_structures_params=None,
-                 min_lw=None, selective_dynamics=None, parents=None):
+                 min_lw=None, selective_dynamics=None, bulk_dir=None,
+                 parents=None):
         """
         Generate slabs from a bulk structure and add the corresponding
         slab optimization fireworks as additions.
@@ -122,6 +126,7 @@ class SlabGeneratorFW(Firework):
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
         tasks = []
+        print(bulk_dir)
         gen_slabs_t = at.GenerateSlabsTask(
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
