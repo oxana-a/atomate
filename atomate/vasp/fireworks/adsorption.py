@@ -294,6 +294,7 @@ class SlabAdsGeneratorFW(Firework):
         import atomate.vasp.firetasks.adsorption_tasks as at
 
         tasks = []
+        slab_converged = None
         if slab_dir:
             try:
                 filename = 'vasprun.xml.gz'
@@ -308,8 +309,7 @@ class SlabAdsGeneratorFW(Firework):
                     vrun = None
             if vrun:
                 slab_converged = vrun.converged
-        else:
-            slab_converged = None
+
         gen_slabs_t = at.GenerateSlabAdsTask(
             slab_structure=slab_structure, slab_energy=slab_energy,
             adsorbates=adsorbates, bulk_structure=bulk_structure,
@@ -452,7 +452,7 @@ class AdsorptionAnalysisFW(Firework):
         import atomate.vasp.firetasks.adsorption_tasks as at
 
         tasks = []
-
+        slabads_converged = None
         if slabads_dir:
             try:
                 filename = 'vasprun.xml.gz'
@@ -467,8 +467,6 @@ class AdsorptionAnalysisFW(Firework):
                     vrun = None
             if vrun:
                 slabads_converged = vrun.converged
-        else:
-            slabads_converged = None
 
         ads_an_t = at.AdsorptionAnalysisTask(
             slab_ads_structure=slab_ads_structure,
