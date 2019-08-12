@@ -11,6 +11,7 @@ from atomate.vasp.config import VASP_CMD, DB_FILE
 from atomate.vasp.fireworks import OptimizeFW
 from fireworks import Firework
 from pymatgen import Structure
+from pymatgen.io.vasp.outputs import Vasprun
 from pymatgen.io.vasp.sets import MPSurfaceSet
 
 
@@ -126,15 +127,31 @@ class SlabGeneratorFW(Firework):
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
         tasks = []
-        print(bulk_dir)
-        slabgen_dir = os.getcwd()
+        if bulk_dir:
+            try:
+                filename = 'vasprun.xml.gz'
+                vrun_path = os.path.join(bulk_dir, filename)
+                vrun = Vasprun(vrun_path)
+            except FileNotFoundError:
+                try:
+                    filename = 'vasprun.xml'
+                    vrun_path = os.path.join(bulk_dir, filename)
+                    vrun = Vasprun(vrun_path)
+                except FileNotFoundError:
+                    vrun = None
+            if vrun:
+                bulk_converged = vrun.converged
+        else:
+            bulk_converged = None
+
         gen_slabs_t = at.GenerateSlabsTask(
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
             handler_group=handler_group, slab_gen_params=slab_gen_params,
             max_index=max_index, ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
-            selective_dynamics=selective_dynamics, slabgen_dir=slabgen_dir)
+            selective_dynamics=selective_dynamics,
+            bulk_converged=bulk_converged)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
@@ -149,7 +166,7 @@ class SlabFW(Firework):
                  adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
                  handler_group="md", ads_site_finder_params=None,
                  ads_structures_params=None, min_lw=None,
-                 selective_dynamics=None, slabgen_dir=None, parents=None,
+                 selective_dynamics=None, bulk_converged=None, parents=None,
                  **kwargs):
         """
         Optimize slab structure and add a slab + adsorbate generator
@@ -212,6 +229,7 @@ class SlabFW(Firework):
                                           ads.sites])
         add_fw_name += " slab + adsorbate generator"
 
+        slab_dir = os.getcwd()
         t.append(at.SlabAdsAdditionTask(
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
             handler_group=handler_group,
@@ -219,7 +237,8 @@ class SlabFW(Firework):
             ads_structures_params=ads_structures_params, min_lw=min_lw,
             add_fw_name=add_fw_name, bulk_structure=bulk_structure,
             bulk_energy=bulk_energy, slab_name=slab_name,
-            selective_dynamics=selective_dynamics))
+            selective_dynamics=selective_dynamics,
+            bulk_converged=bulk_converged, slab_dir=slab_dir))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -230,7 +249,8 @@ class SlabAdsGeneratorFW(Firework):
                  adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
                  handler_group="md", ads_site_finder_params=None,
                  ads_structures_params=None, min_lw=None,
-                 selective_dynamics=None, slab_name=None, parents=None):
+                 selective_dynamics=None, slab_name=None, bulk_converged=None,
+                 slab_dir=None, parents=None):
         """
         Generate slab + adsorbate structures from a slab structure and
         add the corresponding slab + adsorbate optimization fireworks as
@@ -267,6 +287,22 @@ class SlabAdsGeneratorFW(Firework):
         import atomate.vasp.firetasks.adsorption_tasks as at
 
         tasks = []
+        if slab_dir:
+            try:
+                filename = 'vasprun.xml.gz'
+                vrun_path = os.path.join(slab_dir, filename)
+                vrun = Vasprun(vrun_path)
+            except FileNotFoundError:
+                try:
+                    filename = 'vasprun.xml'
+                    vrun_path = os.path.join(slab_dir, filename)
+                    vrun = Vasprun(vrun_path)
+                except FileNotFoundError:
+                    vrun = None
+            if vrun:
+                slab_converged = vrun.converged
+        else:
+            slab_converged = None
         gen_slabs_t = at.GenerateSlabAdsTask(
             slab_structure=slab_structure, slab_energy=slab_energy,
             adsorbates=adsorbates, bulk_structure=bulk_structure,
@@ -274,7 +310,8 @@ class SlabAdsGeneratorFW(Firework):
             handler_group=handler_group,
             ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
-            slab_name=slab_name, selective_dynamics=selective_dynamics)
+            slab_name=slab_name, selective_dynamics=selective_dynamics,
+            bulk_converged=bulk_converged, slab_converged=slab_converged)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
@@ -289,7 +326,8 @@ class SlabAdsFW(Firework):
                  slab_energy=None, bulk_structure=None, bulk_energy=None,
                  adsorbate=None, vasp_input_set=None, vasp_cmd=VASP_CMD,
                  db_file=DB_FILE, handler_group="md", slab_name=None,
-                 slab_ads_name=None, parents=None, **kwargs):
+                 slab_ads_name=None, bulk_converged=None, slab_converged=None,
+                 parents=None, **kwargs):
         """
         Optimize slab + adsorbate structure.
 
@@ -342,12 +380,15 @@ class SlabAdsFW(Firework):
                                 in adsorbate.sites])
             analysis_fw_name = (slab_name + " " + ads_name
                                 + " adsorption analysis")
+
+        slabads_dir = os.getcwd()
         t.append(at.AnalysisAdditionTask(
             slab_structure=slab_structure, slab_energy=slab_energy,
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
             adsorbate=adsorbate, analysis_fw_name=analysis_fw_name,
             db_file=db_file, slab_name=slab_name,
-            slab_ads_name=slab_ads_name))
+            slab_ads_name=slab_ads_name, bulk_converged=bulk_converged,
+            slab_converged=slab_converged, slabads_dir=slabads_dir))
 
         super(SlabAdsFW, self).__init__(t, parents=parents, name=name,
                                         **kwargs)
@@ -359,7 +400,9 @@ class AdsorptionAnalysisFW(Firework):
                  slab_structure=None, slab_energy=None, bulk_structure=None,
                  bulk_energy=None, adsorbate=None, db_file=DB_FILE,
                  name="adsorption analysis", slab_name=None,
-                 slab_ads_name=None, slab_ads_task_id=None, parents=None):
+                 slab_ads_name=None, slab_ads_task_id=None,
+                 bulk_converged=None, slab_converged=None, slabads_dir=None,
+                 parents=None):
         """
         Analyze data from Adsorption workflow for a slab + adsorbate
         structure and save it to database.
@@ -388,13 +431,31 @@ class AdsorptionAnalysisFW(Firework):
 
         tasks = []
 
+        if slabads_dir:
+            try:
+                filename = 'vasprun.xml.gz'
+                vrun_path = os.path.join(slabads_dir, filename)
+                vrun = Vasprun(vrun_path)
+            except FileNotFoundError:
+                try:
+                    filename = 'vasprun.xml'
+                    vrun_path = os.path.join(slabads_dir, filename)
+                    vrun = Vasprun(vrun_path)
+                except FileNotFoundError:
+                    vrun = None
+            if vrun:
+                slabads_converged = vrun.converged
+        else:
+            slabads_converged = None
+
         ads_an_t = at.AdsorptionAnalysisTask(
             slab_ads_structure=slab_ads_structure,
             slab_ads_energy=slab_ads_energy, slab_structure=slab_structure,
             slab_energy=slab_energy, bulk_structure=bulk_structure,
             bulk_energy=bulk_energy, adsorbate=adsorbate, db_file=db_file,
             name=name, slab_name=slab_name, slab_ads_name=slab_ads_name,
-            slab_ads_task_id=slab_ads_task_id)
+            slab_ads_task_id=slab_ads_task_id, bulk_converged=bulk_converged,
+            slab_converged=slab_converged, slabads_converged=slabads_converged)
         tasks.append(ads_an_t)
 
         super(AdsorptionAnalysisFW, self).__init__(tasks, parents=parents,

@@ -125,7 +125,7 @@ class GenerateSlabsTask(FiretaskBase):
     optional_params = ["bulk_energy", "adsorbates", "vasp_cmd", "db_file",
                        "handler_group", "slab_gen_params", "max_index",
                        "ads_site_finder_params", "ads_structures_params",
-                       "min_lw", "selective_dynamics", "slabgen_dir"]
+                       "min_lw", "selective_dynamics", "bulk_converged"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -151,7 +151,7 @@ class GenerateSlabsTask(FiretaskBase):
         ads_site_finder_params = self.get("ads_site_finder_params")
         ads_structures_params = self.get("ads_structures_params")
         selective_dynamics = self.get("selective_dynamics")
-        slabgen_dir = self.get("slabgen_dir")
+        bulk_converged = self.get("bulk_converged")
 
         slabs = generate_all_slabs(bulk_structure, max_index=max_index, **sgp)
 
@@ -171,7 +171,7 @@ class GenerateSlabsTask(FiretaskBase):
                                 ads_structures_params=ads_structures_params,
                                 min_lw=min_lw,
                                 selective_dynamics=selective_dynamics,
-                                slabgen_dir=slabgen_dir)
+                                bulk_converged=bulk_converged)
             slab_fws.append(slab_fw)
 
         return FWAction(additions=slab_fws)
@@ -215,7 +215,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                        "vasp_cmd", "db_file", "handler_group",
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "add_fw_name", "slab_name",
-                       "selective_dynamics"]
+                       "selective_dynamics", "bulk_converged", "slab_dir"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -234,6 +234,8 @@ class SlabAdsAdditionTask(FiretaskBase):
         add_fw_name = self.get("add_fw_name") or "slab + adsorbate generator"
         slab_name = self.get("slab_name")
         selective_dynamics = self.get("selective_dynamics")
+        bulk_converged = self.get("bulk_converged")
+        slab_dir = self.get("slab_dir")
 
         fw = af.SlabAdsGeneratorFW(
             slab_structure, slab_energy=slab_energy,
@@ -242,7 +244,8 @@ class SlabAdsAdditionTask(FiretaskBase):
             db_file=db_file, handler_group=handler_group,
             ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
-            slab_name=slab_name, selective_dynamics=selective_dynamics)
+            slab_name=slab_name, selective_dynamics=selective_dynamics,
+            bulk_converged=bulk_converged, slab_dir=slab_dir)
 
         return FWAction(additions=fw)
 
@@ -285,7 +288,8 @@ class GenerateSlabAdsTask(FiretaskBase):
     optional_params = ["slab_energy", "bulk_structure", "bulk_energy",
                        "vasp_cmd", "db_file", "handler_group",
                        "ads_site_finder_params", "ads_structures_params",
-                       "min_lw", "slab_name", "selective_dynamics"]
+                       "min_lw", "slab_name", "selective_dynamics",
+                       "bulk_converged", "slab_converged"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -302,6 +306,9 @@ class GenerateSlabAdsTask(FiretaskBase):
         ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params") or {}
         selective_dynamics = self.get("selective_dynamics")
+        bulk_converged = self.get("bulk_converged")
+        slab_converged = self.get("slab_converged")
+
         min_lw = self.get("min_lw")
         if "min_lw" not in ads_structures_params:
             if min_lw:
@@ -334,7 +341,8 @@ class GenerateSlabAdsTask(FiretaskBase):
                     bulk_energy=bulk_energy, adsorbate=adsorbate,
                     vasp_input_set=vis, vasp_cmd=vasp_cmd, db_file=db_file,
                     handler_group=handler_group, slab_name=slab_name,
-                    slab_ads_name=slab_ads_name)
+                    slab_ads_name=slab_ads_name, bulk_converged=bulk_converged,
+                    slab_converged=slab_converged)
 
                 slab_ads_fws.append(slab_ads_fw)
 
@@ -365,7 +373,8 @@ class AnalysisAdditionTask(FiretaskBase):
     required_params = []
     optional_params = ["slab_structure", "slab_energy", "bulk_structure",
                        "bulk_energy", "adsorbate", "analysis_fw_name",
-                       "db_file", "slab_name", "slab_ads_name"]
+                       "db_file", "slab_name", "slab_ads_name",
+                       "bulk_converged", "slab_converged", "slabads_dir"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -385,6 +394,9 @@ class AnalysisAdditionTask(FiretaskBase):
         db_file = self.get("db_file", None)
         slab_name = self.get("slab_name")
         slab_ads_name = self.get("slab_ads_name")
+        bulk_converged = self.get("bulk_converged")
+        slab_converged = self.get("slab_converged")
+        slabads_dir = self.get("slabads_dir")
 
         fw = af.AdsorptionAnalysisFW(
             slab_ads_structure=slab_ads_structure,
@@ -392,7 +404,9 @@ class AnalysisAdditionTask(FiretaskBase):
             slab_energy=slab_energy, bulk_structure=bulk_structure,
             bulk_energy=bulk_energy, adsorbate=adsorbate, db_file=db_file,
             name=analysis_fw_name, slab_name=slab_name,
-            slab_ads_name=slab_ads_name, slab_ads_task_id=slab_ads_task_id)
+            slab_ads_name=slab_ads_name, slab_ads_task_id=slab_ads_task_id,
+            bulk_converged=bulk_converged, slab_converged=slab_converged,
+            slabads_dir=slabads_dir)
 
         return FWAction(additions=fw)
 
@@ -427,7 +441,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
     optional_params = ["slab_ads_structure", "slab_ads_energy",
                        "slab_structure", "slab_energy", "bulk_structure",
                        "bulk_energy", "adsorbate", "db_file", "name",
-                       "slab_name", "slab_ads_name", "slab_ads_task_id"]
+                       "slab_name", "slab_ads_name", "slab_ads_task_id",
+                       "bulk_converged", "slab_converged", "slabads_converged"]
 
     def run_task(self, fw_spec):
         stored_data = {}
@@ -443,6 +458,9 @@ class AdsorptionAnalysisTask(FiretaskBase):
         slab_name = self.get("slab_name")
         slab_ads_name = self.get("slab_ads_name")
         slab_ads_task_id = self.get("slab_ads_task_id")
+        bulk_converged = self.get("bulk_converged")
+        slab_converged = self.get("slab_converged")
+        slabads_converged = self.get("slabads_converged")
 
         stored_data['task_name'] = task_name
         stored_data['bulk_formula'] = (bulk_structure.composition
@@ -451,10 +469,13 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                                     site in adsorbate.sites])
         stored_data['slab_name'] = slab_name
         stored_data['slab_ads_name'] = slab_ads_name
+        stored_data['bulk_converged'] = bulk_converged
         stored_data['output_bulk_structure'] = bulk_structure.as_dict()
         stored_data['output_bulk_energy'] = bulk_energy
+        stored_data['slab_converged'] = slab_converged
         stored_data['output_slab_structure'] = slab_structure.as_dict()
         stored_data['output_slab_energy'] = slab_energy
+        stored_data['slabads_converged'] = slabads_converged
         stored_data['output_slab_ads_structure'] = slab_ads_structure.as_dict()
         stored_data['output_slab_ads_energy'] = slab_ads_energy
         stored_data['input_adsorbate'] = adsorbate.as_dict()
