@@ -124,6 +124,8 @@ class SlabGeneratorFW(Firework):
                 non-surface sites in the slab + adsorbate structures
                 during relaxations
             parents ([Firework]): parents of this particular firework
+            bulk_dir (str): path for the corresponding bulk calculation
+                directory
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
         tasks = []
@@ -150,7 +152,7 @@ class SlabGeneratorFW(Firework):
             handler_group=handler_group, slab_gen_params=slab_gen_params,
             max_index=max_index, ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
-            selective_dynamics=selective_dynamics,
+            selective_dynamics=selective_dynamics, bulk_dir=bulk_dir,
             bulk_converged=bulk_converged)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
@@ -166,8 +168,8 @@ class SlabFW(Firework):
                  adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
                  handler_group="md", ads_site_finder_params=None,
                  ads_structures_params=None, min_lw=None,
-                 selective_dynamics=None, bulk_converged=None, parents=None,
-                 **kwargs):
+                 selective_dynamics=None, bulk_dir=None, bulk_converged=None,
+                 parents=None, **kwargs):
         """
         Optimize slab structure and add a slab + adsorbate generator
         firework as addition.
@@ -200,6 +202,8 @@ class SlabFW(Firework):
             selective_dynamics (bool): flag for whether to freeze
                 non-surface sites in the slab + adsorbate structures
                 during relaxations
+            bulk_converged (bool): whether the corresponding bulk
+                calculation converged or not
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: Other kwargs that are passed to
                 Firework.__init__.
@@ -237,7 +241,7 @@ class SlabFW(Firework):
             ads_structures_params=ads_structures_params, min_lw=min_lw,
             add_fw_name=add_fw_name, bulk_structure=bulk_structure,
             bulk_energy=bulk_energy, slab_name=slab_name,
-            selective_dynamics=selective_dynamics,
+            selective_dynamics=selective_dynamics, bulk_dir=bulk_dir,
             bulk_converged=bulk_converged, slab_dir=slab_dir))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
@@ -249,8 +253,8 @@ class SlabAdsGeneratorFW(Firework):
                  adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
                  handler_group="md", ads_site_finder_params=None,
                  ads_structures_params=None, min_lw=None,
-                 selective_dynamics=None, slab_name=None, bulk_converged=None,
-                 slab_dir=None, parents=None):
+                 selective_dynamics=None, slab_name=None, bulk_dir=None,
+                 bulk_converged=None, slab_dir=None, parents=None):
         """
         Generate slab + adsorbate structures from a slab structure and
         add the corresponding slab + adsorbate optimization fireworks as
@@ -282,6 +286,10 @@ class SlabAdsGeneratorFW(Firework):
                 during relaxations
             slab_name (str): name for the slab
                 (format: Formula_MillerIndex_Shift)
+            bulk_converged (bool): whether the corresponding bulk
+                calculation converged or not
+            slab_dir (str): path for the corresponding slab calculation
+                directory
             parents ([Firework]): parents of this particular firework
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
@@ -311,7 +319,8 @@ class SlabAdsGeneratorFW(Firework):
             ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
             slab_name=slab_name, selective_dynamics=selective_dynamics,
-            bulk_converged=bulk_converged, slab_converged=slab_converged)
+            bulk_dir=bulk_dir, bulk_converged=bulk_converged,
+            slab_dir=slab_dir, slab_converged=slab_converged)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
@@ -326,8 +335,8 @@ class SlabAdsFW(Firework):
                  slab_energy=None, bulk_structure=None, bulk_energy=None,
                  adsorbate=None, vasp_input_set=None, vasp_cmd=VASP_CMD,
                  db_file=DB_FILE, handler_group="md", slab_name=None,
-                 slab_ads_name=None, bulk_converged=None, slab_converged=None,
-                 parents=None, **kwargs):
+                 slab_ads_name=None, bulk_dir=None, bulk_converged=None,
+                 slab_dir=None, slab_converged=None, parents=None, **kwargs):
         """
         Optimize slab + adsorbate structure.
 
@@ -350,7 +359,12 @@ class SlabAdsFW(Firework):
             slab_name (str): name for the slab
                 (format: Formula_MillerIndex_Shift)
             slab_ads_name (str): name for the slab + adsorbate
-                (format: Formula_MillerIndex_Shift AdsorbateFormula Number)
+                (format: Formula_MillerIndex_Shift AdsorbateFormula
+                Number)
+            bulk_converged (bool): whether the corresponding bulk
+                calculation converged or not
+            slab_converged (bool): whether the corresponding slab
+                calculation converged or not
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: Other kwargs that are passed to
                 Firework.__init__.
@@ -387,7 +401,8 @@ class SlabAdsFW(Firework):
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
             adsorbate=adsorbate, analysis_fw_name=analysis_fw_name,
             db_file=db_file, slab_name=slab_name,
-            slab_ads_name=slab_ads_name, bulk_converged=bulk_converged,
+            slab_ads_name=slab_ads_name, bulk_dir=bulk_dir,
+            bulk_converged=bulk_converged, slab_dir=slab_dir,
             slab_converged=slab_converged, slabads_dir=slabads_dir))
 
         super(SlabAdsFW, self).__init__(t, parents=parents, name=name,
@@ -400,9 +415,9 @@ class AdsorptionAnalysisFW(Firework):
                  slab_structure=None, slab_energy=None, bulk_structure=None,
                  bulk_energy=None, adsorbate=None, db_file=DB_FILE,
                  name="adsorption analysis", slab_name=None,
-                 slab_ads_name=None, slab_ads_task_id=None,
-                 bulk_converged=None, slab_converged=None, slabads_dir=None,
-                 parents=None):
+                 slab_ads_name=None, slab_ads_task_id=None, bulk_dir=None,
+                 bulk_converged=None, slab_dir=None, slab_converged=None,
+                 slabads_dir=None, parents=None):
         """
         Analyze data from Adsorption workflow for a slab + adsorbate
         structure and save it to database.
@@ -423,9 +438,17 @@ class AdsorptionAnalysisFW(Firework):
             slab_name (str): name for the slab
                 (format: Formula_MillerIndex_Shift)
             slab_ads_name (str): name for the slab + adsorbate
-                (format: Formula_MillerIndex_Shift AdsorbateFormula Number)
+                (format: Formula_MillerIndex_Shift AdsorbateFormula
+                Number)
             slab_ads_task_id (int): the corresponding slab + adsorbate
                 optimization task id
+            bulk_converged (bool): whether the corresponding bulk
+                calculation converged or not
+            slab_converged (bool): whether the corresponding slab
+                calculation converged or not
+            slabads_dir (str): path for the corresponding slab
+                + adsorbate calculation directory
+            parents ([Firework]): parents of this particular firework
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
 
@@ -454,8 +477,10 @@ class AdsorptionAnalysisFW(Firework):
             slab_energy=slab_energy, bulk_structure=bulk_structure,
             bulk_energy=bulk_energy, adsorbate=adsorbate, db_file=db_file,
             name=name, slab_name=slab_name, slab_ads_name=slab_ads_name,
-            slab_ads_task_id=slab_ads_task_id, bulk_converged=bulk_converged,
-            slab_converged=slab_converged, slabads_converged=slabads_converged)
+            slab_ads_task_id=slab_ads_task_id, bulk_dir=bulk_dir,
+            bulk_converged=bulk_converged, slab_dir=slab_dir,
+            slab_converged=slab_converged, slabads_dir=slabads_dir,
+            slabads_converged=slabads_converged)
         tasks.append(ads_an_t)
 
         super(AdsorptionAnalysisFW, self).__init__(tasks, parents=parents,
