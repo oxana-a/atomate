@@ -129,6 +129,7 @@ class SlabGeneratorFW(Firework):
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
         tasks = []
+        bulk_converged = None
         if bulk_dir:
             try:
                 filename = 'vasprun.xml.gz'
@@ -143,8 +144,6 @@ class SlabGeneratorFW(Firework):
                     vrun = None
             if vrun:
                 bulk_converged = vrun.converged
-        else:
-            bulk_converged = None
 
         gen_slabs_t = at.GenerateSlabsTask(
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
