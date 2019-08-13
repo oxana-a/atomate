@@ -321,11 +321,11 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     return wfs
 
 
-def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
-                     db_file=DB_FILE, bulk_handler_group="default",
-                     slab_handler_group="md", max_index=1,
+def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=None,
+                     db_file=None, bulk_handler_group=None,
+                     slab_handler_group=None, max_index=None,
                      slab_gen_params=None, ads_site_finder_params=None,
-                     ads_structures_params=None, min_lw=10.0,
+                     ads_structures_params=None, min_lw=None,
                      selective_dynamics=True):
     """
     Dynamic workflow hat finds all adsorption configurations starting
@@ -362,10 +362,9 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
         Workflow
     """
     fws = []
-    vis = MPSurfaceSet(bulk_structure, bulk=True)
     name = bulk_structure.composition.reduced_formula + " bulk optimization"
-    bulk_fw = BulkFW(bulk_structure, name=name, vasp_input_set=vis,
-                     adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
+    bulk_fw = BulkFW(bulk_structure, name=name, adsorbates=adsorbates,
+                     vasp_cmd=vasp_cmd, db_file=db_file,
                      bulk_handler_group=bulk_handler_group,
                      slab_handler_group=slab_handler_group,
                      slab_gen_params=slab_gen_params, max_index=max_index,

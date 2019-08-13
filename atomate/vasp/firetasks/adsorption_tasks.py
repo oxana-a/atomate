@@ -10,6 +10,7 @@ from monty.json import jsanitize
 import numpy as np
 from itertools import combinations
 from atomate.utils.utils import get_logger, env_chk
+from atomate.vasp.config import DB_FILE
 from atomate.vasp.database import VaspCalcDb
 from fireworks.core.firework import FiretaskBase, FWAction
 from fireworks.utilities.fw_serializers import DATETIME_HANDLER
@@ -237,9 +238,9 @@ class SlabAdsAdditionTask(FiretaskBase):
         bulk_structure = self.get("bulk_structure")
         bulk_energy = self.get("bulk_energy")
         adsorbates = self.get("adsorbates")
-        vasp_cmd = self.get("vasp_cmd", "vasp")
-        db_file = self.get("db_file", None)
-        handler_group = self.get("handler_group", "md")
+        vasp_cmd = self.get("vasp_cmd")
+        db_file = self.get("db_file")
+        handler_group = self.get("handler_group")
         ads_site_finder_params = self.get("ads_site_finder_params")
         ads_structures_params = self.get("ads_structures_params")
         min_lw = self.get("min_lw")
@@ -319,9 +320,9 @@ class GenerateSlabAdsTask(FiretaskBase):
         bulk_structure = self.get("bulk_structure")
         bulk_energy = self.get("bulk_energy")
         adsorbates = self.get("adsorbates")
-        vasp_cmd = self.get("vasp_cmd", "vasp")
+        vasp_cmd = self.get("vasp_cmd")
         db_file = self.get("db_file")
-        handler_group = self.get("handler_group", "md")
+        handler_group = self.get("handler_group")
         ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params") or {}
         selective_dynamics = self.get("selective_dynamics")
@@ -420,7 +421,7 @@ class AnalysisAdditionTask(FiretaskBase):
         analysis_fw_name = self.get("analysis_fw_name") or (
                 slab_ads_structure.composition.reduced_formula
                 + " adsorption analysis")
-        db_file = self.get("db_file", None)
+        db_file = self.get("db_file")
         slab_name = self.get("slab_name")
         slab_ads_name = self.get("slab_ads_name")
         bulk_dir = self.get("bulk_dir")
@@ -492,7 +493,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         bulk_structure = self.get("bulk_structure")
         bulk_energy = self.get("bulk_energy")
         adsorbate = self.get("adsorbate")
-        db_file = self.get("db_file")
+        db_file = self.get("db_file") or DB_FILE
         task_name = self.get("name")
         slab_name = self.get("slab_name")
         slab_ads_name = self.get("slab_ads_name")

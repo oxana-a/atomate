@@ -18,9 +18,9 @@ from pymatgen.io.vasp.sets import MPSurfaceSet
 class BulkFW(Firework):
 
     def __init__(self, bulk_structure, name="bulk optimization",
-                 vasp_input_set=None, adsorbates=None, vasp_cmd=VASP_CMD,
-                 db_file=DB_FILE, bulk_handler_group="default",
-                 slab_handler_group="md", slab_gen_params=None, max_index=1,
+                 vasp_input_set=None, adsorbates=None, vasp_cmd=None,
+                 db_file=None, bulk_handler_group=None,
+                 slab_handler_group=None, slab_gen_params=None, max_index=None,
                  ads_site_finder_params=None, ads_structures_params=None,
                  min_lw=None, selective_dynamics=None, parents=None, **kwargs):
         """
@@ -42,7 +42,7 @@ class BulkFW(Firework):
                 (default: "default")
             slab_handler_group (str or [ErrorHandler]): custodian
                 handler group for slab and slab + adsorbate
-                optimizations (default: "md")
+                optimizations
             slab_gen_params (dict): dictionary of kwargs for
                 generate_all_slabs
             max_index (int): max miller index for generate_all_slabs
@@ -63,9 +63,12 @@ class BulkFW(Firework):
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
         vis = vasp_input_set or MPSurfaceSet(bulk_structure, bulk=True)
-        vasptodb_kwargs = {'task_fields_to_push':
-                               {'bulk_structure': 'output.structure',
-                                'bulk_energy': 'output.energy'}}
+        vasp_cmd = vasp_cmd or VASP_CMD
+        db_file = db_file or DB_FILE
+        bulk_handler_group = bulk_handler_group or "default"
+        vasptodb_kwargs = {
+            'task_fields_to_push': {'bulk_structure': 'output.structure',
+                                    'bulk_energy': 'output.energy'}}
         bulk_fw = OptimizeFW(structure=bulk_structure, name=name,
                              vasp_input_set=vis, vasp_cmd=vasp_cmd,
                              db_file=db_file, job_type="normal",
@@ -89,8 +92,8 @@ class BulkFW(Firework):
 class SlabGeneratorFW(Firework):
 
     def __init__(self, bulk_structure, name="slab generator", bulk_energy=None,
-                 adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
-                 handler_group="md", slab_gen_params=None, max_index=1,
+                 adsorbates=None, vasp_cmd=None, db_file=None,
+                 handler_group=None, slab_gen_params=None, max_index=None,
                  ads_site_finder_params=None, ads_structures_params=None,
                  min_lw=None, selective_dynamics=None, bulk_dir=None,
                  parents=None):
@@ -108,7 +111,7 @@ class SlabGeneratorFW(Firework):
             vasp_cmd (str): vasp command
             db_file (str): path to database file
             handler_group (str or [ErrorHandler]): custodian handler
-                group for slab optimizations (default: "md")
+                group for slab optimizations
             slab_gen_params (dict): dictionary of kwargs for
                 generate_all_slabs
             max_index (int): max miller index for generate_all_slabs
@@ -164,8 +167,8 @@ class SlabFW(Firework):
 
     def __init__(self, slab_structure, name="slab optimization",
                  bulk_structure=None, bulk_energy=None, vasp_input_set=None,
-                 adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
-                 handler_group="md", ads_site_finder_params=None,
+                 adsorbates=None, vasp_cmd=None, db_file=None,
+                 handler_group=None, ads_site_finder_params=None,
                  ads_structures_params=None, min_lw=None,
                  selective_dynamics=None, bulk_dir=None, bulk_converged=None,
                  parents=None, **kwargs):
@@ -208,6 +211,10 @@ class SlabFW(Firework):
                 Firework.__init__.
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
+
+        vasp_cmd = vasp_cmd or VASP_CMD
+        db_file = db_file or DB_FILE
+        handler_group = handler_group or "md"
         vis = vasp_input_set or MPSurfaceSet(slab_structure, bulk=False)
         vasptodb_kwargs = {
             'task_fields_to_push': {'slab_structure': 'output.structure',
@@ -249,8 +256,8 @@ class SlabAdsGeneratorFW(Firework):
 
     def __init__(self, slab_structure, name="slab + adsorbate generator",
                  slab_energy=None, bulk_structure=None, bulk_energy=None,
-                 adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
-                 handler_group="md", ads_site_finder_params=None,
+                 adsorbates=None, vasp_cmd=None, db_file=None,
+                 handler_group=None, ads_site_finder_params=None,
                  ads_structures_params=None, min_lw=None,
                  selective_dynamics=None, slab_name=None, bulk_dir=None,
                  bulk_converged=None, slab_dir=None, parents=None):
@@ -271,7 +278,7 @@ class SlabAdsGeneratorFW(Firework):
             vasp_cmd (str): vasp command
             db_file (str): path to database file
             handler_group (str or [ErrorHandler]): custodian handler
-                group for slab + adsorbate optimizations (default: "md")
+                group for slab + adsorbate optimizations
             ads_site_finder_params (dict): parameters to be supplied as
                 kwargs to AdsorbateSiteFinder
             ads_structures_params (dict): dictionary of kwargs for
@@ -332,8 +339,8 @@ class SlabAdsFW(Firework):
     def __init__(self, slab_ads_structure,
                  name="slab + adsorbate optimization", slab_structure=None,
                  slab_energy=None, bulk_structure=None, bulk_energy=None,
-                 adsorbate=None, vasp_input_set=None, vasp_cmd=VASP_CMD,
-                 db_file=DB_FILE, handler_group="md", slab_name=None,
+                 adsorbate=None, vasp_input_set=None, vasp_cmd=None,
+                 db_file=None, handler_group=None, slab_name=None,
                  slab_ads_name=None, bulk_dir=None, bulk_converged=None,
                  slab_dir=None, slab_converged=None, parents=None, **kwargs):
         """
@@ -369,6 +376,10 @@ class SlabAdsFW(Firework):
                 Firework.__init__.
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
+
+        vasp_cmd = vasp_cmd or VASP_CMD
+        db_file = db_file or DB_FILE
+        handler_group = handler_group or "md"
         vis = vasp_input_set or MPSurfaceSet(slab_ads_structure, bulk=False)
         vasptodb_kwargs = {
             'task_fields_to_push': {'slab_ads_structure': 'output.structure',
@@ -412,7 +423,7 @@ class AdsorptionAnalysisFW(Firework):
 
     def __init__(self, slab_ads_structure=None, slab_ads_energy=None,
                  slab_structure=None, slab_energy=None, bulk_structure=None,
-                 bulk_energy=None, adsorbate=None, db_file=DB_FILE,
+                 bulk_energy=None, adsorbate=None, db_file=None,
                  name="adsorption analysis", slab_name=None,
                  slab_ads_name=None, slab_ads_task_id=None, bulk_dir=None,
                  bulk_converged=None, slab_dir=None, slab_converged=None,
