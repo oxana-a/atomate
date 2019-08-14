@@ -70,7 +70,7 @@ class SlabAdditionTask(FiretaskBase):
         bulk_energy = fw_spec["bulk_energy"]
         calc_locs = fw_spec["calc_locs"]
         if calc_locs:
-            bulk_dir = calc_locs[0].get("path")
+            bulk_dir = calc_locs[-1].get("path")
         else:
             bulk_dir = self.get("bulk_dir")
         adsorbates = self.get("adsorbates")
@@ -241,7 +241,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         slab_energy = fw_spec["slab_energy"]
         calc_locs = fw_spec["calc_locs"]
         if calc_locs:
-            slab_dir = calc_locs[0].get("path")
+            slab_dir = calc_locs[-1].get("path")
         else:
             slab_dir = self.get("slab_dir")
         bulk_structure = self.get("bulk_structure")
@@ -422,7 +422,7 @@ class AnalysisAdditionTask(FiretaskBase):
         slab_ads_task_id = fw_spec["slab_ads_task_id"]
         calc_locs = fw_spec["calc_locs"]
         if calc_locs:
-            slabads_dir = calc_locs[0].get("path")
+            slabads_dir = calc_locs[-1].get("path")
         else:
             slabads_dir = self.get("slabads_dir")
         slab_structure = self.get("slab_structure")
