@@ -237,7 +237,6 @@ class SlabFW(Firework):
                                           ads.sites])
         add_fw_name += " slab + adsorbate generator"
 
-        slab_dir = os.getcwd()
         t.append(at.SlabAdsAdditionTask(
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
             handler_group=handler_group,
@@ -246,7 +245,7 @@ class SlabFW(Firework):
             add_fw_name=add_fw_name, bulk_structure=bulk_structure,
             bulk_energy=bulk_energy, slab_name=slab_name,
             selective_dynamics=selective_dynamics, bulk_dir=bulk_dir,
-            bulk_converged=bulk_converged, slab_dir=slab_dir))
+            bulk_converged=bulk_converged))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -368,7 +367,7 @@ class SlabAdsFW(Firework):
             bulk_converged (bool): whether the corresponding bulk
                 calculation converged or not
             slab_converged (bool): whether the corresponding slab
-                calculation converged or not
+cod                calculation converged or not
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: Other kwargs that are passed to
                 Firework.__init__.
@@ -403,7 +402,6 @@ class SlabAdsFW(Firework):
             analysis_fw_name = (slab_name + " " + ads_name
                                 + " adsorption analysis")
 
-        slabads_dir = os.getcwd()
         t.append(at.AnalysisAdditionTask(
             slab_structure=slab_structure, slab_energy=slab_energy,
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
@@ -411,7 +409,7 @@ class SlabAdsFW(Firework):
             db_file=db_file, slab_name=slab_name,
             slab_ads_name=slab_ads_name, bulk_dir=bulk_dir,
             bulk_converged=bulk_converged, slab_dir=slab_dir,
-            slab_converged=slab_converged, slabads_dir=slabads_dir))
+            slab_converged=slab_converged))
 
         super(SlabAdsFW, self).__init__(t, parents=parents, name=name,
                                         **kwargs)

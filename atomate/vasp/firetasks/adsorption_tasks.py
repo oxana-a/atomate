@@ -68,8 +68,11 @@ class SlabAdditionTask(FiretaskBase):
 
         bulk_structure = fw_spec["bulk_structure"]
         bulk_energy = fw_spec["bulk_energy"]
-        calc_locs = fw_spec["calc_locs"] or []
-        bulk_dir = calc_locs[0].get("path")
+        calc_locs = fw_spec["calc_locs"]
+        if calc_locs:
+            bulk_dir = calc_locs[0].get("path")
+        else:
+            bulk_dir = self.get("bulk_dir")
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd")
         db_file = self.get("db_file")
@@ -236,6 +239,11 @@ class SlabAdsAdditionTask(FiretaskBase):
 
         slab_structure = fw_spec["slab_structure"]
         slab_energy = fw_spec["slab_energy"]
+        calc_locs = fw_spec["calc_locs"]
+        if calc_locs:
+            slab_dir = calc_locs[0].get("path")
+        else:
+            slab_dir = self.get("slab_dir")
         bulk_structure = self.get("bulk_structure")
         bulk_energy = self.get("bulk_energy")
         adsorbates = self.get("adsorbates")
@@ -250,7 +258,6 @@ class SlabAdsAdditionTask(FiretaskBase):
         selective_dynamics = self.get("selective_dynamics")
         bulk_dir = self.get("bulk_dir")
         bulk_converged = self.get("bulk_converged")
-        slab_dir = self.get("slab_dir")
 
         fw = af.SlabAdsGeneratorFW(
             slab_structure, slab_energy=slab_energy,
@@ -413,7 +420,11 @@ class AnalysisAdditionTask(FiretaskBase):
         slab_ads_structure = fw_spec["slab_ads_structure"]
         slab_ads_energy = fw_spec["slab_ads_energy"]
         slab_ads_task_id = fw_spec["slab_ads_task_id"]
-
+        calc_locs = fw_spec["calc_locs"]
+        if calc_locs:
+            slabads_dir = calc_locs[0].get("path")
+        else:
+            slabads_dir = self.get("slabads_dir")
         slab_structure = self.get("slab_structure")
         slab_energy = self.get("slab_energy")
         bulk_structure = self.get("bulk_structure")
@@ -429,7 +440,6 @@ class AnalysisAdditionTask(FiretaskBase):
         bulk_converged = self.get("bulk_converged")
         slab_dir = self.get("slab_dir")
         slab_converged = self.get("slab_converged")
-        slabads_dir = self.get("slabads_dir")
 
         fw = af.AdsorptionAnalysisFW(
             slab_ads_structure=slab_ads_structure,
