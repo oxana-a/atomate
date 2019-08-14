@@ -68,6 +68,8 @@ class SlabAdditionTask(FiretaskBase):
 
         bulk_structure = fw_spec["bulk_structure"]
         bulk_energy = fw_spec["bulk_energy"]
+        calc_locs = fw_spec["calc_locs"]
+        bulk_dir = calc_locs.get("path")
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd")
         db_file = self.get("db_file")
@@ -79,7 +81,6 @@ class SlabAdditionTask(FiretaskBase):
         min_lw = self.get("min_lw")
         add_fw_name = self.get("add_fw_name") or "slab generator"
         selective_dynamics = self.get("selective_dynamics")
-        bulk_dir = self.get("bulk_dir")
 
         fw = af.SlabGeneratorFW(
             bulk_structure, name=add_fw_name, bulk_energy=bulk_energy,

@@ -78,14 +78,12 @@ class BulkFW(Firework):
 
         add_fw_name = (bulk_structure.composition.reduced_formula
                        + " slab generator")
-        bulk_dir = os.getcwd()
         t.append(at.SlabAdditionTask(
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
             handler_group=slab_handler_group, slab_gen_params=slab_gen_params,
             max_index=max_index, ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
-            add_fw_name=add_fw_name, selective_dynamics=selective_dynamics,
-            bulk_dir=bulk_dir))
+            add_fw_name=add_fw_name, selective_dynamics=selective_dynamics))
         super(BulkFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
