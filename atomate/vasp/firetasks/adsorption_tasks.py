@@ -68,8 +68,8 @@ class SlabAdditionTask(FiretaskBase):
 
         bulk_structure = fw_spec["bulk_structure"]
         bulk_energy = fw_spec["bulk_energy"]
-        calc_locs = fw_spec["calc_locs"]
-        bulk_dir = calc_locs.get("path")
+        calc_locs = fw_spec["calc_locs"] or []
+        bulk_dir = calc_locs[0].get("path")
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd")
         db_file = self.get("db_file")
