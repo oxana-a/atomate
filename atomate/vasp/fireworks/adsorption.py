@@ -52,8 +52,7 @@ class BulkFW(Firework):
                 generate_adsorption_structures in AdsorptionSiteFinder
             min_lw (float): minimum length/width for slab and
                 slab + adsorbate structures (overridden by
-                slab_gen_params and ads_structures_params if they
-                contain min_slab_size and min_lw, respectively)
+                ads_structures_params if it already contains min_lw)
             selective_dynamics (bool): flag for whether to freeze
                 non-surface sites in the slab + adsorbate structures
                 during relaxations
@@ -119,8 +118,7 @@ class SlabGeneratorFW(Firework):
                 generate_adsorption_structures in AdsorptionSiteFinder
             min_lw (float): minimum length/width for slab and
                 slab + adsorbate structures (overridden by
-                slab_gen_params and ads_structures_params if they
-                contain min_slab_size and min_lw, respectively)
+                ads_structures_params if it already contains min_lw)
             selective_dynamics (bool): flag for whether to freeze
                 non-surface sites in the slab + adsorbate structures
                 during relaxations
@@ -195,10 +193,9 @@ class SlabFW(Firework):
                 kwargs to AdsorbateSiteFinder
             ads_structures_params (dict): dictionary of kwargs for
                 generate_adsorption_structures in AdsorptionSiteFinder
-            min_lw (float): minimum length/width for slab and
-                slab + adsorbate structures (overridden by
-                slab_gen_params and ads_structures_params if they
-                contain min_slab_size and min_lw, respectively)
+            min_lw (float): minimum length/width for slab + adsorbate
+                structures (overridden by ads_structures_params if it
+                already contains min_lw)
             selective_dynamics (bool): flag for whether to freeze
                 non-surface sites in the slab + adsorbate structures
                 during relaxations
@@ -280,10 +277,9 @@ class SlabAdsGeneratorFW(Firework):
                 kwargs to AdsorbateSiteFinder
             ads_structures_params (dict): dictionary of kwargs for
                 generate_adsorption_structures in AdsorptionSiteFinder
-            min_lw (float): minimum length/width for slab and
-                slab + adsorbate structures (overridden by
-                slab_gen_params and ads_structures_params if they
-                contain min_slab_size and min_lw, respectively)
+            min_lw (float): minimum length/width for slab + adsorbate
+                structures (overridden by ads_structures_params if it
+                already contains min_lw)
             selective_dynamics (bool): flag for whether to freeze
                 non-surface sites in the slab + adsorbate structures
                 during relaxations

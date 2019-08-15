@@ -10,7 +10,6 @@ import numpy as np
 
 from fireworks import Workflow
 
-from atomate.vasp.config import VASP_CMD, DB_FILE
 from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW
 from atomate.utils.utils import get_meta_from_structure
 from atomate.vasp.fireworks.adsorption import BulkFW
@@ -351,9 +350,8 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=None,
         ads_structures_params (dict): dictionary of kwargs for
             generate_adsorption_structures in AdsorptionSiteFinder
         min_lw (float): minimum length/width for slab and
-            slab + adsorbate structures (overridden by slab_gen_params
-            and ads_structures_params if they contain min_slab_size and
-            min_lw, respectively)
+            slab + adsorbate structures (overridden by
+            ads_structures_params if it already contains min_lw)
         selective_dynamics (bool): flag for whether to freeze
             non-surface sites in the slab + adsorbate structures during
             relaxations

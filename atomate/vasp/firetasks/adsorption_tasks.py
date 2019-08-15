@@ -46,9 +46,8 @@ class SlabAdditionTask(FiretaskBase):
         ads_structures_params (dict): dictionary of kwargs for
             generate_adsorption_structures in AdsorptionSiteFinder
         min_lw (float): minimum length/width for slab and
-            slab + adsorbate structures (overridden by slab_gen_params
-            and ads_structures_params if they contain min_slab_size and
-            min_lw, respectively)
+            slab + adsorbate structures (overridden by
+            ads_structures_params if it already contains min_lw)
         add_fw_name (str): name for the SlabGeneratorFW to be added
         selective_dynamics (bool): flag for whether to freeze
             non-surface sites in the slab + adsorbate structures during
@@ -120,9 +119,8 @@ class GenerateSlabsTask(FiretaskBase):
         ads_structures_params (dict): dictionary of kwargs for
             generate_adsorption_structures in AdsorptionSiteFinder
         min_lw (float): minimum length/width for slab and
-            slab + adsorbate structures (overridden by slab_gen_params
-            and ads_structures_params if they contain min_slab_size and
-            min_lw, respectively)
+            slab + adsorbate structures (overridden by
+            ads_structures_params if it already contains min_lw)
         selective_dynamics (bool): flag for whether to freeze
             non-surface sites in the slab + adsorbate structures during
             relaxations
@@ -148,13 +146,11 @@ class GenerateSlabsTask(FiretaskBase):
         db_file = self.get("db_file")
         handler_group = self.get("handler_group")
         sgp = self.get("slab_gen_params") or {}
-        min_lw = self.get("min_lw")
+        min_lw = self.get("min_lw") or 10.0
+
         # TODO: these could be more well-thought out defaults
         if "min_slab_size" not in sgp:
-            if min_lw:
-                sgp["min_slab_size"] = min_lw
-            else:
-                sgp["min_slab_size"] = 10.0
+            sgp["min_slab_size"] = 7.0
         if "min_vacuum_size" not in sgp:
             sgp["min_vacuum_size"] = 20.0
         max_index = self.get("max_index") or 1
@@ -167,6 +163,12 @@ class GenerateSlabsTask(FiretaskBase):
         slabs = generate_all_slabs(bulk_structure, max_index=max_index, **sgp)
 
         for slab in slabs:
+            xrep = np.ceil(
+                min_lw / np.linalg.norm(self.slab.lattice.matrix[0]))
+            yrep = np.ceil(
+                min_lw / np.linalg.norm(self.slab.lattice.matrix[1]))
+            repeat = [xrep, yrep, 1]
+            slab.make_supercell(repeat)
             name = slab.composition.reduced_formula
             if getattr(slab, "miller_index", None):
                 name += "_{}".format(slab.miller_index)
@@ -211,10 +213,9 @@ class SlabAdsAdditionTask(FiretaskBase):
             kwargs to AdsorbateSiteFinder
         ads_structures_params (dict): dictionary of kwargs for
             generate_adsorption_structures in AdsorptionSiteFinder
-        min_lw (float): minimum length/width for slab and
-            slab + adsorbate structures (overridden by slab_gen_params
-            and ads_structures_params if they contain min_slab_size and
-            min_lw, respectively)
+        min_lw (float): minimum length/width for slab + adsorbate
+            structures (overridden by ads_structures_params if it
+            already contains min_lw)
         add_fw_name (str): name for the SlabAdsGeneratorFW to be added
         slab_name (str): name for the slab
             (format: Formula_MillerIndex_Shift)
@@ -296,10 +297,9 @@ class GenerateSlabAdsTask(FiretaskBase):
             kwargs to AdsorbateSiteFinder
         ads_structures_params (dict): dictionary of kwargs for
             generate_adsorption_structures in AdsorptionSiteFinder
-        min_lw (float): minimum length/width for slab and
-            slab + adsorbate structures (overridden by slab_gen_params
-            and ads_structures_params if they contain min_slab_size and
-            min_lw, respectively)
+        min_lw (float): minimum length/width for slab + adsorbate
+            structures (overridden by ads_structures_params if it
+            already contains min_lw)
         slab_name (str): name for the slab
             (format: Formula_MillerIndex_Shift)
         selective_dynamics (bool): flag for whether to freeze
@@ -333,18 +333,15 @@ class GenerateSlabAdsTask(FiretaskBase):
         handler_group = self.get("handler_group")
         ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params") or {}
+        min_lw = self.get("min_lw") or 10.0
         selective_dynamics = self.get("selective_dynamics")
         bulk_dir = self.get("bulk_dir")
         bulk_converged = self.get("bulk_converged")
         slab_dir = self.get("slab_dir")
         slab_converged = self.get("slab_converged")
 
-        min_lw = self.get("min_lw")
         if "min_lw" not in ads_structures_params:
-            if min_lw:
-                ads_structures_params["min_lw"] = min_lw
-            else:
-                ads_structures_params["min_lw"] = 10.0
+            ads_structures_params["min_lw"] = min_lw
         if ("selective_dynamics" not in ads_site_finder_params
                 and selective_dynamics):
             ads_site_finder_params["selective_dynamics"] = selective_dynamics
