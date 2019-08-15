@@ -164,9 +164,9 @@ class GenerateSlabsTask(FiretaskBase):
 
         for slab in slabs:
             xrep = np.ceil(
-                min_lw / np.linalg.norm(self.slab.lattice.matrix[0]))
+                min_lw / np.linalg.norm(slab.lattice.matrix[0]))
             yrep = np.ceil(
-                min_lw / np.linalg.norm(self.slab.lattice.matrix[1]))
+                min_lw / np.linalg.norm(slab.lattice.matrix[1]))
             repeat = [xrep, yrep, 1]
             slab.make_supercell(repeat)
             name = slab.composition.reduced_formula
