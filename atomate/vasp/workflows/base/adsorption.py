@@ -34,7 +34,7 @@ __email__ = 'montoyjh@lbl.gov'
 
 def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, vasp_cmd = None, slab_gen_params = None, 
     max_index = 1, ads_finder_params = None, ads_structures_params = None, dos_slab=True, dos_molecule=True, relax_molecule=True,
-    optimize_distance=True):
+    optimize_distance=True, dos_compare = True):
     """
     Returns an adsorption workflow for a structure and list of adsorbates
 
