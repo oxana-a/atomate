@@ -83,9 +83,11 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
     sgp = slab_gen_params or {"min_slab_size": 10, "min_vacuum_size": 5}
     
     #Kpoints for static - need to have same density of points to compare CHGCAR
-    mesh = np.array(MPStaticSet(structure).kpoints.kpts) #need more density than bulk
-    mesh[0][2] = 1 #c axis can be set to 1, don't need as much density
-    kp_static = Kpoints.monkhorst_automatic(kpts=mesh[0]) #create kpoints for static calculations
+    kp_static=None
+    if dos_compare:
+        mesh = np.array(MPStaticSet(structure).kpoints.kpts) #need more density than bulk
+        mesh[0][2] = 1 #c axis can be set to 1, don't need as much density
+        kp_static = Kpoints.monkhorst_automatic(kpts=mesh[0]) #create kpoints for static calculations
 
     #For all adsorbates passed in
     idx_to_fw_id = dict()
@@ -127,7 +129,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
 
                         #Get DOS for just adsorbate, for later CHGCAR analysis
                         if dos_molecule:
-                            vis = MPStaticSet(ads_slab,user_incar_settings={"LELF":True, 
+                            vis = MPStaticSet(remove_everything_but_adsorbates(ads_slab),user_incar_settings={"LELF":True, 
                                                                         "LORBIT":11,
                                                                         "ALGO":"Fast",
                                                                         "ISMEAR":1,
