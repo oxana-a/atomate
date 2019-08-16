@@ -70,7 +70,7 @@ class BulkFW(Firework):
                                     'bulk_energy': 'output.energy'}}
         bulk_fw = OptimizeFW(structure=bulk_structure, name=name,
                              vasp_input_set=vis, vasp_cmd=vasp_cmd,
-                             db_file=db_file, job_type="normal",
+                             db_file=db_file, job_type="double_relaxation_run",
                              handler_group=bulk_handler_group,
                              vasptodb_kwargs=vasptodb_kwargs)
         t = bulk_fw.tasks
@@ -218,7 +218,7 @@ class SlabFW(Firework):
                                     'bulk_energy': bulk_energy}}
         slab_fw = OptimizeFW(structure=slab_structure, name=name,
                              vasp_input_set=vis, vasp_cmd=vasp_cmd,
-                             db_file=db_file, job_type="normal",
+                             db_file=db_file, job_type="double_relaxation_run",
                              handler_group=handler_group,
                              vasptodb_kwargs=vasptodb_kwargs)
         t = slab_fw.tasks
@@ -385,7 +385,8 @@ cod                calculation converged or not
                                     'slab_ads_task_id': 'task_id'}}
         slab_ads_fw = OptimizeFW(structure=slab_ads_structure, name=name,
                                  vasp_input_set=vis, vasp_cmd=vasp_cmd,
-                                 db_file=db_file, job_type="normal",
+                                 db_file=db_file,
+                                 job_type="double_relaxation_run",
                                  handler_group=handler_group,
                                  vasptodb_kwargs=vasptodb_kwargs)
         t = slab_ads_fw.tasks
