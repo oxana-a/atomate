@@ -17,7 +17,7 @@ from fireworks.utilities.fw_serializers import DATETIME_HANDLER
 from fireworks.utilities.fw_utilities import explicit_serialize
 from pymatgen import Structure
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
-from pymatgen.core.surface import generate_all_slabs
+from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.io.vasp.sets import MPSurfaceSet
 
 logger = get_logger(__name__)
@@ -161,8 +161,37 @@ class GenerateSlabsTask(FiretaskBase):
         bulk_converged = self.get("bulk_converged")
 
         slabs = generate_all_slabs(bulk_structure, max_index=max_index, **sgp)
+        all_slabs = slabs.copy()
 
         for slab in slabs:
+            if not slab.have_equivalent_surfaces():
+                # If the two terminations are not equivalent, make new slab
+                # by inverting the original slab and add it to the list
+                coords = slab.frac_coords
+                max_c = max([x[-1] for x in coords])
+                min_c = min([x[-1] for x in coords])
+
+                new_coords = np.array([[x[0], x[1], max_c + min_c - x[2]]
+                                       for x in coords])
+
+                oriented_cell = slab.oriented_unit_cell
+                max_oc = max([x[-1] for x in oriented_cell.frac_coords])
+                min_oc = min([x[-1] for x in oriented_cell.frac_coords])
+                new_ocoords = np.array([[x[0], x[1], max_oc + min_oc - x[2]]
+                                        for x in oriented_cell.frac_coords])
+                new_ocell = Structure(oriented_cell.lattice,
+                                      oriented_cell.species_and_occu,
+                                      new_ocoords)
+
+                new_slab = Slab(slab.lattice, species=slab.species_and_occu,
+                                coords=new_coords,
+                                miller_index=slab.miller_index,
+                                oriented_unit_cell=new_ocell,
+                                shift=-slab.shift,
+                                scale_factor=slab.scale_factor)
+                all_slabs.append(new_slab)
+
+        for slab in all_slabs:
             xrep = np.ceil(
                 min_lw / np.linalg.norm(slab.lattice.matrix[0]))
             yrep = np.ceil(
@@ -542,9 +571,9 @@ class AdsorptionAnalysisTask(FiretaskBase):
         area = np.linalg.norm(np.cross(slab_structure.lattice.matrix[0],
                                        slab_structure.lattice.matrix[1]))
         bulk_en_per_atom = bulk_energy/bulk_structure.num_sites
-        surface_energy = (slab_energy - bulk_en_per_atom * slab_structure
-                          .num_sites) / (2*area)
-        stored_data['surface_energy'] = surface_energy  # eV/A^2
+        cleavage_energy = (slab_energy - bulk_en_per_atom * slab_structure
+                           .num_sites) / (2*area)
+        stored_data['cleavage_energy'] = cleavage_energy  # eV/A^2
 
         ads_sites = slab_ads_structure.sites[-adsorbate.num_sites:]
 
