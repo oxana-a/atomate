@@ -214,7 +214,9 @@ class GenerateSlabsTask(FiretaskBase):
                                 min_lw=min_lw,
                                 selective_dynamics=selective_dynamics,
                                 bulk_dir=bulk_dir,
-                                bulk_converged=bulk_converged)
+                                bulk_converged=bulk_converged,
+                                miller_index=slab.miller_index,
+                                shift=slab.shift)
             slab_fws.append(slab_fw)
 
         return FWAction(additions=slab_fws)
@@ -255,6 +257,10 @@ class SlabAdsAdditionTask(FiretaskBase):
             calculation converged or not
         slab_dir (str): path for the corresponding slab calculation
             directory
+        miller_index ([h, k, l]): Miller index of plane parallel to
+            the slab surface
+        shift (float): the shift in the c-direction applied to get
+            the termination for the slab surface
     """
     required_params = []
     optional_params = ["bulk_structure", "bulk_energy", "adsorbates",
@@ -262,7 +268,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "add_fw_name", "slab_name",
                        "selective_dynamics", "bulk_dir", "bulk_converged",
-                       "slab_dir"]
+                       "slab_dir", "miller_index", "shift"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -288,6 +294,8 @@ class SlabAdsAdditionTask(FiretaskBase):
         selective_dynamics = self.get("selective_dynamics")
         bulk_dir = self.get("bulk_dir")
         bulk_converged = self.get("bulk_converged")
+        miller_index = self.get("miller_index")
+        shift = self.get("shift")
 
         fw = af.SlabAdsGeneratorFW(
             slab_structure, slab_energy=slab_energy,
@@ -298,7 +306,7 @@ class SlabAdsAdditionTask(FiretaskBase):
             ads_structures_params=ads_structures_params, min_lw=min_lw,
             slab_name=slab_name, selective_dynamics=selective_dynamics,
             bulk_dir=bulk_dir, bulk_converged=bulk_converged,
-            slab_dir=slab_dir)
+            slab_dir=slab_dir, miller_index=miller_index, shift=shift)
 
         return FWAction(additions=fw)
 
@@ -338,6 +346,10 @@ class GenerateSlabAdsTask(FiretaskBase):
             calculation converged or not
         slab_converged (bool): whether the corresponding slab
             calculation converged or not
+        miller_index ([h, k, l]): Miller index of plane parallel to
+            the slab surface
+        shift (float): the shift in the c-direction applied to get
+            the termination for the slab surface
     """
 
     required_params = ["slab_structure", "adsorbates"]
@@ -346,7 +358,7 @@ class GenerateSlabAdsTask(FiretaskBase):
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "slab_name", "selective_dynamics",
                        "bulk_dir", "bulk_converged", "slab_dir",
-                       "slab_converged"]
+                       "slab_converged", "miller_index", "shift"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -368,6 +380,8 @@ class GenerateSlabAdsTask(FiretaskBase):
         bulk_converged = self.get("bulk_converged")
         slab_dir = self.get("slab_dir")
         slab_converged = self.get("slab_converged")
+        miller_index = self.get("miller_index")
+        shift = self.get("shift")
 
         if "min_lw" not in ads_structures_params:
             ads_structures_params["min_lw"] = min_lw
@@ -399,7 +413,8 @@ class GenerateSlabAdsTask(FiretaskBase):
                     handler_group=handler_group, slab_name=slab_name,
                     slab_ads_name=slab_ads_name, bulk_dir=bulk_dir,
                     bulk_converged=bulk_converged, slab_dir=slab_dir,
-                    slab_converged=slab_converged)
+                    slab_converged=slab_converged, miller_index=miller_index,
+                    shift=shift)
 
                 slab_ads_fws.append(slab_ads_fw)
 
@@ -432,13 +447,17 @@ class AnalysisAdditionTask(FiretaskBase):
             calculation converged or not
         slabads_dir (str): path for the corresponding slab + adsorbate
             calculation directory
+        miller_index ([h, k, l]): Miller index of plane parallel to
+            the slab surface
+        shift (float): the shift in the c-direction applied to get
+            the termination for the slab surface
     """
     required_params = []
     optional_params = ["slab_structure", "slab_energy", "bulk_structure",
                        "bulk_energy", "adsorbate", "analysis_fw_name",
                        "db_file", "slab_name", "slab_ads_name", "bulk_dir",
                        "bulk_converged", "slab_dir", "slab_converged",
-                       "slabads_dir"]
+                       "slabads_dir", "miller_index", "shift"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -466,6 +485,8 @@ class AnalysisAdditionTask(FiretaskBase):
         bulk_converged = self.get("bulk_converged")
         slab_dir = self.get("slab_dir")
         slab_converged = self.get("slab_converged")
+        miller_index = self.get("miller_index")
+        shift = self.get("shift")
 
         fw = af.AdsorptionAnalysisFW(
             slab_ads_structure=slab_ads_structure,
@@ -476,7 +497,7 @@ class AnalysisAdditionTask(FiretaskBase):
             slab_ads_name=slab_ads_name, slab_ads_task_id=slab_ads_task_id,
             bulk_dir=bulk_dir, bulk_converged=bulk_converged,
             slab_dir=slab_dir, slab_converged=slab_converged,
-            slabads_dir=slabads_dir)
+            slabads_dir=slabads_dir, miller_index=miller_index, shift=shift)
 
         return FWAction(additions=fw)
 
@@ -511,6 +532,10 @@ class AdsorptionAnalysisTask(FiretaskBase):
             calculation converged or not
         slabads_converged (bool): whether the corresponding slab
             + adsorbate calculation converged or not
+        miller_index ([h, k, l]): Miller index of plane parallel to
+            the slab surface
+        shift (float): the shift in the c-direction applied to get
+            the termination for the slab surface
     """
 
     required_params = []
@@ -519,7 +544,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
                        "bulk_energy", "adsorbate", "db_file", "name",
                        "slab_name", "slab_ads_name", "slab_ads_task_id",
                        "bulk_dir", "bulk_converged", "slab_dir",
-                       "slab_converged", "slabads_dir", "slabads_converged"]
+                       "slab_converged", "slabads_dir", "slabads_converged",
+                       "miller_index", "shift"]
 
     def run_task(self, fw_spec):
         stored_data = {}
@@ -541,6 +567,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         slab_converged = self.get("slab_converged")
         slabads_dir = self.get("slabads_dir")
         slabads_converged = self.get("slabads_converged")
+        miller_index = self.get("miller_index")
+        shift = self.get("shift")
 
         stored_data['task_name'] = task_name
 
@@ -557,8 +585,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
         stored_data['slab'] = {
             'name': slab_name, 'directory': slab_dir,
-            'converged': slab_converged,
-            'output_structure': slab_structure.as_dict(),
+            'converged': slab_converged, 'miller_index': miller_index,
+            'shift': shift, 'output_structure': slab_structure.as_dict(),
             'output_energy': slab_energy}
 
         stored_data['slab_adsorbate'] = {

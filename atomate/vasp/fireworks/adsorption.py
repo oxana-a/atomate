@@ -167,7 +167,7 @@ class SlabFW(Firework):
                  handler_group=None, ads_site_finder_params=None,
                  ads_structures_params=None, min_lw=None,
                  selective_dynamics=None, bulk_dir=None, bulk_converged=None,
-                 parents=None, **kwargs):
+                 miller_index=None, shift=None, parents=None, **kwargs):
         """
         Optimize slab structure and add a slab + adsorbate generator
         firework as addition.
@@ -201,6 +201,10 @@ class SlabFW(Firework):
                 during relaxations
             bulk_converged (bool): whether the corresponding bulk
                 calculation converged or not
+            miller_index ([h, k, l]): Miller index of plane parallel to
+                the slab surface
+            shift (float): the shift in the c-direction applied to get
+                the termination for the slab surface
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: Other kwargs that are passed to
                 Firework.__init__.
@@ -222,12 +226,14 @@ class SlabFW(Firework):
                              handler_group=handler_group,
                              vasptodb_kwargs=vasptodb_kwargs)
         t = slab_fw.tasks
+        miller_index = miller_index or slab_structure.miller_index
+        shift = shift or slab_structure.shift
 
         slab_name = slab_structure.composition.reduced_formula
-        if getattr(slab_structure, "miller_index", None):
-            slab_name += "_{}".format(slab_structure.miller_index)
-        if getattr(slab_structure, "shift", None):
-            slab_name += "_{:.3f}".format(slab_structure.shift)
+        if miller_index:
+            slab_name += "_{}".format(miller_index)
+        if shift:
+            slab_name += "_{:.3f}".format(shift)
         add_fw_name = slab_name
         for ads in adsorbates:
             add_fw_name += " " + ''.join([site.species_string for site in
@@ -242,7 +248,8 @@ class SlabFW(Firework):
             add_fw_name=add_fw_name, bulk_structure=bulk_structure,
             bulk_energy=bulk_energy, slab_name=slab_name,
             selective_dynamics=selective_dynamics, bulk_dir=bulk_dir,
-            bulk_converged=bulk_converged))
+            bulk_converged=bulk_converged, miller_index=miller_index,
+            shift=shift))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -254,7 +261,8 @@ class SlabAdsGeneratorFW(Firework):
                  handler_group=None, ads_site_finder_params=None,
                  ads_structures_params=None, min_lw=None,
                  selective_dynamics=None, slab_name=None, bulk_dir=None,
-                 bulk_converged=None, slab_dir=None, parents=None):
+                 bulk_converged=None, slab_dir=None, miller_index=None,
+                 shift=None, parents=None):
         """
         Generate slab + adsorbate structures from a slab structure and
         add the corresponding slab + adsorbate optimization fireworks as
@@ -289,6 +297,10 @@ class SlabAdsGeneratorFW(Firework):
                 calculation converged or not
             slab_dir (str): path for the corresponding slab calculation
                 directory
+            miller_index ([h, k, l]): Miller index of plane parallel to
+                the slab surface
+            shift (float): the shift in the c-direction applied to get
+                the termination for the slab surface
             parents ([Firework]): parents of this particular firework
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
@@ -319,7 +331,8 @@ class SlabAdsGeneratorFW(Firework):
             ads_structures_params=ads_structures_params, min_lw=min_lw,
             slab_name=slab_name, selective_dynamics=selective_dynamics,
             bulk_dir=bulk_dir, bulk_converged=bulk_converged,
-            slab_dir=slab_dir, slab_converged=slab_converged)
+            slab_dir=slab_dir, slab_converged=slab_converged,
+            miller_index=miller_index, shift=shift)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
@@ -335,7 +348,8 @@ class SlabAdsFW(Firework):
                  adsorbate=None, vasp_input_set=None, vasp_cmd=None,
                  db_file=None, handler_group=None, slab_name=None,
                  slab_ads_name=None, bulk_dir=None, bulk_converged=None,
-                 slab_dir=None, slab_converged=None, parents=None, **kwargs):
+                 slab_dir=None, slab_converged=None, miller_index=None,
+                 shift=None, parents=None, **kwargs):
         """
         Optimize slab + adsorbate structure.
 
@@ -363,7 +377,11 @@ class SlabAdsFW(Firework):
             bulk_converged (bool): whether the corresponding bulk
                 calculation converged or not
             slab_converged (bool): whether the corresponding slab
-cod                calculation converged or not
+                calculation converged or not
+            miller_index ([h, k, l]): Miller index of plane parallel to
+                the slab surface
+            shift (float): the shift in the c-direction applied to get
+                the termination for the slab surface
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: Other kwargs that are passed to
                 Firework.__init__.
@@ -406,7 +424,8 @@ cod                calculation converged or not
             db_file=db_file, slab_name=slab_name,
             slab_ads_name=slab_ads_name, bulk_dir=bulk_dir,
             bulk_converged=bulk_converged, slab_dir=slab_dir,
-            slab_converged=slab_converged))
+            slab_converged=slab_converged, miller_index=miller_index,
+            shift=shift))
 
         super(SlabAdsFW, self).__init__(t, parents=parents, name=name,
                                         **kwargs)
@@ -420,7 +439,8 @@ class AdsorptionAnalysisFW(Firework):
                  name="adsorption analysis", slab_name=None,
                  slab_ads_name=None, slab_ads_task_id=None, bulk_dir=None,
                  bulk_converged=None, slab_dir=None, slab_converged=None,
-                 slabads_dir=None, parents=None):
+                 slabads_dir=None, miller_index=None, shift=None,
+                 parents=None):
         """
         Analyze data from Adsorption workflow for a slab + adsorbate
         structure and save it to database.
@@ -451,6 +471,10 @@ class AdsorptionAnalysisFW(Firework):
                 calculation converged or not
             slabads_dir (str): path for the corresponding slab
                 + adsorbate calculation directory
+            miller_index ([h, k, l]): Miller index of plane parallel to
+                the slab surface
+            shift (float): the shift in the c-direction applied to get
+                the termination for the slab surface
             parents ([Firework]): parents of this particular firework
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
@@ -481,7 +505,8 @@ class AdsorptionAnalysisFW(Firework):
             slab_ads_task_id=slab_ads_task_id, bulk_dir=bulk_dir,
             bulk_converged=bulk_converged, slab_dir=slab_dir,
             slab_converged=slab_converged, slabads_dir=slabads_dir,
-            slabads_converged=slabads_converged)
+            slabads_converged=slabads_converged, miller_index=miller_index,
+            shift=shift)
         tasks.append(ads_an_t)
 
         super(AdsorptionAnalysisFW, self).__init__(tasks, parents=parents,
