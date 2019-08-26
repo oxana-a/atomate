@@ -6,6 +6,7 @@ __author__ = "Oxana Andriuc"
 __email__ = "ioandriuc@lbl.gov"
 
 import os
+from xml.etree.ElementTree import ParseError
 from atomate.common.firetasks.glue_tasks import PassCalcLocs
 from atomate.vasp.config import VASP_CMD, DB_FILE
 from atomate.vasp.fireworks import OptimizeFW
@@ -130,19 +131,16 @@ class SlabGeneratorFW(Firework):
         tasks = []
         bulk_converged = None
         if bulk_dir:
-            try:
-                filename = 'vasprun.xml.gz'
-                vrun_path = os.path.join(bulk_dir, filename)
-                vrun = Vasprun(vrun_path)
-            except FileNotFoundError:
+            vrun_paths = [os.path.join(bulk_dir, fname) for fname in
+                          os.listdir(bulk_dir) if "vasprun" in fname.lower()]
+            if vrun_paths:
+                vrun_path = max(vrun_paths, key=os.path.getctime)
                 try:
-                    filename = 'vasprun.xml'
-                    vrun_path = os.path.join(bulk_dir, filename)
                     vrun = Vasprun(vrun_path)
-                except FileNotFoundError:
-                    vrun = None
-            if vrun:
-                bulk_converged = vrun.converged
+                    bulk_converged = vrun.converged
+                    bulk_converged = vrun_path
+                except ParseError:
+                    pass
 
         gen_slabs_t = at.GenerateSlabsTask(
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
@@ -308,19 +306,16 @@ class SlabAdsGeneratorFW(Firework):
         tasks = []
         slab_converged = None
         if slab_dir:
-            try:
-                filename = 'vasprun.xml.gz'
-                vrun_path = os.path.join(slab_dir, filename)
-                vrun = Vasprun(vrun_path)
-            except FileNotFoundError:
+            vrun_paths = [os.path.join(slab_dir, fname) for fname in
+                          os.listdir(slab_dir) if "vasprun" in fname.lower()]
+            if vrun_paths:
+                vrun_path = max(vrun_paths, key=os.path.getctime)
                 try:
-                    filename = 'vasprun.xml'
-                    vrun_path = os.path.join(slab_dir, filename)
                     vrun = Vasprun(vrun_path)
-                except FileNotFoundError:
-                    vrun = None
-            if vrun:
-                slab_converged = vrun.converged
+                    slab_converged = vrun.converged
+                    slab_converged = vrun_path
+                except ParseError:
+                    pass
 
         gen_slabs_t = at.GenerateSlabAdsTask(
             slab_structure=slab_structure, slab_energy=slab_energy,
@@ -482,19 +477,17 @@ class AdsorptionAnalysisFW(Firework):
         tasks = []
         slabads_converged = None
         if slabads_dir:
-            try:
-                filename = 'vasprun.xml.gz'
-                vrun_path = os.path.join(slabads_dir, filename)
-                vrun = Vasprun(vrun_path)
-            except FileNotFoundError:
+            vrun_paths = [os.path.join(slabads_dir, fname) for fname in
+                          os.listdir(slabads_dir)
+                          if "vasprun" in fname.lower()]
+            if vrun_paths:
+                vrun_path = max(vrun_paths, key=os.path.getctime)
                 try:
-                    filename = 'vasprun.xml'
-                    vrun_path = os.path.join(slabads_dir, filename)
                     vrun = Vasprun(vrun_path)
-                except FileNotFoundError:
-                    vrun = None
-            if vrun:
-                slabads_converged = vrun.converged
+                    slabads_converged = vrun.converged
+                    slabads_converged = vrun_path
+                except ParseError:
+                    pass
 
         ads_an_t = at.AdsorptionAnalysisTask(
             slab_ads_structure=slab_ads_structure,
