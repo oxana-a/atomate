@@ -17,6 +17,7 @@ from fireworks.utilities.fw_serializers import DATETIME_HANDLER
 from fireworks.utilities.fw_utilities import explicit_serialize
 from pymatgen import Structure
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
+from pymatgen.analysis.surface_analysis import EV_PER_ANG2_TO_JOULES_PER_M2
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.io.vasp.sets import MPSurfaceSet
 
@@ -599,9 +600,10 @@ class AdsorptionAnalysisTask(FiretaskBase):
         area = np.linalg.norm(np.cross(slab_structure.lattice.matrix[0],
                                        slab_structure.lattice.matrix[1]))
         bulk_en_per_atom = bulk_energy/bulk_structure.num_sites
-        cleavage_energy = (slab_energy - bulk_en_per_atom * slab_structure
+        cleavage_energy = ((slab_energy - bulk_en_per_atom * slab_structure
                            .num_sites) / (2*area)
-        stored_data['cleavage_energy'] = cleavage_energy  # eV/A^2
+                           * EV_PER_ANG2_TO_JOULES_PER_M2)
+        stored_data['cleavage_energy'] = cleavage_energy  # J/m^2
 
         ads_sites = slab_ads_structure.sites[-adsorbate.num_sites:]
 
