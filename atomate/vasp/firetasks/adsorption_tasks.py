@@ -55,13 +55,16 @@ class SlabAdditionTask(FiretaskBase):
             relaxations
         bulk_dir (str): path for the corresponding bulk calculation
             directory
+        user_incar_settings (dict): incar settings to override the ones
+            from MPSurfaceSet (for slab and slab + adsorbate
+            optimizations)
     """
     required_params = []
     optional_params = ["adsorbates", "vasp_cmd", "db_file", "handler_group",
                        "slab_gen_params", "max_index",
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "add_fw_name", "selective_dynamics",
-                       "bulk_dir"]
+                       "bulk_dir", "user_incar_settings"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -84,6 +87,7 @@ class SlabAdditionTask(FiretaskBase):
         min_lw = self.get("min_lw")
         add_fw_name = self.get("add_fw_name") or "slab generator"
         selective_dynamics = self.get("selective_dynamics")
+        user_incar_settings = self.get("user_incar_settings")
 
         fw = af.SlabGeneratorFW(
             bulk_structure, name=add_fw_name, bulk_energy=bulk_energy,
@@ -91,7 +95,8 @@ class SlabAdditionTask(FiretaskBase):
             handler_group=handler_group, slab_gen_params=sgp,
             max_index=max_index, ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
-            selective_dynamics=selective_dynamics, bulk_dir=bulk_dir)
+            selective_dynamics=selective_dynamics, bulk_dir=bulk_dir,
+            user_incar_settings=user_incar_settings)
 
         return FWAction(additions=fw)
 
@@ -127,6 +132,9 @@ class GenerateSlabsTask(FiretaskBase):
             relaxations
         bulk_converged (bool): whether the corresponding bulk
             calculation converged or not
+        user_incar_settings (dict): incar settings to override the ones
+            from MPSurfaceSet (for slab and slab + adsorbate
+            optimizations)
     """
 
     required_params = ["bulk_structure"]
@@ -134,7 +142,7 @@ class GenerateSlabsTask(FiretaskBase):
                        "handler_group", "slab_gen_params", "max_index",
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "selective_dynamics", "bulk_dir",
-                       "bulk_converged"]
+                       "bulk_converged", "user_incar_settings"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -160,6 +168,7 @@ class GenerateSlabsTask(FiretaskBase):
         selective_dynamics = self.get("selective_dynamics")
         bulk_dir = self.get("bulk_dir")
         bulk_converged = self.get("bulk_converged")
+        user_incar_settings = self.get("user_incar_settings")
 
         slabs = generate_all_slabs(bulk_structure, max_index=max_index, **sgp)
         all_slabs = slabs.copy()
@@ -217,7 +226,8 @@ class GenerateSlabsTask(FiretaskBase):
                                 bulk_dir=bulk_dir,
                                 bulk_converged=bulk_converged,
                                 miller_index=slab.miller_index,
-                                shift=slab.shift)
+                                shift=slab.shift,
+                                user_incar_settings=user_incar_settings)
             slab_fws.append(slab_fw)
 
         return FWAction(additions=slab_fws)
@@ -262,6 +272,8 @@ class SlabAdsAdditionTask(FiretaskBase):
             the slab surface
         shift (float): the shift in the c-direction applied to get
             the termination for the slab surface
+        user_incar_settings (dict): incar settings to override the ones
+            from MPSurfaceSet (for slab + adsorbate optimizations)
     """
     required_params = []
     optional_params = ["bulk_structure", "bulk_energy", "adsorbates",
@@ -269,7 +281,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "add_fw_name", "slab_name",
                        "selective_dynamics", "bulk_dir", "bulk_converged",
-                       "slab_dir", "miller_index", "shift"]
+                       "slab_dir", "miller_index", "shift",
+                       "user_incar_settings"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -297,6 +310,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         bulk_converged = self.get("bulk_converged")
         miller_index = self.get("miller_index")
         shift = self.get("shift")
+        user_incar_settings = self.get("user_incar_settings")
 
         fw = af.SlabAdsGeneratorFW(
             slab_structure, slab_energy=slab_energy,
@@ -307,7 +321,8 @@ class SlabAdsAdditionTask(FiretaskBase):
             ads_structures_params=ads_structures_params, min_lw=min_lw,
             slab_name=slab_name, selective_dynamics=selective_dynamics,
             bulk_dir=bulk_dir, bulk_converged=bulk_converged,
-            slab_dir=slab_dir, miller_index=miller_index, shift=shift)
+            slab_dir=slab_dir, miller_index=miller_index, shift=shift,
+            user_incar_settings=user_incar_settings)
 
         return FWAction(additions=fw)
 
@@ -351,6 +366,8 @@ class GenerateSlabAdsTask(FiretaskBase):
             the slab surface
         shift (float): the shift in the c-direction applied to get
             the termination for the slab surface
+        user_incar_settings (dict): incar settings to override the ones
+            from MPSurfaceSet (for slab + adsorbate optimizations)
     """
 
     required_params = ["slab_structure", "adsorbates"]
@@ -359,7 +376,8 @@ class GenerateSlabAdsTask(FiretaskBase):
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "slab_name", "selective_dynamics",
                        "bulk_dir", "bulk_converged", "slab_dir",
-                       "slab_converged", "miller_index", "shift"]
+                       "slab_converged", "miller_index", "shift",
+                       "user_incar_settings"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -383,6 +401,7 @@ class GenerateSlabAdsTask(FiretaskBase):
         slab_converged = self.get("slab_converged")
         miller_index = self.get("miller_index")
         shift = self.get("shift")
+        user_incar_settings = self.get("user_incar_settings")
 
         if "min_lw" not in ads_structures_params:
             ads_structures_params["min_lw"] = min_lw
@@ -393,7 +412,6 @@ class GenerateSlabAdsTask(FiretaskBase):
                              slab_structure.composition.reduced_formula)
 
         for adsorbate in adsorbates:
-            # TODO: any other way around adsorbates not having magmom?
             adsorbate.add_site_property('magmom', [0.0]*adsorbate.num_sites)
             slabs_ads = (AdsorbateSiteFinder(
                 slab_structure, **ads_site_finder_params)
@@ -415,7 +433,7 @@ class GenerateSlabAdsTask(FiretaskBase):
                     slab_ads_name=slab_ads_name, bulk_dir=bulk_dir,
                     bulk_converged=bulk_converged, slab_dir=slab_dir,
                     slab_converged=slab_converged, miller_index=miller_index,
-                    shift=shift)
+                    shift=shift, user_incar_settings=user_incar_settings)
 
                 slab_ads_fws.append(slab_ads_fw)
 

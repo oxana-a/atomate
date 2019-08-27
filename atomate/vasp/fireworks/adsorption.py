@@ -23,7 +23,8 @@ class BulkFW(Firework):
                  db_file=None, bulk_handler_group=None,
                  slab_handler_group=None, slab_gen_params=None, max_index=None,
                  ads_site_finder_params=None, ads_structures_params=None,
-                 min_lw=None, selective_dynamics=None, parents=None, **kwargs):
+                 min_lw=None, selective_dynamics=None,
+                 user_incar_settings=None, parents=None, **kwargs):
         """
         Optimize bulk structure and add a slab generator firework as
         addition.
@@ -57,12 +58,18 @@ class BulkFW(Firework):
             selective_dynamics (bool): flag for whether to freeze
                 non-surface sites in the slab + adsorbate structures
                 during relaxations
+            user_incar_settings (dict): incar settings to override the
+                ones from MPSurfaceSet (for bulk, slab, and
+                slab + adsorbate optimizations)
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: other kwargs that are passed to
                 Firework.__init__.
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
-        vis = vasp_input_set or MPSurfaceSet(bulk_structure, bulk=True)
+        user_incar_settings = (user_incar_settings
+                               or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200})
+        vis = vasp_input_set or MPSurfaceSet(
+            bulk_structure, bulk=True, user_incar_settings=user_incar_settings)
         vasp_cmd = vasp_cmd or VASP_CMD
         db_file = db_file or DB_FILE
         bulk_handler_group = bulk_handler_group or "default"
@@ -83,7 +90,8 @@ class BulkFW(Firework):
             handler_group=slab_handler_group, slab_gen_params=slab_gen_params,
             max_index=max_index, ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
-            add_fw_name=add_fw_name, selective_dynamics=selective_dynamics))
+            add_fw_name=add_fw_name, selective_dynamics=selective_dynamics,
+            user_incar_settings=user_incar_settings))
         super(BulkFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -94,7 +102,7 @@ class SlabGeneratorFW(Firework):
                  handler_group=None, slab_gen_params=None, max_index=None,
                  ads_site_finder_params=None, ads_structures_params=None,
                  min_lw=None, selective_dynamics=None, bulk_dir=None,
-                 parents=None):
+                 user_incar_settings=None, parents=None):
         """
         Generate slabs from a bulk structure and add the corresponding
         slab optimization fireworks as additions.
@@ -123,6 +131,9 @@ class SlabGeneratorFW(Firework):
             selective_dynamics (bool): flag for whether to freeze
                 non-surface sites in the slab + adsorbate structures
                 during relaxations
+            user_incar_settings (dict): incar settings to override the
+                ones from MPSurfaceSet (for slab and slab + adsorbate
+                optimizations)
             parents ([Firework]): parents of this particular firework
             bulk_dir (str): path for the corresponding bulk calculation
                 directory
@@ -149,7 +160,8 @@ class SlabGeneratorFW(Firework):
             max_index=max_index, ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
             selective_dynamics=selective_dynamics, bulk_dir=bulk_dir,
-            bulk_converged=bulk_converged)
+            bulk_converged=bulk_converged,
+            user_incar_settings=user_incar_settings)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
@@ -165,7 +177,8 @@ class SlabFW(Firework):
                  handler_group=None, ads_site_finder_params=None,
                  ads_structures_params=None, min_lw=None,
                  selective_dynamics=None, bulk_dir=None, bulk_converged=None,
-                 miller_index=None, shift=None, parents=None, **kwargs):
+                 miller_index=None, shift=None, user_incar_settings=None,
+                 parents=None, **kwargs):
         """
         Optimize slab structure and add a slab + adsorbate generator
         firework as addition.
@@ -203,6 +216,9 @@ class SlabFW(Firework):
                 the slab surface
             shift (float): the shift in the c-direction applied to get
                 the termination for the slab surface
+            user_incar_settings (dict): incar settings to override the
+                ones from MPSurfaceSet (for slab and slab + adsorbate
+                optimizations)
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: Other kwargs that are passed to
                 Firework.__init__.
@@ -212,7 +228,11 @@ class SlabFW(Firework):
         vasp_cmd = vasp_cmd or VASP_CMD
         db_file = db_file or DB_FILE
         handler_group = handler_group or "md"
-        vis = vasp_input_set or MPSurfaceSet(slab_structure, bulk=False)
+        user_incar_settings = (user_incar_settings
+                               or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200})
+        vis = vasp_input_set or MPSurfaceSet(
+            slab_structure, bulk=False,
+            user_incar_settings=user_incar_settings)
         vasptodb_kwargs = {
             'task_fields_to_push': {'slab_structure': 'output.structure',
                                     'slab_energy': 'output.energy',
@@ -247,7 +267,7 @@ class SlabFW(Firework):
             bulk_energy=bulk_energy, slab_name=slab_name,
             selective_dynamics=selective_dynamics, bulk_dir=bulk_dir,
             bulk_converged=bulk_converged, miller_index=miller_index,
-            shift=shift))
+            shift=shift, user_incar_settings=user_incar_settings))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -260,7 +280,7 @@ class SlabAdsGeneratorFW(Firework):
                  ads_structures_params=None, min_lw=None,
                  selective_dynamics=None, slab_name=None, bulk_dir=None,
                  bulk_converged=None, slab_dir=None, miller_index=None,
-                 shift=None, parents=None):
+                 shift=None, user_incar_settings=None, parents=None):
         """
         Generate slab + adsorbate structures from a slab structure and
         add the corresponding slab + adsorbate optimization fireworks as
@@ -299,6 +319,9 @@ class SlabAdsGeneratorFW(Firework):
                 the slab surface
             shift (float): the shift in the c-direction applied to get
                 the termination for the slab surface
+            user_incar_settings (dict): incar settings to override the
+                ones from MPSurfaceSet (for slab + adsorbate
+                optimizations)
             parents ([Firework]): parents of this particular firework
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
@@ -327,7 +350,8 @@ class SlabAdsGeneratorFW(Firework):
             slab_name=slab_name, selective_dynamics=selective_dynamics,
             bulk_dir=bulk_dir, bulk_converged=bulk_converged,
             slab_dir=slab_dir, slab_converged=slab_converged,
-            miller_index=miller_index, shift=shift)
+            miller_index=miller_index, shift=shift,
+            user_incar_settings=user_incar_settings)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
@@ -344,7 +368,7 @@ class SlabAdsFW(Firework):
                  db_file=None, handler_group=None, slab_name=None,
                  slab_ads_name=None, bulk_dir=None, bulk_converged=None,
                  slab_dir=None, slab_converged=None, miller_index=None,
-                 shift=None, parents=None, **kwargs):
+                 shift=None, user_incar_settings=None, parents=None, **kwargs):
         """
         Optimize slab + adsorbate structure.
 
@@ -377,6 +401,9 @@ class SlabAdsFW(Firework):
                 the slab surface
             shift (float): the shift in the c-direction applied to get
                 the termination for the slab surface
+            user_incar_settings (dict): incar settings to override the
+                ones from MPSurfaceSet (for the slab + adsorbate
+                optimization)
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: Other kwargs that are passed to
                 Firework.__init__.
@@ -386,7 +413,11 @@ class SlabAdsFW(Firework):
         vasp_cmd = vasp_cmd or VASP_CMD
         db_file = db_file or DB_FILE
         handler_group = handler_group or "md"
-        vis = vasp_input_set or MPSurfaceSet(slab_ads_structure, bulk=False)
+        user_incar_settings = (user_incar_settings
+                               or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200})
+        vis = vasp_input_set or MPSurfaceSet(
+            slab_ads_structure, bulk=False,
+            user_incar_settings=user_incar_settings)
         vasptodb_kwargs = {
             'task_fields_to_push': {'slab_ads_structure': 'output.structure',
                                     'slab_ads_energy': 'output.energy',
