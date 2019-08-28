@@ -18,8 +18,10 @@ from fireworks.utilities.fw_utilities import explicit_serialize
 from pymatgen import Structure
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
 from pymatgen.analysis.surface_analysis import EV_PER_ANG2_TO_JOULES_PER_M2
+from pymatgen.core.bonds import CovalentBond
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.io.vasp.sets import MPSurfaceSet
+from pymatgen.util.coord import get_angle
 
 logger = get_logger(__name__)
 ref_elem_energy = {'H': -3.379, 'O': -7.459, 'C': -7.329}
@@ -633,7 +635,48 @@ class AdsorptionAnalysisTask(FiretaskBase):
                              .format(n, site1.specie, site2.specie))
                 stored_data['adsorbate_bonds'][pair_name] = {
                     'site1': site1.as_dict(), 'site2': site2.as_dict(),
-                    'distance': site1.distance_and_image(site2)[0]}
+                    'distance': site1.distance_and_image(site2)[0],
+                    'is_bonded': CovalentBond(site1, site2).is_bonded(
+                        site1, site2)}
+
+        # adsorbate angles
+        if len(ads_sites) > 2:
+            stored_data['adsorbate_angles'] = {}
+            n = 0
+            for site1, site2, site3 in combinations(ads_sites, 3):
+                if (CovalentBond(site1, site2).is_bonded(site1, site2)
+                        and CovalentBond(site1, site3).is_bonded(site1, site3)):
+                    v1 = site2.coords - site1.coords
+                    v2 = site3.coords - site1.coords
+                    angle_name = ("angle [{}]: {}-{}-{}"
+                                  .format(n, site2.specie, site1.specie,
+                                          site3.specie))
+                    stored_data['adsorbate_angles'][angle_name] = {
+                        'vertex': site1.as_dict(), 'edge1': site2.as_dict(),
+                        'edge2': site3.as_dict(), 'angle': get_angle(v1, v2)}
+                    n += 1
+                if (CovalentBond(site2, site1).is_bonded(site2, site1)
+                        and CovalentBond(site2, site3).is_bonded(site2, site3)):
+                    v1 = site1.coords - site2.coords
+                    v2 = site3.coords - site2.coords
+                    angle_name = ("angle [{}]: {}-{}-{}"
+                                  .format(n, site1.specie, site2.specie,
+                                          site3.specie))
+                    stored_data['adsorbate_angles'][angle_name] = {
+                        'vertex': site2.as_dict(), 'edge1': site1.as_dict(),
+                        'edge2': site3.as_dict(), 'angle': get_angle(v1, v2)}
+                    n += 1
+                if (CovalentBond(site3, site1).is_bonded(site3, site1)
+                        and CovalentBond(site3, site2).is_bonded(site3, site2)):
+                    v1 = site1.coords - site3.coords
+                    v2 = site2.coords - site3.coords
+                    angle_name = ("angle [{}]: {}-{}-{}"
+                                  .format(n, site1.specie, site3.specie,
+                                          site2.specie))
+                    stored_data['adsorbate_angles'][angle_name] = {
+                        'vertex': site3.as_dict(), 'edge1': site1.as_dict(),
+                        'edge2': site2.as_dict(), 'angle': get_angle(v1, v2)}
+                    n += 1
 
         # adsorbate surface nearest neighbors
         stored_data['nearest_surface_neighbors'] = {}
