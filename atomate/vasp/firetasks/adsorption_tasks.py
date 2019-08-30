@@ -39,6 +39,7 @@ class SlabAdditionTask(FiretaskBase):
             adsorbates
         vasp_cmd (str): vasp command
         db_file (str): path to database file
+        job_type (str): custodian job type
         handler_group (str or [ErrorHandler]): custodian handler group
             for slab optimizations (default: "md")
         slab_gen_params (dict): dictionary of kwargs for
@@ -62,8 +63,8 @@ class SlabAdditionTask(FiretaskBase):
             optimizations)
     """
     required_params = []
-    optional_params = ["adsorbates", "vasp_cmd", "db_file", "handler_group",
-                       "slab_gen_params", "max_index",
+    optional_params = ["adsorbates", "vasp_cmd", "db_file", "job_type",
+                       "handler_group", "slab_gen_params", "max_index",
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "add_fw_name", "selective_dynamics",
                        "bulk_dir", "user_incar_settings"]
@@ -81,6 +82,7 @@ class SlabAdditionTask(FiretaskBase):
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd")
         db_file = self.get("db_file")
+        job_type = self.get("job_type")
         handler_group = self.get("handler_group")
         sgp = self.get("slab_gen_params")
         max_index = self.get("max_index")
@@ -94,8 +96,9 @@ class SlabAdditionTask(FiretaskBase):
         fw = af.SlabGeneratorFW(
             bulk_structure, name=add_fw_name, bulk_energy=bulk_energy,
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
-            handler_group=handler_group, slab_gen_params=sgp,
-            max_index=max_index, ads_site_finder_params=ads_site_finder_params,
+            job_type=job_type, handler_group=handler_group,
+            slab_gen_params=sgp, max_index=max_index,
+            ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
             selective_dynamics=selective_dynamics, bulk_dir=bulk_dir,
             user_incar_settings=user_incar_settings)
@@ -117,6 +120,7 @@ class GenerateSlabsTask(FiretaskBase):
             adsorbates
         vasp_cmd (str): vasp command
         db_file (str): path to database file
+        job_type (str): custodian job type
         handler_group (str or [ErrorHandler]): custodian handler group
             for slab optimizations (default: "md")
         slab_gen_params (dict): dictionary of kwargs for
@@ -141,10 +145,10 @@ class GenerateSlabsTask(FiretaskBase):
 
     required_params = ["bulk_structure"]
     optional_params = ["bulk_energy", "adsorbates", "vasp_cmd", "db_file",
-                       "handler_group", "slab_gen_params", "max_index",
-                       "ads_site_finder_params", "ads_structures_params",
-                       "min_lw", "selective_dynamics", "bulk_dir",
-                       "bulk_converged", "user_incar_settings"]
+                       "job_type", "handler_group", "slab_gen_params",
+                       "max_index", "ads_site_finder_params",
+                       "ads_structures_params", "min_lw", "selective_dynamics",
+                       "bulk_dir", "bulk_converged", "user_incar_settings"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -155,6 +159,7 @@ class GenerateSlabsTask(FiretaskBase):
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd")
         db_file = self.get("db_file")
+        job_type = self.get("job_type")
         handler_group = self.get("handler_group")
         sgp = self.get("slab_gen_params") or {}
         min_lw = self.get("min_lw") or 10.0
@@ -220,7 +225,8 @@ class GenerateSlabsTask(FiretaskBase):
             slab_fw = af.SlabFW(slab, name=name, bulk_structure=bulk_structure,
                                 bulk_energy=bulk_energy, vasp_input_set=vis,
                                 adsorbates=adsorbates, vasp_cmd=vasp_cmd,
-                                db_file=db_file, handler_group=handler_group,
+                                db_file=db_file, job_type=job_type,
+                                handler_group=handler_group,
                                 ads_site_finder_params=ads_site_finder_params,
                                 ads_structures_params=ads_structures_params,
                                 min_lw=min_lw,
@@ -251,6 +257,8 @@ class SlabAdsAdditionTask(FiretaskBase):
             adsorbates
         vasp_cmd (str): vasp command
         db_file (str): path to database file
+        job_type (str): custodian job type
+                (default "double_relaxation_run")
         handler_group (str or [ErrorHandler]): custodian handler group
             for slab + adsorbate optimizations (default: "md")
         ads_site_finder_params (dict): parameters to be supplied as
@@ -279,7 +287,7 @@ class SlabAdsAdditionTask(FiretaskBase):
     """
     required_params = []
     optional_params = ["bulk_structure", "bulk_energy", "adsorbates",
-                       "vasp_cmd", "db_file", "handler_group",
+                       "vasp_cmd", "db_file", "job_type", "handler_group",
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "add_fw_name", "slab_name",
                        "selective_dynamics", "bulk_dir", "bulk_converged",
@@ -301,6 +309,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd")
         db_file = self.get("db_file")
+        job_type = self.get("job_type")
         handler_group = self.get("handler_group")
         ads_site_finder_params = self.get("ads_site_finder_params")
         ads_structures_params = self.get("ads_structures_params")
@@ -318,7 +327,7 @@ class SlabAdsAdditionTask(FiretaskBase):
             slab_structure, slab_energy=slab_energy,
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
             name=add_fw_name, adsorbates=adsorbates, vasp_cmd=vasp_cmd,
-            db_file=db_file, handler_group=handler_group,
+            db_file=db_file, job_type=job_type, handler_group=handler_group,
             ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
             slab_name=slab_name, selective_dynamics=selective_dynamics,
@@ -346,6 +355,7 @@ class GenerateSlabAdsTask(FiretaskBase):
         bulk_energy (float): final energy of relaxed bulk structure
         vasp_cmd (str): vasp command
         db_file (str): path to database file
+        job_type (str): custodian job type
         handler_group (str or [ErrorHandler]): custodian handler group
             for slab + adsorbate optimizations (default: "md")
         ads_site_finder_params (dict): parameters to be supplied as
@@ -374,7 +384,7 @@ class GenerateSlabAdsTask(FiretaskBase):
 
     required_params = ["slab_structure", "adsorbates"]
     optional_params = ["slab_energy", "bulk_structure", "bulk_energy",
-                       "vasp_cmd", "db_file", "handler_group",
+                       "vasp_cmd", "db_file", "job_type", "handler_group",
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "slab_name", "selective_dynamics",
                        "bulk_dir", "bulk_converged", "slab_dir",
@@ -392,6 +402,7 @@ class GenerateSlabAdsTask(FiretaskBase):
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd")
         db_file = self.get("db_file")
+        job_type = self.get("job_type")
         handler_group = self.get("handler_group")
         ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params") or {}
@@ -431,11 +442,12 @@ class GenerateSlabAdsTask(FiretaskBase):
                     slab_energy=slab_energy, bulk_structure=bulk_structure,
                     bulk_energy=bulk_energy, adsorbate=adsorbate,
                     vasp_input_set=vis, vasp_cmd=vasp_cmd, db_file=db_file,
-                    handler_group=handler_group, slab_name=slab_name,
-                    slab_ads_name=slab_ads_name, bulk_dir=bulk_dir,
-                    bulk_converged=bulk_converged, slab_dir=slab_dir,
-                    slab_converged=slab_converged, miller_index=miller_index,
-                    shift=shift, user_incar_settings=user_incar_settings)
+                    job_type=job_type, handler_group=handler_group,
+                    slab_name=slab_name, slab_ads_name=slab_ads_name,
+                    bulk_dir=bulk_dir, bulk_converged=bulk_converged,
+                    slab_dir=slab_dir, slab_converged=slab_converged,
+                    miller_index=miller_index, shift=shift,
+                    user_incar_settings=user_incar_settings)
 
                 slab_ads_fws.append(slab_ads_fw)
 
@@ -458,6 +470,8 @@ class AnalysisAdditionTask(FiretaskBase):
         analysis_fw_name (str): name for the AdsorbateAnalysisFW to be
             added
         db_file (str): path to database file
+        job_type (str): custodian job type for the optimizations ran as
+            part of the workflow
         slab_name (str): name for the slab
             (format: Formula_MillerIndex_Shift)
         slab_ads_name (str): name for the slab + adsorbate
@@ -476,9 +490,10 @@ class AnalysisAdditionTask(FiretaskBase):
     required_params = []
     optional_params = ["slab_structure", "slab_energy", "bulk_structure",
                        "bulk_energy", "adsorbate", "analysis_fw_name",
-                       "db_file", "slab_name", "slab_ads_name", "bulk_dir",
-                       "bulk_converged", "slab_dir", "slab_converged",
-                       "slabads_dir", "miller_index", "shift"]
+                       "db_file", "job_type", "slab_name", "slab_ads_name",
+                       "bulk_dir", "bulk_converged", "slab_dir",
+                       "slab_converged", "slabads_dir", "miller_index",
+                       "shift"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -500,6 +515,7 @@ class AnalysisAdditionTask(FiretaskBase):
                 slab_ads_structure.composition.reduced_formula
                 + " adsorption analysis")
         db_file = self.get("db_file")
+        job_type = self.get("job_type")
         slab_name = self.get("slab_name")
         slab_ads_name = self.get("slab_ads_name")
         bulk_dir = self.get("bulk_dir")
@@ -514,7 +530,7 @@ class AnalysisAdditionTask(FiretaskBase):
             slab_ads_energy=slab_ads_energy, slab_structure=slab_structure,
             slab_energy=slab_energy, bulk_structure=bulk_structure,
             bulk_energy=bulk_energy, adsorbate=adsorbate, db_file=db_file,
-            name=analysis_fw_name, slab_name=slab_name,
+            job_type=job_type, name=analysis_fw_name, slab_name=slab_name,
             slab_ads_name=slab_ads_name, slab_ads_task_id=slab_ads_task_id,
             bulk_dir=bulk_dir, bulk_converged=bulk_converged,
             slab_dir=slab_dir, slab_converged=slab_converged,
@@ -541,6 +557,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         bulk_energy (float): final energy of relaxed bulk structure
         adsorbate (Molecule): adsorbate input structure
         db_file (str): path to database file
+        job_type (str): custodian job type for the optimizations ran as
+            part of the workflow
         slab_name (str): name for the slab
             (format: Formula_MillerIndex_Shift)
         slab_ads_name (str): name for the slab + adsorbate
@@ -562,11 +580,11 @@ class AdsorptionAnalysisTask(FiretaskBase):
     required_params = []
     optional_params = ["slab_ads_structure", "slab_ads_energy",
                        "slab_structure", "slab_energy", "bulk_structure",
-                       "bulk_energy", "adsorbate", "db_file", "name",
-                       "slab_name", "slab_ads_name", "slab_ads_task_id",
-                       "bulk_dir", "bulk_converged", "slab_dir",
-                       "slab_converged", "slabads_dir", "slabads_converged",
-                       "miller_index", "shift"]
+                       "bulk_energy", "adsorbate", "db_file", "job_type",
+                       "name", "slab_name", "slab_ads_name",
+                       "slab_ads_task_id", "bulk_dir", "bulk_converged",
+                       "slab_dir", "slab_converged", "slabads_dir",
+                       "slabads_converged", "miller_index", "shift"]
 
     def run_task(self, fw_spec):
         stored_data = {}
@@ -578,6 +596,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         bulk_energy = self.get("bulk_energy")
         adsorbate = self.get("adsorbate")
         db_file = self.get("db_file") or DB_FILE
+        job_type = self.get("job_type")
         task_name = self.get("name")
         slab_name = self.get("slab_name")
         slab_ads_name = self.get("slab_ads_name")

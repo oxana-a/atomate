@@ -321,7 +321,7 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
 
 
 def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=None,
-                     db_file=None, bulk_handler_group=None,
+                     db_file=None, job_type=None, bulk_handler_group=None,
                      slab_handler_group=None, max_index=None,
                      slab_gen_params=None, ads_site_finder_params=None,
                      ads_structures_params=None, min_lw=None,
@@ -338,6 +338,7 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=None,
         adsorbates ([Molecule]): adsorbates to place on surfaces
         vasp_cmd (str): vasp command
         db_file (str): path to database file
+        job_type (str): custodian job type
         bulk_handler_group (str or [ErrorHandler]): custodian handler
             group for bulk optimizations
         slab_handler_group (str or [ErrorHandler]): custodian handler
@@ -365,7 +366,7 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=None,
     fws = []
     name = bulk_structure.composition.reduced_formula + " bulk optimization"
     bulk_fw = BulkFW(bulk_structure, name=name, adsorbates=adsorbates,
-                     vasp_cmd=vasp_cmd, db_file=db_file,
+                     vasp_cmd=vasp_cmd, db_file=db_file, job_type=job_type,
                      bulk_handler_group=bulk_handler_group,
                      slab_handler_group=slab_handler_group,
                      slab_gen_params=slab_gen_params, max_index=max_index,
