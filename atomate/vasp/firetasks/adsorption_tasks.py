@@ -29,6 +29,8 @@ from pymatgen.core import Molecule, Structure
 from atomate.vasp.config import HALF_KPOINTS_FIRST_RELAX, RELAX_MAX_FORCE, \
     VASP_CMD, DB_FILE
 
+ref_elem_energy = {'H': -3.379, 'O': -7.459, 'C': -7.329}
+
 @explicit_serialize
 class LaunchVaspFromOptimumDistance(FiretaskBase):
 	"""
@@ -110,6 +112,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		idx = self["idx"]
 		distances = self["distances"]
 		distance_to_state = fw_spec["distance_to_state"][0]
+		ads_comp = self["adsorbate"].composition
 
 		#Get original structure
 		bulk_structure = fw_spec["{}{}_structure".format(idx, 0)]
@@ -124,8 +127,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		#Get Slab energy and Bulk  Energy from previous Optimize FWs (in spec):
 		bulk_energy = fw_spec.get("bulk_energy", False)
 		slab_energy = fw_spec.get("slab_energy", False)
-		surface_energy = (slab_energy - bulk_energy*sites)/(2 * area)
-		scale = 1 #TODO: get volume of slab / volume of slab+vacuum ??
+
 
 
 
@@ -155,8 +157,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 					optimal_distance = distance
 
 		#Optimal Energy for current slab with adsorbate:
-		refs = {"H": -6.4795 / 2, "O": (-62.3500 / 4) - -6.4795, "C":-4.9355}
-		ads_e = lowest_energy - surface_energy*scale - sum([ads_comp.get(elt, 0) * refs.get(elt) for elt in refs])
+		ads_e = lowest_energy - slab_energy*(len(structure)-2) - sum([ads_comp.get(elt, 0) * ref_elem_energy.get(elt) for elt in ref_elem_energy])
 
 
 		#If lowest energy is a little too big, this is probably not a good site/adsorbate... No need to run future calculations
