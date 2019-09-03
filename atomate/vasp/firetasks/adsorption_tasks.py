@@ -135,7 +135,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		all_distances = []
 
 		for distance_idx, distance in enumerate(distances):
-			if distance_to_state.get(distance,False):
+			if distance_to_state.get(distance,{}).get("state",False):
 				#Normalize by amount of atoms in structure...
 				structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
 				energy = fw_spec["{}{}_energy".format(idx, distance_idx)]/len(structure)
@@ -212,7 +212,10 @@ class GetPassedJobInformation(FiretaskBase):
 			for fwid in fw_spec["_job_info"]:
 				str_distance = str(distance)
 				if str_distance+"." in fwid["name"]:
-					fw_status[distance] = {"state":fwid["state"]}
+					if fwid["state"] is not "FIZZLED":
+						fw_status[distance] = {"state":True}
+					else:
+						w_status[distance] = {"state":False}
 		#Modify spec for future tasks
 		return FWAction(mod_spec={"_push":{"distance_to_state":fw_status}})
 
