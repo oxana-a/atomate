@@ -114,12 +114,6 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		distance_to_state = fw_spec["distance_to_state"][0]
 		ads_comp = self["adsorbate"].composition
 
-		#Get original structure
-		bulk_structure = fw_spec["{}{}_structure".format(idx, 0)]
-		sites = len(bulk_structure.sites)
-		import numpy as np
-		area = np.linalg.norm(np.cross(bulk_structure.lattice.matrix[0],bulk_structure.lattice.matrix[1]))
-
 		#Setup some initial parameters
 		optimal_distance = 2.0
 		lowest_energy = 10000
@@ -129,7 +123,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		slab_energy = fw_spec.get("slab_energy", False)
 
 
-
+		structure = False
 
 		first_0 = False
 		second_0 = False
@@ -137,23 +131,21 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		for distance_idx, distance in enumerate(distances):
 			if distance_to_state.get(distance,False):
 				energy = fw_spec["{}{}_energy".format(idx, distance_idx)]/sites #Normalize by amount of atoms in structure...
+				structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
 				if lowest_energy >0 and energy <0 and not first_0:
 					#This is the first time the energy has dived below 0. This is probably a good guess.
 					first_0 = True
 					distance_0 = distance
-					structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
 					optimal_distance = distance
 					lowest_energy = energy
 				elif lowest_energy <0 and energy >0 and first_0:
 					#Energy recrossed the 0 eV line, lets take an average
 					second_0 = True
-					structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
 					optimal_distance = (distance_0 + distance)/2
 					lowest_energy = energy
 				elif energy < lowest_energy and not first_0 and not second_0:
 					#If nothing has crossed 0 yet just take the lowest energy distance...
 					lowest_energy = energy
-					structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
 					optimal_distance = distance
 
 		#Optimal Energy for current slab with adsorbate:
