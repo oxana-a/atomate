@@ -192,6 +192,7 @@ class GetPassedJobInformation(FiretaskBase):
 				str_distance = str(distance)
 				if str_distance+"." in fwid["name"]:
 					fw_status[distance] = {"state":fwid["state"]}
+		print(fw_status)
 		#Modify spec for future tasks
 		return FWAction(mod_spec={"_push":{"distance_to_state":fw_status}})
 
