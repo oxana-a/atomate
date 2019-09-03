@@ -167,7 +167,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 			yd = fit[0]+fit[1]*xd + fit[2]*xd**2
 			#Lowest value of fit:
 			lowest_energy = min(yd)
-			optimal_distance = xd[yd.index(min(yd))]
+			optimal_distance = xd[yd.where(yd.min())[0]]
 
 		#Optimal Energy for current slab with adsorbate:
 		ads_e = lowest_energy - slab_energy*(len(structure)-2) - sum([ads_comp.get(elt, 0) * ref_elem_energy.get(elt) for elt in ref_elem_energy])
