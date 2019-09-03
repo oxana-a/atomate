@@ -33,8 +33,8 @@ __email__ = 'montoyjh@lbl.gov'
 
 
 def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, vasp_cmd = None, slab_gen_params = None, 
-    max_index = 1, ads_finder_params = None, ads_structures_params = None, dos_slab=True, dos_molecule=True, relax_molecule=True,
-    optimize_distance=True, dos_compare = True):
+    max_index = 1, ads_finder_params = None, ads_structures_params = None, relax_molecule=True,
+    optimize_distance=True, compare_densities = True, kp_static = None):
     """
     Returns an adsorption workflow for a structure and list of adsorbates
 
@@ -45,12 +45,17 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
             to [0.5, 0.87, 1.25, 1.63, 2.0]
         db_file - DB command for  Fireworks
         vasp_cmd - VASP command for Fireworks
-        slab_gen_params (dict) - dictionary to be able to generate slabs, by default vacuum size is set to 10A,
-            slab is set to 5A.
+        slab_gen_params (dict) - dictionary to be able to generate slabs, by default vacuum size is set to 5A,
+            slab is set to 10A.
         max_index (int) - maximum miller  index to test, default is 1 (100, 110, 111)
         ads_finder_params (dict) - dictionary passed to AdsorbateSiteFinder class - can include  tolerance, etc.
         ads_structures_params (dict) - dictionary passed to the generate structure method of the AdsorbateSiteFinder
-            class, distance key gets updated...
+            class, however, distance key gets updated...
+        optimize_distance (bool) - if true, a few static calculations will be run to determine optimal distance to put adsorbate on
+        compare_densities (bool) - if this is turned on, a single Kpoint object is created and all static calculation
+            will be asigned this Kpoint. Kpoint object will be taken by taking the default bulk kpoint and setting the
+            c axis to 1.
+        kp_static: user supplied Kpoint object for static calculations
 
     Returns:
         Workflow object
@@ -80,7 +85,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
     '''
 
     #Set general parameters for slab
-    sgp = slab_gen_params or {"min_slab_size": 10, "min_vacuum_size": 5}
+    sgp = slab_gen_params or {"min_slab_size": 5, "min_vacuum_size": 10}
     
     #Kpoints for static - need to have same density of points to compare CHGCAR
     kp_static=None
@@ -94,6 +99,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
     for ads_idx, adsorbate in enumerate(adsorbates):
         #To do: relax molecule and then load it as a molecule and pass it to rest of FWs...
 
+
         #Find all possible slabs:
         slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
 
@@ -101,7 +107,8 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
         for slab_idx, slab in enumerate(slabs):
             miller = slab.miller_index
 
-            if dos_slab:
+            if compare_densities:
+                #In order to be able to compare densities, we need to run a static calculation of just the slab with similar Kpoints/ENCUT
                 vis = MPStaticSet(slab,user_incar_settings={"LELF":True, 
                                                             "LORBIT":11,
                                                             "ALGO":"Fast",
@@ -126,9 +133,10 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                     #For all possible 
                     for site_idx, ads_slab in enumerate(ads_slabs):
 
-
-                        #Get DOS for just adsorbate, for later CHGCAR analysis
-                        if dos_molecule:
+                        if compare_densities:
+                            #In order to compare CHGCAR, we need to suply similar kpoints/ENCUT values, and subtract the adsorbate by itself. 
+                            #FUTURE: This one is a silly calculation to do over and over again, in future, we should figure out how to do once
+                            #and map new molecule over wherever it might be on other site.
                             vis = MPStaticSet(remove_everything_but_adsorbates(ads_slab),user_incar_settings={"LELF":True, 
                                                                         "LORBIT":11,
                                                                         "ALGO":"Fast",
@@ -171,7 +179,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                                                     "{}_{}_{}_{}_energy".format(ads_idx, slab_idx,site_idx,distance_idx):"output.energy_per_atom",
                                                     "{}_{}_{}_{}_structure".format(ads_idx, slab_idx,site_idx,distance_idx):"output.structure"
                                                     },
-                                                "defuse_unsuccessful":True
+                                                "defuse_unsuccessful":False
                                                 }, 
                                             contcar_to_poscar=False, 
                                             runvaspcustodian_kwargs = {
@@ -184,7 +192,6 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
                             idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)].append(fws[-1])
     
     #Processing Optimal Distance and run best adsorption - same ads_idx, slab_idx, site_idx as previous, and must pass in same distances array
-    #TODO: Need to make it okay if one calc fizzles! And FW needs to check for which fizzled... 
     if optimize_distance:
         for ads_idx, adsorbate in enumerate(adsorbates):
             slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
