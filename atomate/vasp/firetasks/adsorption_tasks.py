@@ -113,6 +113,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		distances = self["distances"]
 		distance_to_state = fw_spec["distance_to_state"][0]
 		ads_comp = self["adsorbate"].composition
+		algo = self.get("algo", "standard")
 
 		#Setup some initial parameters
 		optimal_distance = 2.0
@@ -128,11 +129,21 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		first_0 = False
 		second_0 = False
 		distance_0 = False
+
+		#for other fitting algorithm, collect the energies and distances in this array:
+		all_energies = []
+    	all_distances = []
+
 		for distance_idx, distance in enumerate(distances):
 			if distance_to_state.get(distance,False):
 				#Normalize by amount of atoms in structure...
 				structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
 				energy = fw_spec["{}{}_energy".format(idx, distance_idx)]/len(structure)
+
+				#for other fitting algorithms:
+				all_energies.append(energy)
+            	all_distances.append(distance)
+
 				if lowest_energy >0 and energy <0 and not first_0:
 					#This is the first time the energy has dived below 0. This is probably a good guess.
 					first_0 = True
@@ -149,12 +160,21 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 					lowest_energy = energy
 					optimal_distance = distance
 
+		if algo == "poly_fit":
+			import numpy as np
+			fit = np.polyfit(all_distances, all_energies, 2)
+			xd = np.linspace(all_distances[0], all_distances[-1], 100)
+			yd = fit[0]+fit[1]*xd + fit[2]*xd**2
+			#Lowest value of fit:
+			lowest_energy = min(yd)
+			optimal_distance = xd[yd.index(min(yd))]
+
 		#Optimal Energy for current slab with adsorbate:
 		ads_e = lowest_energy - slab_energy*(len(structure)-2) - sum([ads_comp.get(elt, 0) * ref_elem_energy.get(elt) for elt in ref_elem_energy])
 
 
 		#If lowest energy is a little too big, this is probably not a good site/adsorbate... No need to run future calculations
-		if ads_e>0.2:
+		if ads_e>1:
 			#Let's exit the rest of the FW's if energy is too high, but still push the data
 			return FWAction(exit=True,
 							mod_spec = {"_push":{
