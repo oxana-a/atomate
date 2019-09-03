@@ -130,8 +130,9 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 		distance_0 = False
 		for distance_idx, distance in enumerate(distances):
 			if distance_to_state.get(distance,False):
-				energy = fw_spec["{}{}_energy".format(idx, distance_idx)]/sites #Normalize by amount of atoms in structure...
+				#Normalize by amount of atoms in structure...
 				structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
+				energy = fw_spec["{}{}_energy".format(idx, distance_idx)]/len(structure)
 				if lowest_energy >0 and energy <0 and not first_0:
 					#This is the first time the energy has dived below 0. This is probably a good guess.
 					first_0 = True
@@ -192,7 +193,6 @@ class GetPassedJobInformation(FiretaskBase):
 				str_distance = str(distance)
 				if str_distance+"." in fwid["name"]:
 					fw_status[distance] = {"state":fwid["state"]}
-		print(fw_status)
 		#Modify spec for future tasks
 		return FWAction(mod_spec={"_push":{"distance_to_state":fw_status}})
 
