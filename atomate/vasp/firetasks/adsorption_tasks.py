@@ -132,8 +132,8 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 
 		#for other fitting algorithm, collect the energies and distances in this array:
 		all_energies = []
-    	all_distances = []
-
+		all_distances = []
+		
 		for distance_idx, distance in enumerate(distances):
 			if distance_to_state.get(distance,False):
 				#Normalize by amount of atoms in structure...
@@ -142,7 +142,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 
 				#for other fitting algorithms:
 				all_energies.append(energy)
-            	all_distances.append(distance)
+		    	all_distances.append(distance)
 
 				if lowest_energy >0 and energy <0 and not first_0:
 					#This is the first time the energy has dived below 0. This is probably a good guess.
@@ -159,7 +159,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 					#If nothing has crossed 0 yet just take the lowest energy distance...
 					lowest_energy = energy
 					optimal_distance = distance
-
+					
 		if algo == "poly_fit":
 			import numpy as np
 			fit = np.polyfit(all_distances, all_energies, 2)
