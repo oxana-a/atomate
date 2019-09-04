@@ -14,6 +14,7 @@ from fireworks import Workflow
 from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW, StaticFW
 from atomate.vasp.fireworks.adsorption import DistanceOptimizationFW, AdsorptionEnergyLandscapeFW
 from atomate.utils.utils import get_meta_from_structure
+from atomate.vasp.fireworks.adsorption import BulkFW
 
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
 from pymatgen.core.surface import generate_all_slabs, Slab
@@ -21,6 +22,7 @@ from pymatgen.transformations.advanced_transformations import SlabTransformation
 from pymatgen.transformations.standard_transformations import SupercellTransformation
 from pymatgen.io.vasp.sets import MVLSlabSet, MPStaticSet
 from pymatgen.io.vasp.inputs import Kpoints
+from pymatgen.io.vasp.sets import MPSurfaceSet
 
 from pymatgen.core import Molecule, Structure
 
@@ -430,7 +432,7 @@ def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
     fws.append(slab_fw)
 
     for adsorbate in adsorbates:
-        ads_slabs = AdsorbateSiteFinder(slab,**ads_site_finder_params).generate_adsorption_structures(
+        ads_slabs = AdsorbateSiteFinder(slab, **ads_site_finder_params).generate_adsorption_structures(
             adsorbate, **ads_structures_params)
         for n, ads_slab in enumerate(ads_slabs):
             # Create adsorbate fw
@@ -524,7 +526,7 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     wfs = []
     for slab in slabs:
         slab_wf = get_wf_slab(slab, include_bulk_opt, adsorbates,
-                              ads_site_finder_params,ads_structures_params,
+                              ads_site_finder_params, ads_structures_params,
                               vasp_cmd, handler_group, db_file)
         wfs.append(slab_wf)
 
@@ -534,42 +536,67 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     return wfs
 
 
-# TODO: this will go in pymatgen eventually, but want to keep relevant changes
-#       in here for now to simplify sharing
-class MPSurfaceSet(MVLSlabSet):
+def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=None,
+                     db_file=None, job_type=None, bulk_handler_group=None,
+                     slab_handler_group=None, max_index=None,
+                     slab_gen_params=None, ads_site_finder_params=None,
+                     ads_structures_params=None, min_lw=None,
+                     selective_dynamics=True, user_incar_settings=None):
     """
-    Input class for MP slab calcs, mostly to change parameters
-    and defaults slightly
+    Dynamic workflow hat finds all adsorption configurations starting
+    from a bulk structure and a list of adsorbates. Slab structures are
+    generated from the relaxed bulk structure and slab + adsorbate
+    structures are generated from the relaxed slab structure.
+
+    Args:
+        bulk_structure (Structure): bulk structure from which to make
+            slabs
+        adsorbates ([Molecule]): adsorbates to place on surfaces
+        vasp_cmd (str): vasp command
+        db_file (str): path to database file
+        job_type (str): custodian job type
+        bulk_handler_group (str or [ErrorHandler]): custodian handler
+            group for bulk optimizations
+        slab_handler_group (str or [ErrorHandler]): custodian handler
+            group for slab and slab + adsorbate optimizations
+        max_index (int): max miller index
+        slab_gen_params (dict): dictionary of kwargs for
+            generate_all_slabs
+        ads_site_finder_params (dict): parameters to be supplied as
+            kwargs to AdsorbateSiteFinder
+        ads_structures_params (dict): dictionary of kwargs for
+            generate_adsorption_structures in AdsorptionSiteFinder
+        min_lw (float): minimum length/width for slab and
+            slab + adsorbate structures (overridden by
+            ads_structures_params if it already contains min_lw)
+        selective_dynamics (bool): flag for whether to freeze
+            non-surface sites in the slab + adsorbate structures during
+            relaxations
+        user_incar_settings (dict): incar settings to override the ones
+            from MPSurfaceSet (for bulk, slab, and slab + adsorbate
+            optimizations)
+
+    Returns:
+        Workflow
     """
-    def __init__(self, structure, bulk=False, auto_dipole=None, **kwargs):
+    fws = []
+    name = bulk_structure.composition.reduced_formula + " bulk optimization"
+    bulk_fw = BulkFW(bulk_structure, name=name, adsorbates=adsorbates,
+                     vasp_cmd=vasp_cmd, db_file=db_file, job_type=job_type,
+                     bulk_handler_group=bulk_handler_group,
+                     slab_handler_group=slab_handler_group,
+                     slab_gen_params=slab_gen_params, max_index=max_index,
+                     ads_site_finder_params=ads_site_finder_params,
+                     ads_structures_params=ads_structures_params,
+                     min_lw=min_lw, selective_dynamics=selective_dynamics,
+                     user_incar_settings=user_incar_settings)
+    fws.append(bulk_fw)
+    name = str(bulk_structure.composition.reduced_formula)
+    for ads in adsorbates:
+        ads_name = ''.join([site.species_string for site in ads.sites])
+        name += " {}".format(ads_name)
+    name += " adsorption wf"
+    wf = Workflow(fws, name=name)
+    # TODO: add_molecules_in_box
 
-        # If not a bulk calc, turn get_locpot/auto_dipole on by default
-        auto_dipole = auto_dipole or not bulk
-        super(MPSurfaceSet, self).__init__(
-            structure, bulk=bulk, auto_dipole=False, **kwargs)
-        # This is a hack, but should be fixed when this is ported over to
-        # pymatgen to account for vasp native dipole fix
-        if auto_dipole:
-            self._config_dict['INCAR'].update({"LDIPOL": True, "IDIPOL": 3})
-            self.auto_dipole = True
-
-    @property
-    def incar(self):
-        incar = super(MPSurfaceSet, self).incar
-
-        # Determine LDAU based on slab chemistry without adsorbates
-        ldau_elts = {'O', 'F'}
-        if self.structure.site_properties.get("surface_properties"):
-            non_adsorbate_elts = {
-                s.specie.symbol for s in self.structure
-                if not s.properties['surface_properties'] == 'adsorbate'}
-        else:
-            non_adsorbate_elts = {s.specie.symbol for s in self.structure}
-        ldau = bool(non_adsorbate_elts & ldau_elts)
-
-        # Should give better forces for optimization
-        incar_config = {"EDIFFG": -0.05, "ENAUG": 4000, "IBRION": 1,
-                        "POTIM": 1.0, "LDAU": ldau, "EDIFF": 1e-5, "ISYM": 0}
-        incar.update(incar_config)
-        incar.update(self.user_incar_settings)
-        return incar
+    return wf
