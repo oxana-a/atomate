@@ -26,37 +26,37 @@ from pymatgen.core import Molecule, Structure
 
 class DistanceOptimizationFW(Firework):
     def __init__(self, adsorbate, original_slab = None, site_idx = None, idx = None, distances= None,name = "", vasp_input_set = None,
-                         vasp_input_set_paras = None, parents = None, vasp_cmd=VASP_CMD, db_file=DB_FILE, ads_finder_params = None, ads_structures_params = None,
+                         override_default_vasp_params = None, parents = None, vasp_cmd=VASP_CMD, db_file=DB_FILE, ads_finder_params = None, ads_structures_params = None,
                          vasptodb_kwargs = None,optimize_kwargs = None , **kwargs):
                 """
-                This Firework will be in charge of incorporating a task to write the static distance vs. energy to a JSON file for a standard static operation
-                OR launch a relaxation calculation from a set of static calculation at the optimum distance..
+                Firework (FW) that analyzes many similar static calculations where an adsorbate was put along at difference distances normal to the
+                surface of a slab. FW analyzes the VASP calculated energies for these distances and decides an optimal distance to launch an Optimize FW at
+                or whether to quit that site specific FW because the energy landscape is not favorable.
 
                 Args:
                         adsorbate:      molecule to be appended to original_slab at proper optimal distance
                         original_slab:  original surface slab without the molecule attached
                         site_idx:       the enumerated site identification from generate_adsorption_structure. This method returns an array of structure given
                                             an original structure and adsorbate, we will only pick the array item at site_idx.
-                                            Technically this is redundant from idx - its the last value...
+                                            Technically this is redundant from idx - its the last value.
                         idx:            string such as "int_int_int" where the first int is the adsorbate identification (ie CO), the second int is the slab
                                             identifcation (ie 110) and third int is the site identification.
-                        distances:      array of possible distances that had static calculations done
+                        distances:      array of distances that had static calculations done
                         name:           name of FW
                         vasp_input_set: something like MPSurfaceSet or another vasp set that contains basic parameters for the calculations to be performed
-                        vasp_input_set_paras: input set parameters to be passed on to OptimizeFW if no input set is defined
+                        override_default_vasp_params: input set parameters to be passed on to OptimizeFW if no input set is defined
                         parents:        FWs of Static distance calculations
                         vastodb_kwargs: Passed on to VaspToDB Firetask
                         optimize_kwargs: Passed on to OptimizeFW launched FW once optimal distance is found.
                 """
 
                 t = []
-
-                #need to check which parents are completed...
                 t.append(GetPassedJobInformation(distances = distances))
                 t.append(AnalyzeStaticOptimumDistance(idx = idx, distances = distances, adsorbate=adsorbate))
                 t.append(LaunchVaspFromOptimumDistance(adsorbate = adsorbate, original_slab = original_slab, site_idx = site_idx, idx = idx,
                     vasp_input_set=vasp_input_set, vasp_cmd = vasp_cmd, db_file=db_file, ads_finder_params = ads_finder_params,
-                    ads_structures_params = ads_structures_params, vasptodb_kwargs=vasptodb_kwargs, optimize_kwargs = optimize_kwargs))
+                    ads_structures_params = ads_structures_params, vasptodb_kwargs=vasptodb_kwargs, optimize_kwargs = optimize_kwargs, 
+                    override_default_vasp_params=override_default_vasp_params))
 
                 super(DistanceOptimizationFW, self).__init__(t, parents=parents, name="{}-{}".
                                                                                  format(
@@ -66,10 +66,12 @@ class DistanceOptimizationFW(Firework):
 class AdsorptionEnergyLandscapeFW(Firework):
 
         def __init__(self, structure=None, name="static", vasp_input_set=None, vasp_input_set_params=None,
-                                 vasp_cmd=VASP_CMD, prev_calc_loc=True, prev_calc_dir=None, db_file=DB_FILE, vasptodb_kwargs=None,
+                                 vasp_cmd=VASP_CMD, db_file=DB_FILE, vasptodb_kwargs=None,
                                  parents=None, contcar_to_poscar = True,runvaspcustodian_kwargs = None,**kwargs):
                 """
-                Copied from StaticFW to be modified with the addition of a task
+                Copied from StaticFW - modified to not overwrite passed information when supplying a parent.
+                Only looks at structure passed, and not parent structure.
+                Also added argument for passing kwards to  RunVaspCustodian Firetask
                 Standard static calculation Firework - either from a previous location or from a structure.
 
                 Args:
@@ -87,7 +89,8 @@ class AdsorptionEnergyLandscapeFW(Firework):
                         prev_calc_dir (str): Path to a previous calculation to copy from
                         db_file (str): Path to file specifying db credentials.
                         parents (Firework): Parents of this particular Firework. FW or list of FWS.
-                        vasptodb_kwargs (dict): kwargs to pass to VaspToDb
+                        vasptodb_kwargs (dict): kwargs to pass to VaspToDb Firetask
+                        runvaspcustodian_kwargs: kwargs to pass to RunVaspCustodian Firetask
                         \*\*kwargs: Other kwargs that are passed to Firework.__init__.
                 """
 
@@ -129,7 +132,7 @@ class AdsorptionOptimizeFW(Firework):
                                  half_kpts_first_relax=HALF_KPOINTS_FIRST_RELAX, parents=None,
                                  vasptodb_kwargs= None,**kwargs):
                 """
-                Copied from OptimizeFW - removed parent
+                Copied from OptimizeFW - but removed parent feature to make sure structure passed is always used
                 Optimize the given structure.
 
                 Args:

@@ -34,8 +34,10 @@ ref_elem_energy = {'H': -3.379, 'O': -7.459, 'C': -7.329}
 @explicit_serialize
 class LaunchVaspFromOptimumDistance(FiretaskBase):
 	"""
-	Firetask that gets optimal distance information from AnalyzeStaticOptimumDistance firetask.
-	Then launches new OptimizeFW based on that that optimum distance
+	This Firetask loads the optimal distance in the FW spec from the previous Firetasks.
+	It takes an 'idx' and 'site_idx' identifying variable to append the correct adosrbate
+	on the correct slab surface at the optimal distance and then launches an OptimizeFW at
+	that distance.
 	"""
 
 	required_params = ["adsorbate","original_slab", "site_idx", "idx"]
@@ -63,7 +65,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 		ads_structures_params = self.get("ads_structures_params", {})
 		if ads_structures_params is None:
 			ads_structures_params = {}
-		vasp_input_set_params = self.get("vasp_input_set_params", {})
+		override_default_vasp_params = self.get("override_default_vasp_params", {})
 		vasp_cmd = self.get("vasp_cmd", VASP_CMD)
 		db_file = self.get("db_file", DB_FILE)
 
@@ -90,7 +92,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 		#Create new OptimizeFW
 		from atomate.vasp.fireworks.adsorption import AdsorptionOptimizeFW #this is bad form...
 		new_fw = AdsorptionOptimizeFW(structure, vasp_input_set = vasp_input_set, vasp_cmd = vasp_cmd, db_file = db_file, 
-			vasptodb_kwargs = vasptodb_kwargs,**optimize_kwargs)
+			vasptodb_kwargs = vasptodb_kwargs,override_default_vasp_params = override_default_vasp_params,**optimize_kwargs)
 		new_fw.spec["_fworker"] = fw_spec["_fworker"]
 		new_fw.spec["optimal_distance"] = optimal_distance
 
@@ -101,7 +103,10 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 @explicit_serialize
 class AnalyzeStaticOptimumDistance(FiretaskBase):
 	"""
-	Firetask that analyzes a bunch of static calculations to figure out optimal distance to place an adsorbate on specific site
+	This Firetask retrieves bulk energy, slab energy, and adsorbate-slab energies in the FW spec and calculates the 
+	adsorbtion energies at difference adsorbate distances from previous static calculations. It calculates the optimal
+	adsorbate distance using two different algorithms (polynomial, or standard) and passes that information into the spec.
+	It also decides whether to exit the FW if the adsorbate energy landscape is not favorable.
 	"""
 
 	required_params = ["idx", "distances"]
