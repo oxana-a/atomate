@@ -5,21 +5,26 @@ Adsorption workflow firetasks.
 __author__ = "Oxana Andriuc"
 __email__ = "ioandriuc@lbl.gov"
 
+from itertools import combinations
 import json
 from monty.json import jsanitize
 import numpy as np
-from itertools import combinations
+import os
+from xml.etree.ElementTree import ParseError
 from atomate.utils.utils import get_logger, env_chk
 from atomate.vasp.config import DB_FILE
 from atomate.vasp.database import VaspCalcDb
+from datetime import datetime
 from fireworks.core.firework import FiretaskBase, FWAction
 from fireworks.utilities.fw_serializers import DATETIME_HANDLER
 from fireworks.utilities.fw_utilities import explicit_serialize
 from pymatgen import Structure
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
+from pymatgen.analysis.structure_matcher import StructureMatcher
 from pymatgen.analysis.surface_analysis import EV_PER_ANG2_TO_JOULES_PER_M2
 from pymatgen.core.bonds import CovalentBond
 from pymatgen.core.surface import generate_all_slabs, Slab
+from pymatgen.io.vasp.outputs import Vasprun
 from pymatgen.io.vasp.sets import MPSurfaceSet
 from pymatgen.util.coord import get_angle
 
@@ -136,8 +141,6 @@ class GenerateSlabsTask(FiretaskBase):
         selective_dynamics (bool): flag for whether to freeze
             non-surface sites in the slab + adsorbate structures during
             relaxations
-        bulk_converged (bool): whether the corresponding bulk
-            calculation converged or not
         user_incar_settings (dict): incar settings to override the ones
             from MPSurfaceSet (for slab and slab + adsorbate
             optimizations)
@@ -148,7 +151,7 @@ class GenerateSlabsTask(FiretaskBase):
                        "job_type", "handler_group", "slab_gen_params",
                        "max_index", "ads_site_finder_params",
                        "ads_structures_params", "min_lw", "selective_dynamics",
-                       "bulk_dir", "bulk_converged", "user_incar_settings"]
+                       "bulk_dir", "user_incar_settings"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -174,7 +177,6 @@ class GenerateSlabsTask(FiretaskBase):
         ads_structures_params = self.get("ads_structures_params")
         selective_dynamics = self.get("selective_dynamics")
         bulk_dir = self.get("bulk_dir")
-        bulk_converged = self.get("bulk_converged")
         user_incar_settings = self.get("user_incar_settings")
 
         slabs = generate_all_slabs(bulk_structure, max_index=max_index, **sgp)
@@ -232,7 +234,6 @@ class GenerateSlabsTask(FiretaskBase):
                                 min_lw=min_lw,
                                 selective_dynamics=selective_dynamics,
                                 bulk_dir=bulk_dir,
-                                bulk_converged=bulk_converged,
                                 miller_index=slab.miller_index,
                                 shift=slab.shift,
                                 user_incar_settings=user_incar_settings)
@@ -274,8 +275,6 @@ class SlabAdsAdditionTask(FiretaskBase):
         selective_dynamics (bool): flag for whether to freeze
             non-surface sites in the slab + adsorbate structures during
             relaxations
-        bulk_converged (bool): whether the corresponding bulk
-            calculation converged or not
         slab_dir (str): path for the corresponding slab calculation
             directory
         miller_index ([h, k, l]): Miller index of plane parallel to
@@ -290,9 +289,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                        "vasp_cmd", "db_file", "job_type", "handler_group",
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "add_fw_name", "slab_name",
-                       "selective_dynamics", "bulk_dir", "bulk_converged",
-                       "slab_dir", "miller_index", "shift",
-                       "user_incar_settings"]
+                       "selective_dynamics", "bulk_dir", "slab_dir",
+                       "miller_index", "shift", "user_incar_settings"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -318,7 +316,6 @@ class SlabAdsAdditionTask(FiretaskBase):
         slab_name = self.get("slab_name")
         selective_dynamics = self.get("selective_dynamics")
         bulk_dir = self.get("bulk_dir")
-        bulk_converged = self.get("bulk_converged")
         miller_index = self.get("miller_index")
         shift = self.get("shift")
         user_incar_settings = self.get("user_incar_settings")
@@ -331,9 +328,8 @@ class SlabAdsAdditionTask(FiretaskBase):
             ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params, min_lw=min_lw,
             slab_name=slab_name, selective_dynamics=selective_dynamics,
-            bulk_dir=bulk_dir, bulk_converged=bulk_converged,
-            slab_dir=slab_dir, miller_index=miller_index, shift=shift,
-            user_incar_settings=user_incar_settings)
+            bulk_dir=bulk_dir, slab_dir=slab_dir, miller_index=miller_index,
+            shift=shift, user_incar_settings=user_incar_settings)
 
         return FWAction(additions=fw)
 
@@ -370,10 +366,6 @@ class GenerateSlabAdsTask(FiretaskBase):
         selective_dynamics (bool): flag for whether to freeze
             non-surface sites in the slab + adsorbate structures during
             relaxations
-        bulk_converged (bool): whether the corresponding bulk
-            calculation converged or not
-        slab_converged (bool): whether the corresponding slab
-            calculation converged or not
         miller_index ([h, k, l]): Miller index of plane parallel to
             the slab surface
         shift (float): the shift in the c-direction applied to get
@@ -387,8 +379,7 @@ class GenerateSlabAdsTask(FiretaskBase):
                        "vasp_cmd", "db_file", "job_type", "handler_group",
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "slab_name", "selective_dynamics",
-                       "bulk_dir", "bulk_converged", "slab_dir",
-                       "slab_converged", "miller_index", "shift",
+                       "bulk_dir", "slab_dir", "miller_index", "shift",
                        "user_incar_settings"]
 
     def run_task(self, fw_spec):
@@ -409,9 +400,7 @@ class GenerateSlabAdsTask(FiretaskBase):
         min_lw = self.get("min_lw") or 10.0
         selective_dynamics = self.get("selective_dynamics")
         bulk_dir = self.get("bulk_dir")
-        bulk_converged = self.get("bulk_converged")
         slab_dir = self.get("slab_dir")
-        slab_converged = self.get("slab_converged")
         miller_index = self.get("miller_index")
         shift = self.get("shift")
         user_incar_settings = self.get("user_incar_settings")
@@ -437,6 +426,15 @@ class GenerateSlabAdsTask(FiretaskBase):
                 slab_ads_name = "{} {} [{}]".format(slab_name, ads_name, n)
                 fw_name = slab_ads_name + " slab + adsorbate optimization"
                 vis = MPSurfaceSet(slab_ads, bulk=False)
+
+                # get id map from original structure to output one and
+                # surface properties to be able to find adsorbate sites later
+                new_slab_ads = vis.structure
+                sm = StructureMatcher(primitive_cell=False)
+                id_map = sm.get_transformation(slab_ads, new_slab_ads)[-1]
+                surface_properties = slab_ads.site_properties[
+                    'surface_properties']
+
                 slab_ads_fw = af.SlabAdsFW(
                     slab_ads, name=fw_name, slab_structure=slab_structure,
                     slab_energy=slab_energy, bulk_structure=bulk_structure,
@@ -444,10 +442,10 @@ class GenerateSlabAdsTask(FiretaskBase):
                     vasp_input_set=vis, vasp_cmd=vasp_cmd, db_file=db_file,
                     job_type=job_type, handler_group=handler_group,
                     slab_name=slab_name, slab_ads_name=slab_ads_name,
-                    bulk_dir=bulk_dir, bulk_converged=bulk_converged,
-                    slab_dir=slab_dir, slab_converged=slab_converged,
+                    bulk_dir=bulk_dir, slab_dir=slab_dir,
                     miller_index=miller_index, shift=shift,
-                    user_incar_settings=user_incar_settings)
+                    user_incar_settings=user_incar_settings, id_map=id_map,
+                    surface_properties=surface_properties)
 
                 slab_ads_fws.append(slab_ads_fw)
 
@@ -476,24 +474,26 @@ class AnalysisAdditionTask(FiretaskBase):
             (format: Formula_MillerIndex_Shift)
         slab_ads_name (str): name for the slab + adsorbate
             (format: Formula_MillerIndex_Shift AdsorbateFormula Number)
-        bulk_converged (bool): whether the corresponding bulk
-            calculation converged or not
-        slab_converged (bool): whether the corresponding slab
-            calculation converged or not
-        slabads_dir (str): path for the corresponding slab + adsorbate
+        slab_ads_dir (str): path for the corresponding slab + adsorbate
             calculation directory
         miller_index ([h, k, l]): Miller index of plane parallel to
             the slab surface
         shift (float): the shift in the c-direction applied to get
-            the termination for the slab surface
+            the termination for the slab surface'
+        id_map (list): a map of the site indices from the initial
+            slab + adsorbate structure to the output one (because the
+            site order is changed by MPSurfaceSet)
+        surface_properties (list): surface properties for the initial
+            slab + adsorbate structure (used to identify adsorbate sites
+            in the output structure since the site order is changed by
+            MPSurfaceSet)
     """
     required_params = []
     optional_params = ["slab_structure", "slab_energy", "bulk_structure",
                        "bulk_energy", "adsorbate", "analysis_fw_name",
                        "db_file", "job_type", "slab_name", "slab_ads_name",
-                       "bulk_dir", "bulk_converged", "slab_dir",
-                       "slab_converged", "slabads_dir", "miller_index",
-                       "shift"]
+                       "bulk_dir", "slab_dir", "slab_ads_dir", "miller_index",
+                       "shift", "id_map", "surface_properties"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -503,9 +503,9 @@ class AnalysisAdditionTask(FiretaskBase):
         slab_ads_task_id = fw_spec["slab_ads_task_id"]
         calc_locs = fw_spec["calc_locs"]
         if calc_locs:
-            slabads_dir = calc_locs[-1].get("path")
+            slab_ads_dir = calc_locs[-1].get("path")
         else:
-            slabads_dir = self.get("slabads_dir")
+            slab_ads_dir = self.get("slab_ads_dir")
         slab_structure = self.get("slab_structure")
         slab_energy = self.get("slab_energy")
         bulk_structure = self.get("bulk_structure")
@@ -519,11 +519,11 @@ class AnalysisAdditionTask(FiretaskBase):
         slab_name = self.get("slab_name")
         slab_ads_name = self.get("slab_ads_name")
         bulk_dir = self.get("bulk_dir")
-        bulk_converged = self.get("bulk_converged")
         slab_dir = self.get("slab_dir")
-        slab_converged = self.get("slab_converged")
         miller_index = self.get("miller_index")
         shift = self.get("shift")
+        id_map = self.get("id_map")
+        surface_properties = self.get("surface_properties")
 
         fw = af.AdsorptionAnalysisFW(
             slab_ads_structure=slab_ads_structure,
@@ -532,9 +532,9 @@ class AnalysisAdditionTask(FiretaskBase):
             bulk_energy=bulk_energy, adsorbate=adsorbate, db_file=db_file,
             job_type=job_type, name=analysis_fw_name, slab_name=slab_name,
             slab_ads_name=slab_ads_name, slab_ads_task_id=slab_ads_task_id,
-            bulk_dir=bulk_dir, bulk_converged=bulk_converged,
-            slab_dir=slab_dir, slab_converged=slab_converged,
-            slabads_dir=slabads_dir, miller_index=miller_index, shift=shift)
+            bulk_dir=bulk_dir, slab_dir=slab_dir, slab_ads_dir=slab_ads_dir,
+            miller_index=miller_index, shift=shift, id_map=id_map,
+            surface_properties=surface_properties)
 
         return FWAction(additions=fw)
 
@@ -565,12 +565,6 @@ class AdsorptionAnalysisTask(FiretaskBase):
             (format: Formula_MillerIndex_Shift AdsorbateFormula Number)
         slab_ads_task_id (int): the corresponding slab + adsorbate
             optimization task id
-        bulk_converged (bool): whether the corresponding bulk
-            calculation converged or not
-        slab_converged (bool): whether the corresponding slab
-            calculation converged or not
-        slabads_converged (bool): whether the corresponding slab
-            + adsorbate calculation converged or not
         miller_index ([h, k, l]): Miller index of plane parallel to
             the slab surface
         shift (float): the shift in the c-direction applied to get
@@ -582,17 +576,17 @@ class AdsorptionAnalysisTask(FiretaskBase):
                        "slab_structure", "slab_energy", "bulk_structure",
                        "bulk_energy", "adsorbate", "db_file", "job_type",
                        "name", "slab_name", "slab_ads_name",
-                       "slab_ads_task_id", "bulk_dir", "bulk_converged",
-                       "slab_dir", "slab_converged", "slabads_dir",
-                       "slabads_converged", "miller_index", "shift"]
+                       "slab_ads_task_id", "bulk_dir", "slab_dir",
+                       "slab_ads_dir", "miller_index", "shift", "id_map",
+                       "surface_properties"]
 
     def run_task(self, fw_spec):
         stored_data = {}
-        slab_ads_structure = self.get("slab_ads_structure")
+        output_slab_ads = self.get("slab_ads_structure")
         slab_ads_energy = self.get("slab_ads_energy")
-        slab_structure = self.get("slab_structure")
+        output_slab = self.get("slab_structure")
         slab_energy = self.get("slab_energy")
-        bulk_structure = self.get("bulk_structure")
+        output_bulk = self.get("bulk_structure")
         bulk_energy = self.get("bulk_energy")
         adsorbate = self.get("adsorbate")
         db_file = self.get("db_file") or DB_FILE
@@ -602,13 +596,12 @@ class AdsorptionAnalysisTask(FiretaskBase):
         slab_ads_name = self.get("slab_ads_name")
         slab_ads_task_id = self.get("slab_ads_task_id")
         bulk_dir = self.get("bulk_dir")
-        bulk_converged = self.get("bulk_converged")
         slab_dir = self.get("slab_dir")
-        slab_converged = self.get("slab_converged")
-        slabads_dir = self.get("slabads_dir")
-        slabads_converged = self.get("slabads_converged")
+        slab_ads_dir = self.get("slab_ads_dir")
         miller_index = self.get("miller_index")
         shift = self.get("shift")
+        id_map = self.get("id_map")
+        surface_properties = self.get("surface_properties")
 
         stored_data['task_name'] = task_name
 
@@ -617,36 +610,140 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                 site in adsorbate.sites]),
             'input_structure': adsorbate.as_dict()}
 
+        def time_vrun(path):
+            # helper function that returns the creation time
+            # (type: datetime.datetime) of a vasprun file as extracted
+            # from it given its file path
+            vrun = Vasprun(path)
+            date = vrun.generator['date']
+            time = vrun.generator['time']
+            date_time_string = '{} {}'.format(date, time)
+            date_time = datetime.strptime(date_time_string,
+                                          '%Y %m %d %H:%M:%S')
+            return date_time
+
+        bulk_converged, input_bulk = None, None
+        if bulk_dir:
+            vrun_paths = [os.path.join(bulk_dir, fname) for fname in
+                          os.listdir(bulk_dir) if "vasprun" in fname.lower()]
+            try:
+                vrun_paths.sort(key=lambda x: time_vrun(x))
+                vrun_i = Vasprun(vrun_paths[0])
+                vrun_o = Vasprun(vrun_paths[-1])
+
+                bulk_converged = vrun_o.converged
+                if bulk_energy:
+                    assert(round(bulk_energy - vrun_o.final_energy, 7) == 0)
+                else:
+                    bulk_energy = vrun_o.final_energy
+
+                if not output_bulk:
+                    output_bulk = vrun_o.final_structure
+                input_bulk = vrun_i.initial_structure
+
+            except (ParseError, AssertionError):
+                pass
+
+        slab_converged, input_slab = None, None
+        if slab_dir:
+            vrun_paths = [os.path.join(slab_dir, fname) for fname in
+                          os.listdir(slab_dir) if "vasprun" in fname.lower()]
+            try:
+                vrun_paths.sort(key=lambda x: time_vrun(x))
+                vrun_i = Vasprun(vrun_paths[0])
+                vrun_o = Vasprun(vrun_paths[-1])
+
+                slab_converged = vrun_o.converged
+                if slab_energy:
+                    assert(round(slab_energy - vrun_o.final_energy, 7) == 0)
+                else:
+                    slab_energy = vrun_o.final_energy
+
+                if not output_slab:
+                    output_slab = vrun_o.final_structure
+                input_slab = vrun_i.initial_structure
+
+            except (ParseError, AssertionError):
+                pass
+
+        slab_ads_converged, input_slab_ads = None, None
+        if slab_ads_dir:
+            vrun_paths = [os.path.join(slab_ads_dir, fname) for fname in
+                          os.listdir(slab_ads_dir)
+                          if "vasprun" in fname.lower()]
+            try:
+                vrun_paths.sort(key=lambda x: time_vrun(x))
+                vrun_i = Vasprun(vrun_paths[0])
+                vrun_o = Vasprun(vrun_paths[-1])
+
+                slab_ads_converged = vrun_o.converged
+                if slab_ads_energy:
+                    assert(round(
+                        slab_ads_energy - vrun_o.final_energy, 7) == 0)
+                else:
+                    slab_ads_energy = vrun_o.final_energy
+
+                if not output_slab_ads:
+                    output_slab_ads = vrun_o.final_structure
+                input_slab_ads = vrun_i.initial_structure
+
+            except (ParseError, AssertionError):
+                pass
+
+        ads_sites = []
+        if surface_properties and id_map and output_slab_ads:
+            ordered_surf_prop = [prop for new_id, prop in
+                                 sorted(zip(id_map, surface_properties))]
+            output_slab_ads.add_site_property('surface_properties',
+                                              ordered_surf_prop)
+            ads_sites = [site for site in output_slab_ads.sites if
+                         site.properties["surface_properties"] == "adsorbate"]
+            # ads_sites = [output_slab_ads.sites[new_id] for new_id, prop
+            #              in zip(id_map, surface_properties)
+            #              if prop == 'adsorbate']
+        elif adsorbate and output_slab_ads:
+            ads_sites = [output_slab_ads.sites[new_id] for new_id
+                         in id_map[-adsorbate.num_sites:]]
+
+        site_ids = {site: index
+                    for index, site in enumerate(output_slab_ads.sites)}
+
+        # atom movements during slab + adsorbate optimization
+        translation_vectors = [{'old_id': old_id, 'new_id': new_id,
+                                'vector': (output_slab_ads[new_id].coords
+                                           - input_slab_ads[old_id].coords)}
+                               for old_id, new_id in enumerate(id_map)]
+
         stored_data['bulk'] = {
-            'formula': bulk_structure.composition.reduced_formula,
+            'formula': output_bulk.composition.reduced_formula,
             'directory': bulk_dir, 'converged': bulk_converged,
-            'output_structure': bulk_structure.as_dict(),
+            'input_structure': input_bulk.as_dict(),
+            'output_structure': output_bulk.as_dict(),
             'output_energy': bulk_energy}
 
         stored_data['slab'] = {
             'name': slab_name, 'directory': slab_dir,
             'converged': slab_converged, 'miller_index': miller_index,
-            'shift': shift, 'output_structure': slab_structure.as_dict(),
+            'shift': shift, 'input_structure': input_slab.as_dict(),
+            'output_structure': output_slab.as_dict(),
             'output_energy': slab_energy}
 
         stored_data['slab_adsorbate'] = {
-            'name': slab_ads_name, 'directory': slabads_dir,
-            'converged': slabads_converged,
-            'output_structure': slab_ads_structure.as_dict(),
-            'output_slab_ads_energy': slab_ads_energy}
+            'name': slab_ads_name, 'directory': slab_ads_dir,
+            'converged': slab_ads_converged,
+            'input_structure': input_slab_ads.as_dict(),
+            'output_structure': output_slab_ads.as_dict(),
+            'output_slab_ads_energy': slab_ads_energy,
+            'translation_vectors': translation_vectors}
 
         # cleavage energy
-        area = np.linalg.norm(np.cross(slab_structure.lattice.matrix[0],
-                                       slab_structure.lattice.matrix[1]))
-        bulk_en_per_atom = bulk_energy/bulk_structure.num_sites
-        cleavage_energy = ((slab_energy - bulk_en_per_atom * slab_structure
+        area = np.linalg.norm(np.cross(output_slab.lattice.matrix[0],
+                                       output_slab.lattice.matrix[1]))
+        bulk_en_per_atom = bulk_energy/output_bulk.num_sites
+        cleavage_energy = ((slab_energy - bulk_en_per_atom * output_slab
                            .num_sites) / (2*area)
                            * EV_PER_ANG2_TO_JOULES_PER_M2)
         stored_data['cleavage_energy'] = cleavage_energy  # J/m^2
-
-        site_ids = {site: index
-                    for index, site in enumerate(slab_ads_structure.sites)}
-        ads_sites = slab_ads_structure.sites[-adsorbate.num_sites:]
 
         # adsorbate bonds
         if len(ads_sites) > 1:
@@ -722,8 +819,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         for n, ads_site in enumerate(ads_sites):
             ads_site_name = ("adsorbate_site [{}]: {}"
                              .format(n, ads_site.specie))
-            neighbors = slab_ads_structure.get_neighbors(
-                ads_site, slab_ads_structure.lattice.c)
+            neighbors = output_slab_ads.get_neighbors(
+                ads_site, output_slab_ads.lattice.c)
 
             neighbors.sort(key=lambda x: x[1])
             nearest_surface_neighbor = next(neighbor for neighbor in neighbors
@@ -754,7 +851,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         stored_data['adsorption_site']['distance'] = distance
 
         # adsorption energy
-        scale_factor = slab_ads_structure.volume / slab_structure.volume
+        scale_factor = output_slab_ads.volume / output_slab.volume
         ads_comp = Structure.from_sites(ads_sites).composition
         adsorption_en = slab_ads_energy - slab_energy * scale_factor - sum(
             [ads_comp.get(element, 0) * ref_elem_energy.get(str(element)) for
