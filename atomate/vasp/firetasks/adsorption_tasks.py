@@ -15,7 +15,7 @@ from atomate.utils.utils import get_logger, env_chk
 from atomate.vasp.config import DB_FILE
 from atomate.vasp.database import VaspCalcDb
 from datetime import datetime
-from fireworks.core.firework import FiretaskBase, FWAction
+from fireworks.core.firework import FiretaskBase, FWAction, Workflow
 from fireworks.utilities.fw_serializers import DATETIME_HANDLER
 from fireworks.utilities.fw_utilities import explicit_serialize
 from pymatgen import Structure
@@ -380,11 +380,12 @@ class GenerateSlabAdsTask(FiretaskBase):
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "slab_name", "selective_dynamics",
                        "bulk_dir", "slab_dir", "miller_index", "shift",
-                       "user_incar_settings"]
+                       "user_incar_settings", "static_distances", 
+                       "optimize_distance"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
-        slab_ads_fws = []
+        fws = []
 
         slab_structure = self.get("slab_structure")
         slab_energy = self.get("slab_energy")
@@ -404,6 +405,7 @@ class GenerateSlabAdsTask(FiretaskBase):
         miller_index = self.get("miller_index")
         shift = self.get("shift")
         user_incar_settings = self.get("user_incar_settings")
+        static_distances = self.get("static_distances") or [0.5,1.0,1.5,2.0]
 
         if "min_lw" not in ads_structures_params:
             ads_structures_params["min_lw"] = min_lw
@@ -413,43 +415,124 @@ class GenerateSlabAdsTask(FiretaskBase):
         slab_name = self.get("slab_name",
                              slab_structure.composition.reduced_formula)
 
-        for adsorbate in adsorbates:
+        for ads_idx, adsorbate in enumerate(adsorbates):
             adsorbate.add_site_property('magmom', [0.0]*adsorbate.num_sites)
-            slabs_ads = (AdsorbateSiteFinder(
-                slab_structure, **ads_site_finder_params)
-                .generate_adsorption_structures(
-                adsorbate, **ads_structures_params))
-            for n, slab_ads in enumerate(slabs_ads):
-                # Create adsorbate fw
-                ads_name = ''.join([site.species_string for site
-                                    in adsorbate.sites])
-                slab_ads_name = "{} {} [{}]".format(slab_name, ads_name, n)
-                fw_name = slab_ads_name + " slab + adsorbate optimization"
-                vis = MPSurfaceSet(slab_ads, bulk=False)
 
-                # get id map from original structure to output one and
-                # surface properties to be able to find adsorbate sites later
-                new_slab_ads = vis.structure
-                sm = StructureMatcher(primitive_cell=False)
-                id_map = sm.get_transformation(slab_ads, new_slab_ads)[-1]
-                surface_properties = slab_ads.site_properties[
-                    'surface_properties']
+            if optimize_distance:
 
-                slab_ads_fw = af.SlabAdsFW(
-                    slab_ads, name=fw_name, slab_structure=slab_structure,
-                    slab_energy=slab_energy, bulk_structure=bulk_structure,
-                    bulk_energy=bulk_energy, adsorbate=adsorbate,
-                    vasp_input_set=vis, vasp_cmd=vasp_cmd, db_file=db_file,
-                    job_type=job_type, handler_group=handler_group,
-                    slab_name=slab_name, slab_ads_name=slab_ads_name,
-                    bulk_dir=bulk_dir, slab_dir=slab_dir,
-                    miller_index=miller_index, shift=shift,
-                    user_incar_settings=user_incar_settings, id_map=id_map,
-                    surface_properties=surface_properties)
+                asf = AdsorbateSiteFinder(slab_structure)
+                coords = asf.find_adsorption_sites(distance=0.0)['all']
 
-                slab_ads_fws.append(slab_ads_fw)
+                for site_idx, coord in enumerate(coords):
+                    parents = []
+                    for distance in static_distances:
+                        coord += distance*asf.mvec
+                        slab_ads = asf.add_adsorbate(adsorbate,coord)
 
-        return FWAction(additions=slab_ads_fws)
+                        ads_name = "{}-{}{} distance optimization: {}. Site: {}".format(
+                            adsorbate.composition.formula, slab_structure.composition.formula,miller_index, distance,site_idx)
+
+                        fws.append(AdsorptionEnergyLandscapeFW(name=ads_name, structure=slab_ads,
+                                            vasp_cmd=vasp_cmd,
+                                            db_file=db_file,
+                                            vasptodb_kwargs={
+                                                "task_fields_to_push":{
+                                                    "{}_{}_{}_energy".format(ads_idx,site_idx,distance_idx):"output.energy_per_atom",
+                                                    "{}_{}_{}_structure".format(ads_idx,site_idx,distance_idx):"output.structure"
+                                                    },
+                                                "defuse_unsuccessful":False
+                                                }, 
+                                            contcar_to_poscar=False, 
+                                            runvaspcustodian_kwargs = {
+                                                "handler_group":"no_handler"},
+                                            spec = {"_pass_job_info": True}))
+                        parents.append(fws[-1])
+                    fws.append(DistanceOptimizationFW(adsorbate, slab_structure, site_idx = site_idx, idx = "{}_{}_".format(ads_idx,site_idx), 
+                        distances = static_distances,
+                        name = "Optimal Distance Analysis, Adsorbate: {}, Surface: {}, Site: {}".format(adsorbate.composition.formula, miller_index,site_idx), 
+                        parents=parents,
+                        spec = {"_allow_fizzled_parents":True}))
+
+
+
+            #     for distance_idx, distance in enumerate(static_distances):
+            #         #update distance for AdsorbateSiteFinder
+            #         ads_structures_params.update({"find_args":{"distance":distance}})
+
+            #         slabs_ads = (AdsorbateSiteFinder(
+            #         slab_structure, **ads_site_finder_params)
+            #         .generate_adsorption_structures(
+            #         adsorbate, **ads_structures_params))
+
+            #         for slab_idx, slab_ads in enumerate(slabs_ads):
+
+
+
+
+
+                #         fws.append(AdsorptionEnergyLandscapeFW(name=ads_name, structure=slab_ads,
+                #                             vasp_cmd=vasp_cmd,
+                #                             db_file=db_file,
+                #                             vasptodb_kwargs={
+                #                                 "task_fields_to_push":{
+                #                                     "{}_{}_{}_energy".format(ads_idx,slab_idx,distance_idx):"output.energy_per_atom",
+                #                                     "{}_{}_{}_structure".format(ads_idx,slab_idx,distance_idx):"output.structure"
+                #                                     },
+                #                                 "defuse_unsuccessful":False
+                #                                 }, 
+                #                             contcar_to_poscar=False, 
+                #                             runvaspcustodian_kwargs = {
+                #                                 "handler_group":"no_handler"},
+                #                             spec = {"_pass_job_info": True}))
+                #         if not idx_to_fw_id.get("{}_{}_{}".format(ads_idx,slab_idx,site_idx), False):
+                #             idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)] = [fws[-1]]
+                #         else:
+                #             idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)].append(fws[-1])
+
+                # slabs_ads = (AdsorbateSiteFinder(
+                #     slab_structure, **ads_site_finder_params)
+                #     .generate_adsorption_structures(
+                #     adsorbate, **ads_structures_params))
+
+
+
+
+            else:
+                slabs_ads = (AdsorbateSiteFinder(
+                    slab_structure, **ads_site_finder_params)
+                    .generate_adsorption_structures(
+                    adsorbate, **ads_structures_params))
+                for n, slab_ads in enumerate(slabs_ads):
+                    # Create adsorbate fw
+                    ads_name = ''.join([site.species_string for site
+                                        in adsorbate.sites])
+                    slab_ads_name = "{} {} [{}]".format(slab_name, ads_name, n)
+                    fw_name = slab_ads_name + " slab + adsorbate optimization"
+                    vis = MPSurfaceSet(slab_ads, bulk=False)
+
+                    # get id map from original structure to output one and
+                    # surface properties to be able to find adsorbate sites later
+                    new_slab_ads = vis.structure
+                    sm = StructureMatcher(primitive_cell=False)
+                    id_map = sm.get_transformation(slab_ads, new_slab_ads)[-1]
+                    surface_properties = slab_ads.site_properties[
+                        'surface_properties']
+
+                    slab_ads_fw = af.SlabAdsFW(
+                        slab_ads, name=fw_name, slab_structure=slab_structure,
+                        slab_energy=slab_energy, bulk_structure=bulk_structure,
+                        bulk_energy=bulk_energy, adsorbate=adsorbate,
+                        vasp_input_set=vis, vasp_cmd=vasp_cmd, db_file=db_file,
+                        job_type=job_type, handler_group=handler_group,
+                        slab_name=slab_name, slab_ads_name=slab_ads_name,
+                        bulk_dir=bulk_dir, slab_dir=slab_dir,
+                        miller_index=miller_index, shift=shift,
+                        user_incar_settings=user_incar_settings, id_map=id_map,
+                        surface_properties=surface_properties)
+
+                    fws.append(slab_ads_fw)
+
+        return FWAction(additions=Workflow(fws))
 
 
 @explicit_serialize
