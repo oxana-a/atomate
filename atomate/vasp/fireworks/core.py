@@ -86,7 +86,7 @@ class OptimizeFW(Firework):
                                   half_kpts_first_relax=half_kpts_first_relax))
         t.append(PassCalcLocs(name=name))
         t.append(
-            VaspToDb(db_file=db_file, **vasptodb_kwargs))
+            VaspToDb(db_file=db_file, additional_fields={"task_label": name}, **vasptodb_kwargs))
         super(OptimizeFW, self).__init__(t, parents=parents, name="{}-{}".
                                          format(
                                              structure.composition.reduced_formula, name),
@@ -97,7 +97,7 @@ class StaticFW(Firework):
 
     def __init__(self, structure=None, name="static", vasp_input_set=None, vasp_input_set_params=None,
                  vasp_cmd=VASP_CMD, prev_calc_loc=True, prev_calc_dir=None, db_file=DB_FILE, vasptodb_kwargs=None,
-                 parents=None, **kwargs):
+                 parents=None, contcar_to_poscar = True,**kwargs):
         """
         Standard static calculation Firework - either from a previous location or from a structure.
 
@@ -130,12 +130,12 @@ class StaticFW(Firework):
         fw_name = "{}-{}".format(structure.composition.reduced_formula if structure else "unknown", name)
 
         if prev_calc_dir:
-            t.append(CopyVaspOutputs(calc_dir=prev_calc_dir, contcar_to_poscar=True))
+            t.append(CopyVaspOutputs(calc_dir=prev_calc_dir, contcar_to_poscar=contcar_to_poscar))
             t.append(WriteVaspStaticFromPrev(other_params=vasp_input_set_params))
         elif parents:
             if prev_calc_loc:
                 t.append(CopyVaspOutputs(calc_loc=prev_calc_loc,
-                                         contcar_to_poscar=True))
+                                         contcar_to_poscar=contcar_to_poscar))
             t.append(WriteVaspStaticFromPrev(other_params=vasp_input_set_params))
         elif structure:
             vasp_input_set = vasp_input_set or MPStaticSet(structure)

@@ -10,7 +10,8 @@ import numpy as np
 
 from fireworks import Workflow
 
-from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW
+from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW, StaticFW
+from atomate.vasp.fireworks.absorption import DistanceOptimizationFW
 from atomate.utils.utils import get_meta_from_structure
 from atomate.vasp.fireworks.adsorption import BulkFW
 
@@ -20,12 +21,117 @@ from pymatgen.transformations.advanced_transformations import SlabTransformation
 from pymatgen.transformations.standard_transformations import SupercellTransformation
 from pymatgen.io.vasp.sets import MPSurfaceSet
 
+from pymatgen.core import Molecule, Structure
+
 __author__ = 'Joseph Montoya, Richard Tran'
 __email__ = 'montoyjh@lbl.gov'
 
 
 # TODO: Add functionality for reconstructions
 # TODO: Add framework for including vibrations and free energy
+
+
+def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, vasp_cmd = None, slab_gen_params = None, 
+    max_index = 1, ads_finder_params = None, ads_structures_params = None):
+
+    
+    #Set default paramters for workshop if no custom ones are passed in
+    if ads_finder_params is None: ads_finder_params = {}
+    if ads_structures_params is None: ads_structures_params = {}
+    if distances is None:
+        distances = [0.5, 0.87, 1.25, 1.63, 2.0]
+
+    fws = []
+
+    #Bulk Optimization of Structure - To be modified by Oxana
+    name = structure.composition.reduced_formula
+    vasp_input_set = "" #TO DO
+    fws.append(OptimizeFW(name=name, structure=structure,
+                        vasp_input_set=vasp_input_set, vasp_cmd=vasp_cmd,
+                        db_file=db_file, job_type="normal", 
+                        vasptodb_kwargs={"task_fields_to_push":{"bulk_relaxed_structure":"output.structure"}}))
+
+    #Passing Bulk Optimization to different possible slabs
+
+
+    #Finding Possible Adsorbate Sites on Clean Slabs and Correlating to Relaxed Slabs with frozen bulk layers
+    #Must create some type of function where a relaxed structure can be inputted, the miller plane as well as the distance between adsorbate & slab...
+
+    #define slabs:
+
+
+    #Set general parameters
+    sgp = slab_gen_params or {"min_slab_size": 10, "min_vacuum_size": 5}
+    vasp_input_set = "" #TODO: Custom Input Set
+
+    '''
+    In these sets of Static FWs, if the VASP Calculation succeed the energy per atom will be made available to the rest of the FW's.
+    It will be available like so:
+        fw_spec[ads_idx _ slab_idx _ site_idx _ distance_idx _ energy] = ENERGY
+        fw_spec[ads_idx _ slab_idx _ site_idx _ distance_idx _ structure] = STRUCTURE #This is probably not needed...
+        idx_to_fw_id  ->  dict() key=idx, value=fw_id -> helps keep track of parents FWS.
+    '''
+
+
+    #For all adsorbates passed in
+    idx_to_fw_id = dict()
+    for ads_idx, adsorbate in enumerate(adsorbates):
+
+        #optimize at different distances
+        for distance_idx, distance in enumerate(distances):
+
+            #Find all possible slabs:
+            slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
+
+            #For all possible slabs
+            for slab_idx, slab in enumerate(slabs):
+                miller = slab.miller_index
+                ads_slabs = AdsorbateSiteFinder(slab, distance, **ads_finder_params).generate_adsorption_structures(adsorbate, **ads_structures_params)
+                
+                #For all possible 
+                for site_idx, ads_slab in enumerate(ads_slabs):
+                    ads_name = "{}-{}{} distance optimization: {}. Site: {}".format(
+                        adsorbate.composition.formula, structure.composition.formula,miller, distance,site_idx) #name of current FW
+
+                    #Create Static FWs to test if energy landscape is favorable and save their energy and structure for processing with DistanceOptimizationFW
+                    fws.append(StaticFW(name=ads_name, structure=slab,
+                                        vasp_input_set=vasp_input_set, vasp_cmd=vasp_cmd,
+                                        db_file=db_file, parents=fws[0],
+                                        vasptodb_kwargs={
+                                            "task_fields_to_push":{
+                                                "{}_{}_{}_{}_energy".format(ads_idx, slab_idx,site_idx,distance_idx):"output.energy_per_atom",
+                                                "{}_{}_{}_{}_structure".format(ads_idx, slab_idx,site_idx,distance_idx):"output.structure"
+                                                }
+                                            }, contcar_to_poscar=False))
+                    if not idx_to_fw_id.get("{}_{}_{}".format(ads_idx,slab_idx,site_idx), False):
+                        idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)] = [fws[-1]]
+                    else:
+                        idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)].append(fws[-1])
+    
+    #Processing Optimal Distance and run best adsorption - same ads_idx, slab_idx, site_idx as previous, and must pass in same distances array
+    for ads_idx, adsorbate in enumerate(adsorbates):
+        slabs = generate_all_slabs(structure, max_index=max_index, **sgp)
+        for slab_idx, slab in enumerate(slabs):
+            miller = slab.miller_index
+            ads_slabs = AdsorbateSiteFinder(slab, distance, **ads_finder_params).generate_adsorption_structures(adsorbate, **ads_structures_params)
+            for site_idx, ads_slab in enumerate(ads_slabs):
+                #Add FW that finds optimal distance from static FW and appends  adsorbate to best distance...
+                fws.append(DistanceOptimizationFW(adsorbate, slab, site_idx = site_idx, idx = "{}_{}_{}_".format(ads_idx, slab_idx,site_idx), 
+                    distances = distances, 
+                    name = "Optimal Distance Analysis, Adsorbate: {}, Surface: {}, Site: {}".format(adsorbate.composition.formula, miller,site_idx), 
+                    parents=idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)]))
+
+    #Workflow information
+    wf = Workflow(fws)
+    wf.name = "Photocatalyst Workflow, Catalyst: {}".format(structure.composition.formula)
+
+    return wf
+
+
+
+
+
+
 def get_slab_fw(slab, transmuter=False, db_file=None, vasp_input_set=None,
                 parents=None, vasp_cmd="vasp", handler_group="md", name="",
                 add_slab_metadata=True):
