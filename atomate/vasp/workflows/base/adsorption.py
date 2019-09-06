@@ -541,7 +541,8 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=None,
                      slab_handler_group=None, max_index=None,
                      slab_gen_params=None, ads_site_finder_params=None,
                      ads_structures_params=None, min_lw=None,
-                     selective_dynamics=True, user_incar_settings=None):
+                     selective_dynamics=True, user_incar_settings=None,
+                     optimize_distance=True):
     """
     Dynamic workflow hat finds all adsorption configurations starting
     from a bulk structure and a list of adsorbates. Slab structures are
@@ -575,6 +576,9 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=None,
         user_incar_settings (dict): incar settings to override the ones
             from MPSurfaceSet (for bulk, slab, and slab + adsorbate
             optimizations)
+        optimize_distance (bool): whether to launch static calculations
+            to determine the optimal adsorbate - surface distance
+            before optimizing the slab + adsorbate structure
 
     Returns:
         Workflow
@@ -589,7 +593,8 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=None,
                      ads_site_finder_params=ads_site_finder_params,
                      ads_structures_params=ads_structures_params,
                      min_lw=min_lw, selective_dynamics=selective_dynamics,
-                     user_incar_settings=user_incar_settings)
+                     user_incar_settings=user_incar_settings,
+                     optimize_distance=optimize_distance)
     fws.append(bulk_fw)
     name = str(bulk_structure.composition.reduced_formula)
     for ads in adsorbates:
