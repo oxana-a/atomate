@@ -24,8 +24,8 @@ from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
 
 
 class DistanceOptimizationFW(Firework):
-    def __init__(self, adsorbate, slab_structure=None, site_idx=None, idx=None,
-                 distances=None, name=None, vasp_cmd=None,
+    def __init__(self, adsorbate, slab_structure=None, coord = None,
+                 mvec = None, static_distances=None, name=None, vasp_cmd=None,
                  db_file=None, slab_energy=None, bulk_structure=None,
                  bulk_energy=None, job_type=None, handler_group=None,
                  ads_site_finder_params=None, ads_structures_params=None,
@@ -57,11 +57,12 @@ class DistanceOptimizationFW(Firework):
 
         t = []
         t.append(at.GetPassedJobInformation(distances=distances))
-        t.append(at.AnalyzeStaticOptimumDistance(idx=idx, distances=distances,
+        t.append(at.AnalyzeStaticOptimumDistance(slab_structure = slab_structure,
+                                                 distances=distances,
                                                  adsorbate=adsorbate))
         t.append(at.LaunchVaspFromOptimumDistance(
-            adsorbate=adsorbate,
-            site_idx=site_idx, idx=idx, slab_structure=slab_structure,
+            adsorbate=adsorbate, slab_structure=slab_structure,
+            coord = coord, mvec = mvec,
             slab_energy=slab_energy, bulk_structure=bulk_structure,
             bulk_energy=bulk_energy, vasp_cmd=vasp_cmd, db_file=db_file,
             job_type=job_type, handler_group=handler_group,
@@ -70,7 +71,7 @@ class DistanceOptimizationFW(Firework):
             slab_name=slab_name, selective_dynamics=selective_dynamics,
             bulk_dir=bulk_dir, slab_dir=slab_dir, miller_index=miller_index,
             shift=shift, user_incar_settings=user_incar_settings,
-            static_distances=distances))
+            static_distances=static_distances))
 
         super(DistanceOptimizationFW, self).__init__(
             t, parents=parents, name="{}-{}".format(

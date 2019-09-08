@@ -45,7 +45,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
     that distance.
     """
 
-    required_params = ["adsorbate", "site_idx", "idx", "slab_structure"]
+    required_params = ["adsorbate", "coord","mvec", "slab_structure","static_distances"]
     optional_params = ["slab_energy", "bulk_structure", "bulk_energy",
                        "vasp_cmd", "db_file", "job_type", "handler_group",
                        "ads_site_finder_params", "ads_structures_params",
@@ -56,7 +56,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
 
-        slab_structure = self.get("slab_structure")
+
         slab_energy = self.get("slab_energy")
         bulk_structure = self.get("bulk_structure")
         bulk_energy = self.get("bulk_energy")
@@ -73,7 +73,8 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         miller_index = self.get("miller_index")
         shift = self.get("shift")
         user_incar_settings = self.get("user_incar_settings")
-        static_distances = self.get("static_distances") or [0.5, 1.0, 1.5, 2.0]
+        coord = self.get("coord")
+        mvec = self.get("mvec")
 
         if "min_lw" not in ads_structures_params:
             ads_structures_params["min_lw"] = min_lw
@@ -83,18 +84,14 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         slab_name = self.get("slab_name",
                              slab_structure.composition.reduced_formula)
 
-        # Get identifiable information
-        idx = self["idx"]
-        site_idx = self.get("site_idx")
-
         # Load optimal distance from fw_spec
         optimal_distance = fw_spec.get(idx)[0]["optimal_distance"] #when you _push to fw_spec it pushes it as an array for  some reason...
 
         # Get slab and adsorbate
-        original_slab = self["original_slab"]
+        slab_structure = self.get("slab_structure")
         adsorbate = self.get("adsorbate")
 
-        # Set default variables if none passed
+        # Set default variables if none passed, FUTURE
         override_default_vasp_params = self.get("override_default_vasp_params", {})
 
         # Get custom variables
@@ -103,13 +100,10 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         vasptodb_kwargs = self.get("vasptodb_kwargs", {})
         if vasptodb_kwargs is None: vasptodb_kwargs = {}
 
-        # update ads_structure_params to include optimal distance
-        ads_structures_params.update({"find_args":{"distance":optimal_distance}})
-
         # Create structure with optimal distance
-        slab_ads = AdsorbateSiteFinder(
-            original_slab, **ads_site_finder_params).generate_adsorption_structures(
-                adsorbate, **ads_structures_params)[site_idx]
+        asf = AdsorbateSiteFinder(slab_structure)
+        new_coord = coord + optimal_distance * mvec
+        slab_ads = asf.add_adsorbate(adsorbate, new_coord)
 
         # VASP input set
         # vasp_input_set = MPSurfaceSet(slab_ads, user_incar_settings=user_incar_settings, bulk=False)
@@ -161,27 +155,25 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
     It also decides whether to exit the FW if the adsorbate energy landscape is not favorable.
     """
 
-    required_params = ["idx", "distances"]
+    required_params = ["slab_structure", "distances", "adsorbate"]
+    optional_params = ["algo"]
 
     def run_task(self, fw_spec):
 
         #Get identifying information
-        idx = self["idx"]
         distances = self["distances"]
         distance_to_state = fw_spec["distance_to_state"][0]
         ads_comp = self["adsorbate"].composition
         algo = self.get("algo", "standard")
+        structure = self["slab_structure"]
 
         #Setup some initial parameters
-        optimal_distance = 2.0
+        optimal_distance = 3.0
         lowest_energy = 10000
 
         #Get Slab energy and Bulk  Energy from previous Optimize FWs (in spec):
-        bulk_energy = fw_spec.get("bulk_energy", False)
         slab_energy = fw_spec.get("slab_energy", False)
 
-
-        structure = False
 
         first_0 = False
         second_0 = False
@@ -194,8 +186,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
         for distance_idx, distance in enumerate(distances):
             if distance_to_state.get(distance,{}).get("state",False):
                 #Normalize by amount of atoms in structure...
-                structure = fw_spec["{}{}_structure".format(idx, distance_idx)]
-                energy = fw_spec["{}{}_energy".format(idx, distance_idx)]/len(structure)
+                energy = fw_spec["{}".format(distance_idx)]/len(structure)
 
                 #for other fitting algorithms:
                 all_energies.append(energy)
@@ -234,20 +225,20 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
         if ads_e>1:
             #Let's exit the rest of the FW's if energy is too high, but still push the data
             return FWAction(exit=True,
-                            mod_spec = {"_push":{
-                            idx:{
-                            'lowest_energy':lowest_energy,
-                            'adsorbate_energy':ads_e,
-                            'optimal_distance':optimal_distance
-                            }
-                            }})
-        return FWAction(mod_spec={"_push":{
-                    idx:{
-                        'lowest_energy':lowest_energy,
-                        'adsorbate_energy':ads_e,
-                        'optimal_distance':optimal_distance
+                            mod_spec = {"_push":
+                                {
+                                    'lowest_energy':lowest_energy,
+                                    'adsorbate_energy':ads_e,
+                                    'optimal_distance':optimal_distance
+                                }
+                            })
+        return FWAction(mod_spec={"_push":
+                    {
+                        'lowest_energy': lowest_energy,
+                        'adsorbate_energy': ads_e,
+                        'optimal_distance': optimal_distance
                     }
-                }})
+                })
 
 
 @explicit_serialize
@@ -686,8 +677,8 @@ class GenerateSlabAdsTask(FiretaskBase):
                 for site_idx, coord in enumerate(coords):
                     parents = []
                     for distance_idx, distance in enumerate(static_distances):
-                        coord += distance*asf.mvec
-                        slab_ads = asf.add_adsorbate(adsorbate, coord)
+                        new_coord = coord+distance*asf.mvec
+                        slab_ads = asf.add_adsorbate(adsorbate, new_coord)
 
                         ads_name = "{}-{}{} distance optimization: {}. Site: {}".format(
                             adsorbate.composition.formula, slab_structure.composition.formula, miller_index, distance, site_idx)
@@ -697,8 +688,7 @@ class GenerateSlabAdsTask(FiretaskBase):
                                             db_file=db_file,
                                             vasptodb_kwargs={
                                                 "task_fields_to_push":{
-                                                    "{}_{}_{}_energy".format(ads_idx,site_idx,distance_idx):"output.energy_per_atom",
-                                                    "{}_{}_{}_structure".format(ads_idx,site_idx,distance_idx):"output.structure"
+                                                    "{}".format(distance_idx):"output.energy_per_atom",
                                                     },
                                                 "defuse_unsuccessful":False
                                                 }, 
@@ -708,9 +698,8 @@ class GenerateSlabAdsTask(FiretaskBase):
                                             spec = {"_pass_job_info": True}))
                         parents.append(fws[-1])
                     fws.append(af.DistanceOptimizationFW(
-                        adsorbate, slab_structure, site_idx=site_idx,
-                        idx="{}_{}_".format(ads_idx, site_idx),
-                        distances=static_distances,
+                        adsorbate, slab_structure, coord = coord,
+                        mvec = mvec, static_distances=static_distances,
                         name=("Optimal Distance Analysis, Adsorbate: {}, "
                               "Surface: {}, Site: {}").format(
                             adsorbate.composition.formula, miller_index,
@@ -727,42 +716,6 @@ class GenerateSlabAdsTask(FiretaskBase):
                         user_incar_settings=user_incar_settings,
                         parents=parents,
                         spec={"_allow_fizzled_parents": True}))
-
-            #     for distance_idx, distance in enumerate(static_distances):
-            #         #update distance for AdsorbateSiteFinder
-            #         ads_structures_params.update({"find_args":{"distance":distance}})
-
-            #         slabs_ads = (AdsorbateSiteFinder(
-            #         slab_structure, **ads_site_finder_params)
-            #         .generate_adsorption_structures(
-            #         adsorbate, **ads_structures_params))
-
-            #         for slab_idx, slab_ads in enumerate(slabs_ads):
-
-
-                #         fws.append(EnergyLandscapeFW(name=ads_name, structure=slab_ads,
-                #                             vasp_cmd=vasp_cmd,
-                #                             db_file=db_file,
-                #                             vasptodb_kwargs={
-                #                                 "task_fields_to_push":{
-                #                                     "{}_{}_{}_energy".format(ads_idx,slab_idx,distance_idx):"output.energy_per_atom",
-                #                                     "{}_{}_{}_structure".format(ads_idx,slab_idx,distance_idx):"output.structure"
-                #                                     },
-                #                                 "defuse_unsuccessful":False
-                #                                 }, 
-                #                             contcar_to_poscar=False, 
-                #                             runvaspcustodian_kwargs = {
-                #                                 "handler_group":"no_handler"},
-                #                             spec = {"_pass_job_info": True}))
-                #         if not idx_to_fw_id.get("{}_{}_{}".format(ads_idx,slab_idx,site_idx), False):
-                #             idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)] = [fws[-1]]
-                #         else:
-                #             idx_to_fw_id["{}_{}_{}".format(ads_idx,slab_idx,site_idx)].append(fws[-1])
-
-                # slabs_ads = (AdsorbateSiteFinder(
-                #     slab_structure, **ads_site_finder_params)
-                #     .generate_adsorption_structures(
-                #     adsorbate, **ads_structures_params))
 
             else:
                 slabs_ads = (AdsorbateSiteFinder(
