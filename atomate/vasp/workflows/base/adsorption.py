@@ -12,7 +12,7 @@ from copy import deepcopy
 from fireworks import Workflow
 
 from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW, StaticFW
-from atomate.vasp.fireworks.adsorption import DistanceOptimizationFW, AdsorptionEnergyLandscapeFW
+from atomate.vasp.fireworks.adsorption import DistanceOptimizationFW, EnergyLandscapeFW
 from atomate.utils.utils import get_meta_from_structure
 from atomate.vasp.fireworks.adsorption import BulkFW
 
@@ -173,7 +173,7 @@ def get_adsorption_wf(structure, adsorbates, distances  = None, db_file=None, va
 
                         #Create Static FWs to test if energy landscape is favorable and save their energy and structure for processing with DistanceOptimizationFW
                         #Removed error handler since its just a static position, positive energy is okay...
-                        fws.append(AdsorptionEnergyLandscapeFW(name=ads_name, structure=ads_slab,
+                        fws.append(EnergyLandscapeFW(name=ads_name, structure=ads_slab,
                                             vasp_input_set=adsorption_energy_landscape_input_set, vasp_cmd=vasp_cmd,
                                             db_file=db_file,
                                             vasptodb_kwargs={
