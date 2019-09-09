@@ -45,18 +45,18 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
     that distance.
     """
 
-    required_params = ["adsorbate", "coord","mvec", "slab_structure","static_distances"]
+    required_params = ["adsorbate", "coord", "mvec", "slab_structure", "static_distances"]
     optional_params = ["slab_energy", "bulk_structure", "bulk_energy",
                        "vasp_cmd", "db_file", "job_type", "handler_group",
                        "ads_site_finder_params", "ads_structures_params",
                        "min_lw", "slab_name", "selective_dynamics",
                        "bulk_dir", "slab_dir", "miller_index", "shift",
-                       "user_incar_settings", "static_distances"]
+                       "user_incar_settings", "site_idx"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
 
-
+        slab_structure = self.get("slab_structure")
         slab_energy = self.get("slab_energy")
         bulk_structure = self.get("bulk_structure")
         bulk_energy = self.get("bulk_energy")
@@ -75,6 +75,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         user_incar_settings = self.get("user_incar_settings")
         coord = self.get("coord")
         mvec = self.get("mvec")
+        site_idx = self.get("site_idx")
 
         if "min_lw" not in ads_structures_params:
             ads_structures_params["min_lw"] = min_lw
@@ -85,7 +86,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
                              slab_structure.composition.reduced_formula)
 
         # Load optimal distance from fw_spec
-        optimal_distance = fw_spec.get(idx)[0]["optimal_distance"] #when you _push to fw_spec it pushes it as an array for  some reason...
+        optimal_distance = fw_spec.get("optimal_distance")[0] #when you _push to fw_spec it pushes it as an array for  some reason...
 
         # Get slab and adsorbate
         slab_structure = self.get("slab_structure")
@@ -698,8 +699,8 @@ class GenerateSlabAdsTask(FiretaskBase):
                                             spec = {"_pass_job_info": True}))
                         parents.append(fws[-1])
                     fws.append(af.DistanceOptimizationFW(
-                        adsorbate, slab_structure, coord = coord,
-                        mvec = mvec, static_distances=static_distances,
+                        adsorbate, slab_structure, coord=coord,
+                        mvec=asf.mvec, static_distances=static_distances,
                         name=("Optimal Distance Analysis, Adsorbate: {}, "
                               "Surface: {}, Site: {}").format(
                             adsorbate.composition.formula, miller_index,
@@ -714,7 +715,7 @@ class GenerateSlabAdsTask(FiretaskBase):
                         bulk_dir=bulk_dir, slab_dir=slab_dir,
                         miller_index=miller_index, shift=shift,
                         user_incar_settings=user_incar_settings,
-                        parents=parents,
+                        site_idx=site_idx, parents=parents,
                         spec={"_allow_fizzled_parents": True}))
 
             else:

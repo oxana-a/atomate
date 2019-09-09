@@ -24,14 +24,14 @@ from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
 
 
 class DistanceOptimizationFW(Firework):
-    def __init__(self, adsorbate, slab_structure=None, coord = None,
-                 mvec = None, static_distances=None, name=None, vasp_cmd=None,
+    def __init__(self, adsorbate, slab_structure=None, coord=None,
+                 mvec=None, static_distances=None, name=None, vasp_cmd=None,
                  db_file=None, slab_energy=None, bulk_structure=None,
                  bulk_energy=None, job_type=None, handler_group=None,
                  ads_site_finder_params=None, ads_structures_params=None,
                  min_lw=None, slab_name=None, selective_dynamics=None,
                  bulk_dir=None, slab_dir=None, miller_index=None, shift=None,
-                 user_incar_settings=None, parents=None, **kwargs):
+                 user_incar_settings=None, site_idx=None, parents=None, **kwargs):
         """
         Firework (FW) that analyzes many similar static calculations where an adsorbate was put along at difference distances normal to the
         surface of a slab. FW analyzes the VASP calculated energies for these distances and decides an optimal distance to launch an Optimize FW at
@@ -56,9 +56,9 @@ class DistanceOptimizationFW(Firework):
         import atomate.vasp.firetasks.adsorption_tasks as at
 
         t = []
-        t.append(at.GetPassedJobInformation(distances=distances))
-        t.append(at.AnalyzeStaticOptimumDistance(slab_structure = slab_structure,
-                                                 distances=distances,
+        t.append(at.GetPassedJobInformation(distances=static_distances))
+        t.append(at.AnalyzeStaticOptimumDistance(slab_structure=slab_structure,
+                                                 distances=static_distances,
                                                  adsorbate=adsorbate))
         t.append(at.LaunchVaspFromOptimumDistance(
             adsorbate=adsorbate, slab_structure=slab_structure,
@@ -71,11 +71,11 @@ class DistanceOptimizationFW(Firework):
             slab_name=slab_name, selective_dynamics=selective_dynamics,
             bulk_dir=bulk_dir, slab_dir=slab_dir, miller_index=miller_index,
             shift=shift, user_incar_settings=user_incar_settings,
-            static_distances=static_distances))
+            site_idx=site_idx, static_distances=static_distances))
 
         super(DistanceOptimizationFW, self).__init__(
             t, parents=parents, name="{}-{}".format(
-                original_slab.composition.reduced_formula, name), **kwargs)
+                slab_structure.composition.reduced_formula, name), **kwargs)
 
 
 class EnergyLandscapeFW(Firework):
