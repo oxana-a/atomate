@@ -196,9 +196,8 @@ class BulkFW(Firework):
 
     def __init__(self, bulk_structure, name="bulk optimization",
                  vasp_input_set=None, adsorbates=None, vasp_cmd=VASP_CMD,
-                 db_file=DB_FILE, job_type="double_relaxation_run",
-                 bulk_handler_group="default", slab_handler_group=None,
-                 slab_gen_params=None, max_index=None,
+                 db_file=DB_FILE, job_type=None, bulk_handler_group="default",
+                 slab_handler_group=None, slab_gen_params=None, max_index=None,
                  ads_site_finder_params=None, ads_structures_params=None,
                  min_lw=None, selective_dynamics=None,
                  user_incar_settings=None, optimize_distance=None,
@@ -250,6 +249,8 @@ class BulkFW(Firework):
                 Firework.__init__.
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
+
+        job_type = job_type or "double_relaxation_run"
         user_incar_settings = (user_incar_settings
                                or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200})
         vis = vasp_input_set or MPSurfaceSet(
@@ -352,7 +353,7 @@ class SlabFW(Firework):
     def __init__(self, slab_structure, name="slab optimization",
                  bulk_structure=None, bulk_energy=None, vasp_input_set=None,
                  adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
-                 job_type="double_relaxation_run", handler_group="md",
+                 job_type=None, handler_group="md",
                  ads_site_finder_params=None, ads_structures_params=None,
                  min_lw=None, selective_dynamics=None, bulk_dir=None,
                  miller_index=None, shift=None, user_incar_settings=None,
@@ -407,6 +408,7 @@ class SlabFW(Firework):
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
 
+        job_type = job_type or "double_relaxation_run"
         user_incar_settings = (user_incar_settings
                                or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200})
         vis = vasp_input_set or MPSurfaceSet(
@@ -533,9 +535,9 @@ class SlabAdsFW(Firework):
                  name="slab + adsorbate optimization", slab_structure=None,
                  slab_energy=None, bulk_structure=None, bulk_energy=None,
                  adsorbate=None, vasp_input_set=None, vasp_cmd=VASP_CMD,
-                 db_file=DB_FILE, job_type="double_relaxation_run",
-                 handler_group="md", slab_name=None, slab_ads_name=None,
-                 bulk_dir=None, slab_dir=None, miller_index=None, shift=None,
+                 db_file=DB_FILE, job_type=None, handler_group="md",
+                 slab_name=None, slab_ads_name=None, bulk_dir=None,
+                 slab_dir=None, miller_index=None, shift=None,
                  user_incar_settings=None, id_map=None,
                  surface_properties=None, parents=None, **kwargs):
         """
@@ -584,6 +586,7 @@ class SlabAdsFW(Firework):
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
 
+        job_type = job_type or "double_relaxation_run"
         user_incar_settings = (user_incar_settings
                                or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200})
         vis = vasp_input_set or MPSurfaceSet(
