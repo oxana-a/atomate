@@ -251,6 +251,7 @@ class BulkFW(Firework):
         import atomate.vasp.firetasks.adsorption_tasks as at
 
         job_type = job_type or "double_relaxation_run"
+        bulk_handler_group = bulk_handler_group or "default"
         user_incar_settings = (user_incar_settings
                                or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200})
         vis = vasp_input_set or MPSurfaceSet(
@@ -409,6 +410,7 @@ class SlabFW(Firework):
         import atomate.vasp.firetasks.adsorption_tasks as at
 
         job_type = job_type or "double_relaxation_run"
+        handler_group = handler_group or "md"
         user_incar_settings = (user_incar_settings
                                or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200})
         vis = vasp_input_set or MPSurfaceSet(
@@ -587,6 +589,7 @@ class SlabAdsFW(Firework):
         import atomate.vasp.firetasks.adsorption_tasks as at
 
         job_type = job_type or "double_relaxation_run"
+        handler_group = handler_group or "md"
         user_incar_settings = (user_incar_settings
                                or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200})
         vis = vasp_input_set or MPSurfaceSet(
