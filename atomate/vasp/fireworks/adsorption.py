@@ -440,7 +440,7 @@ class SlabFW(Firework):
             slab_ads_fw_params=slab_ads_fw_params, add_fw_name=add_fw_name,
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
             slab_name=slab_name, bulk_dir=bulk_dir, miller_index=miller_index,
-            shift=shift, ptimize_distance=optimize_distance))
+            shift=shift, optimize_distance=optimize_distance))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
