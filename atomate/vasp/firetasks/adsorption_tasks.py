@@ -66,7 +66,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         min_lw = self.get("min_lw") or 10.0
         ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params") or {}
-        slab_ads_fw_params = self.get("slab_ads_fw_params")
+        slab_ads_fw_params = self.get("slab_ads_fw_params") or {}
         slab_name = (self.get("slab_name") or
                      slab_structure.composition.reduced_formula)
         bulk_dir = self.get("bulk_dir")
@@ -397,7 +397,7 @@ class GenerateSlabsTask(FiretaskBase):
         if "max_index" not in sgp:
             sgp["max_index"] = 1
 
-        slab_fw_params = self.get("slab_fw_params")
+        slab_fw_params = self.get("slab_fw_params") or {}
         ads_site_finder_params = self.get("ads_site_finder_params")
         ads_structures_params = self.get("ads_structures_params")
         slab_ads_fw_params = self.get("slab_ads_fw_params")
@@ -616,7 +616,7 @@ class GenerateSlabAdsTask(FiretaskBase):
         db_file = self.get("db_file")
         ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params") or {}
-        slab_ads_fw_params = self.get("slab_ads_fw_params")
+        slab_ads_fw_params = self.get("slab_ads_fw_params") or {}
         min_lw = self.get("min_lw") or 10.0
         bulk_dir = self.get("bulk_dir")
         slab_dir = self.get("slab_dir")
