@@ -15,7 +15,7 @@ from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW, StaticFW
 from atomate.vasp.fireworks.adsorption import DistanceOptimizationFW, EnergyLandscapeFW
 from atomate.utils.utils import get_meta_from_structure
 from atomate.vasp.fireworks.adsorption import BulkFW
-
+from atomate.vasp.config import VASP_CMD, DB_FILE
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.transformations.advanced_transformations import SlabTransformation
@@ -536,13 +536,11 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     return wfs
 
 
-def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=None,
-                     db_file=None, job_type=None, bulk_handler_group=None,
-                     slab_handler_group=None, max_index=None,
-                     slab_gen_params=None, ads_site_finder_params=None,
-                     ads_structures_params=None, min_lw=None,
-                     selective_dynamics=True, user_incar_settings=None,
-                     optimize_distance=True):
+def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
+                     db_file=DB_FILE, bulk_fw_params=None,
+                     slab_gen_params=None, min_lw=None, slab_fw_params=None,
+                     ads_site_finder_params=None, ads_structures_params=None,
+                     slab_ads_fw_params=None, optimize_distance=True):
     """
     Dynamic workflow hat finds all adsorption configurations starting
     from a bulk structure and a list of adsorbates. Slab structures are
@@ -555,27 +553,27 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=None,
         adsorbates ([Molecule]): adsorbates to place on surfaces
         vasp_cmd (str): vasp command
         db_file (str): path to database file
-        job_type (str): custodian job type
-        bulk_handler_group (str or [ErrorHandler]): custodian handler
-            group for bulk optimizations
-        slab_handler_group (str or [ErrorHandler]): custodian handler
-            group for slab and slab + adsorbate optimizations
-        max_index (int): max miller index
+        bulk_fw_params (dict): dictionary of kwargs for BulkFW
+            (can include: handler_group, job_type, vasp_input_set,
+            user_incar_params)
         slab_gen_params (dict): dictionary of kwargs for
-            generate_all_slabs
-        ads_site_finder_params (dict): parameters to be supplied as
-            kwargs to AdsorbateSiteFinder
-        ads_structures_params (dict): dictionary of kwargs for
-            generate_adsorption_structures in AdsorptionSiteFinder
+            generate_all_slabs (can include: max_index, min_slab_size,
+            min_vacuum_size)
         min_lw (float): minimum length/width for slab and
             slab + adsorbate structures (overridden by
             ads_structures_params if it already contains min_lw)
-        selective_dynamics (bool): flag for whether to freeze
-            non-surface sites in the slab + adsorbate structures during
-            relaxations
-        user_incar_settings (dict): incar settings to override the ones
-            from MPSurfaceSet (for bulk, slab, and slab + adsorbate
-            optimizations)
+        slab_fw_params (dict): dictionary of kwargs for SlabFW
+            (can include: handler_group, job_type, vasp_input_set,
+            user_incar_params)
+        ads_site_finder_params (dict): parameters to be supplied as
+            kwargs to AdsorbateSiteFinder (can include:
+            selective_dynamics, height)
+        ads_structures_params (dict): dictionary of kwargs for
+            generate_adsorption_structures of AdsorptionSiteFinder
+            (can include: translate, repeat)
+        slab_ads_fw_params (dict): dictionary of kwargs for SlabAdsFW
+            (can include: handler_group, job_type, vasp_input_set,
+            user_incar_params)
         optimize_distance (bool): whether to launch static calculations
             to determine the optimal adsorbate - surface distance
             before optimizing the slab + adsorbate structure
@@ -583,18 +581,18 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=None,
     Returns:
         Workflow
     """
+
+    bulk_fw_params = bulk_fw_params or {}
     fws = []
     name = bulk_structure.composition.reduced_formula + " bulk optimization"
     bulk_fw = BulkFW(bulk_structure, name=name, adsorbates=adsorbates,
-                     vasp_cmd=vasp_cmd, db_file=db_file, job_type=job_type,
-                     bulk_handler_group=bulk_handler_group,
-                     slab_handler_group=slab_handler_group,
-                     slab_gen_params=slab_gen_params, max_index=max_index,
+                     vasp_cmd=vasp_cmd, db_file=db_file,
+                     slab_gen_params=slab_gen_params, min_lw=min_lw,
+                     slab_fw_params=slab_fw_params,
                      ads_site_finder_params=ads_site_finder_params,
                      ads_structures_params=ads_structures_params,
-                     min_lw=min_lw, selective_dynamics=selective_dynamics,
-                     user_incar_settings=user_incar_settings,
-                     optimize_distance=optimize_distance)
+                     slab_ads_fw_params=slab_ads_fw_params,
+                     optimize_distance=optimize_distance, **bulk_fw_params)
     fws.append(bulk_fw)
     name = str(bulk_structure.composition.reduced_formula)
     for ads in adsorbates:
