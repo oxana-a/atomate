@@ -253,10 +253,13 @@ class GetPassedJobInformation(FiretaskBase):
             for fwid in fw_spec["_job_info"]:
                 str_distance = str(distance)
                 if str_distance+"." in fwid["name"]:
-                    if fwid["state"] is not "FIZZLED":
-                        fw_status[distance] = {"state":True}
+                    if "state" in fwid:
+                        if fwid["state"] is not "FIZZLED":
+                            fw_status[distance] = {"state":True}
+                        else:
+                            fw_status[distance] = {"state":False}
                     else:
-                        fw_status[distance] = {"state":False}
+                        fw_status[distance] = {"state": None}
         # Modify spec for future tasks
         return FWAction(mod_spec={"_push":{"distance_to_state":fw_status}})
 
