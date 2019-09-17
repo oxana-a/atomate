@@ -258,8 +258,8 @@ class GetPassedJobInformation(FiretaskBase):
                             fw_status[str_distance] = {"state":True}
                         else:
                             fw_status[str_distance] = {"state":False}
-                    else:
-                        fw_status[str_distance] = {"state": None}
+                    # else:
+                    #     fw_status[str_distance] = {"state": None}
         # Modify spec for future tasks
         return FWAction(mod_spec={"_push":{"distance_to_state":fw_status}})
 
