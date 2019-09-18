@@ -154,10 +154,10 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
 
         #Get identifying information
         distances = self["distances"]
-        distance_to_state = fw_spec["distance_to_state"][0]
+        # distance_to_state = fw_spec["distance_to_state"][0]
         ads_comp = self["adsorbate"].composition
         algo = self.get("algo", "standard")
-        structure = self["slab_structure"]
+        slab_structure = self["slab_structure"]
 
         #Setup some initial parameters
         optimal_distance = 3.0
@@ -175,10 +175,12 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
         all_energies = []
         all_distances = []
 
-        for distance_idx, distance in enumerate(distances):
-            if distance_to_state.get(distance,{}).get("state",False):
-                #Normalize by amount of atoms in structure...
-                energy = fw_spec["{}".format(distance_idx)]/len(structure)
+        for distance_idx, distance in enumerate(sorted(distances)):  # OA: sorted distances so the ids don't correspond anymore - do we even need ids?
+            # if distance_to_state.get(distance,{}).get("state",False):
+            if str(distance) in fw_spec:
+                # energy per atom
+                energy = fw_spec[str(distance)]["energy"]  # OA: this is was divided by # of atoms twice before
+                slab_ads_struct = fw_spec[str(distance)]["structure"]
 
                 #for other fitting algorithms:
                 all_energies.append(energy)
@@ -210,8 +212,14 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
             optimal_distance = xd[np.where(yd == yd.min())[0]]
 
         #Optimal Energy for current slab with adsorbate:
-        ads_e = lowest_energy - slab_energy*(len(structure)-2) - sum([ads_comp.get(elt, 0) * ref_elem_energy.get(elt) for elt in ref_elem_energy])
-
+        if slab_ads_struct:
+            scale_factor = slab_ads_struct.volume / slab_structure.volume
+            ads_e = lowest_energy - slab_energy * scale_factor - sum(
+                [ads_comp.get(element, 0) * ref_elem_energy.get(str(element)) for
+                 element in ads_comp])
+        else:
+            ads_e = 1000
+        # ads_e = lowest_energy - slab_energy*(len(slab_structure)-2) - sum([ads_comp.get(elt, 0) * ref_elem_energy.get(elt) for elt in ref_elem_energy])
 
         #If lowest energy is a little too big, this is probably not a good site/adsorbate... No need to run future calculations
         if ads_e>1:
@@ -652,9 +660,9 @@ class GenerateSlabAdsTask(FiretaskBase):
                             name=ads_name, structure=slab_ads,
                             vasp_cmd=vasp_cmd, db_file=db_file,
                             vasptodb_kwargs=
-                            {"task_fields_to_push": {
-                                "{}".format(distance_idx):
-                                    "output.energy_per_atom"},
+                            {"task_fields_to_push": {str(distance): {
+                                "energy": "output.final_energy",
+                                "structure": "output.final_structure"}},
                                 "defuse_unsuccessful": False},
                             contcar_to_poscar=False, runvaspcustodian_kwargs=
                             {"handler_group": "no_handler"},

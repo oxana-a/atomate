@@ -57,7 +57,7 @@ class DistanceOptimizationFW(Firework):
         import atomate.vasp.firetasks.adsorption_tasks as at
 
         t = []
-        t.append(at.GetPassedJobInformation(distances=static_distances))
+        # t.append(at.GetPassedJobInformation(distances=static_distances))
         t.append(at.AnalyzeStaticOptimumDistance(slab_structure=slab_structure,
                                                  distances=static_distances,
                                                  adsorbate=adsorbate))
