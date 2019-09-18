@@ -667,7 +667,7 @@ class GenerateSlabAdsTask(FiretaskBase):
         static_distances = self.get("static_distances") or [0.5, 1.0, 1.5, 2.0]
         slab_name = self.get("slab_name")
 
-        static_fws_params = self.get("static_fws_params")
+        static_fws_params = self.get("static_fws_params") or {}
         static_input_set = static_fws_params.get("vasp_input_set", False)
         static_user_incar_settings = static_fws_params.get("user_incar_settings", False)
         static_user_kpoints_settings = static_fws_params.get("user_kpoints_settings", None)
