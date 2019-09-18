@@ -540,7 +540,8 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
                      db_file=DB_FILE, bulk_fw_params=None,
                      slab_gen_params=None, min_lw=None, slab_fw_params=None,
                      ads_site_finder_params=None, ads_structures_params=None,
-                     slab_ads_fw_params=None, optimize_distance=True):
+                     slab_ads_fw_params=None, optimize_distance=True,
+                     static_distances = None, static_fws_params = None):
     """
     Dynamic workflow hat finds all adsorption configurations starting
     from a bulk structure and a list of adsorbates. Slab structures are
@@ -577,7 +578,10 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
         optimize_distance (bool): whether to launch static calculations
             to determine the optimal adsorbate - surface distance
             before optimizing the slab + adsorbate structure
-
+        static_distances (list): if optimize_distance is true, these are
+            the distances at which to test the adsorbate distance
+        static_fws_params (dict): dictionary for setting custum user kpoints
+            and custom user incar  settings, or passing an input set.
     Returns:
         Workflow
     """
@@ -592,7 +596,10 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
                      ads_site_finder_params=ads_site_finder_params,
                      ads_structures_params=ads_structures_params,
                      slab_ads_fw_params=slab_ads_fw_params,
-                     optimize_distance=optimize_distance, **bulk_fw_params)
+                     optimize_distance=optimize_distance,
+                     static_distances=static_distances,
+                     static_fws_params=static_fws_params,
+                     **bulk_fw_params)
     fws.append(bulk_fw)
     name = str(bulk_structure.composition.reduced_formula)
     for ads in adsorbates:

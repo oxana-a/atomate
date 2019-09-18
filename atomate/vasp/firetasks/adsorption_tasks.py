@@ -297,12 +297,17 @@ class SlabAdditionTask(FiretaskBase):
         optimize_distance (bool): whether to launch static calculations
             to determine the optimal adsorbate - surface distance before
             optimizing the slab + adsorbate structure
+        static_distances (list): if optimize_distance is true, these are
+            the distances at which to test the adsorbate distance
+        static_fws_params (dict): dictionary for setting custum user kpoints
+            and custom user incar  settings, or passing an input set.
     """
     required_params = []
     optional_params = ["adsorbates", "vasp_cmd", "db_file", "slab_gen_params",
                        "min_lw", "slab_fw_params", "ads_site_finder_params",
                        "ads_structures_params", "slab_ads_fw_params",
-                       "add_fw_name", "bulk_dir", "optimize_distance"]
+                       "add_fw_name", "bulk_dir", "optimize_distance",
+                       "static_distances", "static_fws_params"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -325,6 +330,8 @@ class SlabAdditionTask(FiretaskBase):
         slab_ads_fw_params = self.get("slab_ads_fw_params")
         add_fw_name = self.get("add_fw_name") or "slab generator"
         optimize_distance = self.get("optimize_distance")
+        static_distances = self.get("static_distances")
+        static_fws_params = self.get("static_fws_params")
 
         fw = af.SlabGeneratorFW(
             bulk_structure, name=add_fw_name, bulk_energy=bulk_energy,
@@ -333,7 +340,8 @@ class SlabAdditionTask(FiretaskBase):
             ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params,
             slab_ads_fw_params=slab_ads_fw_params, bulk_dir=bulk_dir,
-            optimize_distance=optimize_distance)
+            optimize_distance=optimize_distance,
+            static_distances=static_distances, static_fws_params = static_fws_params)
 
         return FWAction(additions=fw)
 
@@ -372,13 +380,18 @@ class GenerateSlabsTask(FiretaskBase):
         optimize_distance (bool): whether to launch static calculations
             to determine the optimal adsorbate - surface distance before
             optimizing the slab + adsorbate structure
+        static_distances (list): if optimize_distance is true, these are
+            the distances at which to test the adsorbate distance
+        static_fws_params (dict): dictionary for setting custum user kpoints
+            and custom user incar  settings, or passing an input set.
     """
 
     required_params = ["bulk_structure"]
     optional_params = ["bulk_energy", "adsorbates", "vasp_cmd", "db_file",
                        "slab_gen_params", "min_lw", "slab_fw_params",
                        "ads_site_finder_params", "ads_structures_params",
-                       "slab_ads_fw_params", "bulk_dir", "optimize_distance"]
+                       "slab_ads_fw_params", "bulk_dir", "optimize_distance",
+                       "static_distances","static_fws_params"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -406,6 +419,8 @@ class GenerateSlabsTask(FiretaskBase):
         slab_ads_fw_params = self.get("slab_ads_fw_params")
         bulk_dir = self.get("bulk_dir")
         optimize_distance = self.get("optimize_distance")
+        static_distances = self.get("static_distances")
+        static_fws_params = self.get("static_fws_params")
 
         slabs = generate_all_slabs(bulk_structure, **sgp)
         all_slabs = slabs.copy()
@@ -463,6 +478,8 @@ class GenerateSlabsTask(FiretaskBase):
                                 miller_index=slab.miller_index,
                                 shift=slab.shift,
                                 optimize_distance=optimize_distance,
+                                static_distances = static_distances,
+                                static_fws_params=static_fws_params,
                                 **slab_fw_params)
             slab_fws.append(slab_fw)
 
@@ -507,6 +524,10 @@ class SlabAdsAdditionTask(FiretaskBase):
         optimize_distance (bool): whether to launch static calculations
             to determine the optimal adsorbate - surface distance before
             optimizing the slab + adsorbate structure
+        static_distances (list): if optimize_distance is true, these are
+            the distances at which to test the adsorbate distance
+        static_fws_params (dict): dictionary for setting custum user kpoints
+            and custom user incar  settings, or passing an input set.
     """
     required_params = []
     optional_params = ["bulk_structure", "bulk_energy", "adsorbates",
@@ -514,7 +535,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                        "ads_site_finder_params", "ads_structures_params",
                        "slab_ads_fw_params", "add_fw_name", "slab_name",
                        "bulk_dir", "slab_dir", "miller_index", "shift",
-                       "optimize_distance"]
+                       "optimize_distance", "static_distances",
+                       "static_fws_params"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -541,6 +563,8 @@ class SlabAdsAdditionTask(FiretaskBase):
         miller_index = self.get("miller_index")
         shift = self.get("shift")
         optimize_distance = self.get("optimize_distance")
+        static_distances = self.get("static_distances")
+        static_fws_params = self.get("static_fws_params")
 
         fw = af.SlabAdsGeneratorFW(
             slab_structure, slab_energy=slab_energy,
@@ -551,7 +575,9 @@ class SlabAdsAdditionTask(FiretaskBase):
             ads_structures_params=ads_structures_params,
             slab_ads_fw_params=slab_ads_fw_params, slab_name=slab_name,
             bulk_dir=bulk_dir, slab_dir=slab_dir, miller_index=miller_index,
-            shift=shift, optimize_distance=optimize_distance)
+            shift=shift, optimize_distance=optimize_distance,
+            static_distances=static_distances,
+            static_fws_params=static_fws_params)
 
         return FWAction(additions=fw)
 
@@ -596,6 +622,10 @@ class GenerateSlabAdsTask(FiretaskBase):
         optimize_distance (bool): whether to launch static calculations
             to determine the optimal adsorbate - surface distance before
             optimizing the slab + adsorbate structure
+        static_distances (list): if optimize_distance is true, these are
+            the distances at which to test the adsorbate distance
+        static_fws_params (dict): dictionary for setting custum user kpoints
+            and custom user incar  settings, or passing an input set.
     """
 
     required_params = ["slab_structure", "adsorbates"]
@@ -604,7 +634,7 @@ class GenerateSlabAdsTask(FiretaskBase):
                        "ads_site_finder_params", "ads_structures_params",
                        "slab_ads_fw_params", "slab_name", "bulk_dir",
                        "slab_dir", "miller_index", "shift", "static_distances",
-                       "optimize_distance"]
+                       "optimize_distance", "static_distances","static_fws_params"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -625,9 +655,34 @@ class GenerateSlabAdsTask(FiretaskBase):
         slab_dir = self.get("slab_dir")
         miller_index = self.get("miller_index")
         shift = self.get("shift")
-        static_distances = self.get("static_distances") or [0.5, 1.0, 1.5, 2.0]
         optimize_distance = self.get("optimize_distance")
+        static_distances = self.get("static_distances") or [0.5, 1.0, 1.5, 2.0]
         slab_name = self.get("slab_name")
+
+        static_fws_params = self.get("static_fws_params")
+        static_input_set = static_fws_params.get("vasp_input_set", False)
+        static_user_incar_settings = static_fws_params.get("user_incar_settings", False)
+        static_user_kpoints_settings = static_fws_params.get("user_kpoints_settings", None)
+
+        if static_user_incar_settings is False:
+            static_user_incar_settings = {
+                    "ALGO": "All",
+                    "ISMEAR": -5,
+                    "ADDGRID": True,
+                    "LREAL": False,
+                    "LASPH": True,
+                    "LORBIT": 11,
+                    "LELF": True
+                }
+
+        if static_input_set is False:
+            static_input_set = MPStaticSet(
+                slab_structure,
+                user_incar_settings = static_user_incar_settings,
+                user_kpoints_settings = static_user_kpoints_settings
+            )
+
+
 
         for ads_idx, adsorbate in enumerate(adsorbates):
             adsorbate.add_site_property('magmom', [0.0]*adsorbate.num_sites)
@@ -650,16 +705,19 @@ class GenerateSlabAdsTask(FiretaskBase):
 
                         fws.append(af.EnergyLandscapeFW(
                             name=ads_name, structure=slab_ads,
+                            vasp_input_set=static_input_set,
                             vasp_cmd=vasp_cmd, db_file=db_file,
                             vasptodb_kwargs=
                             {"task_fields_to_push": {
                                 "{}".format(distance_idx):
                                     "output.energy_per_atom"},
                                 "defuse_unsuccessful": False},
-                            contcar_to_poscar=False, runvaspcustodian_kwargs=
+                            contcar_to_poscar=False,
+                            runvaspcustodian_kwargs=
                             {"handler_group": "no_handler"},
                             spec={"_pass_job_info": True}))
                         parents.append(fws[-1])
+
                     fws.append(af.DistanceOptimizationFW(
                         adsorbate, slab_structure, coord=coord,
                         mvec=asf.mvec, static_distances=static_distances,

@@ -34,25 +34,23 @@ class DistanceOptimizationFW(Firework):
                  site_idx=None, parents=None, **kwargs):
 
         """
-        Firework (FW) that analyzes many similar static calculations where an adsorbate was put along at difference distances normal to the
-        surface of a slab. FW analyzes the VASP calculated energies for these distances and decides an optimal distance to launch an Optimize FW at
-        or whether to quit that site specific FW because the energy landscape is not favorable.
+        Firework (FW) that analyzes many similar static calculations where an adsorbate was put along at difference
+        distances normal to the surface of a slab. FW analyzes the VASP calculated energies for these distances and
+        decides an optimal distance to launch an Optimize FW ator whether to quit that site specific FW because the
+        energy landscape is not favorable.
 
         Args:
-                adsorbate:      molecule to be appended to original_slab at proper optimal distance
-                original_slab:  original surface slab without the molecule attached
-                site_idx:       the enumerated site identification from generate_adsorption_structure. This method returns an array of structure given
-                                    an original structure and adsorbate, we will only pick the array item at site_idx.
-                                    Technically this is redundant from idx - its the last value.
-                idx:            string such as "int_int_int" where the first int is the adsorbate identification (ie CO), the second int is the slab
-                                    identifcation (ie 110) and third int is the site identification.
-                distances:      array of distances that had static calculations done
-                name:           name of FW
-                vasp_input_set: something like MPSurfaceSet or another vasp set that contains basic parameters for the calculations to be performed
-                override_default_vasp_params: input set parameters to be passed on to OptimizeFW if no input set is defined
-                parents:        FWs of Static distance calculations
-                vastodb_kwargs: Passed on to VaspToDB Firetask
-                optimize_kwargs: Passed on to OptimizeFW launched FW once optimal distance is found.
+                adsorbate (Molecule): molecule to be appended to original_slab at proper optimal distance
+                slab_structure (Structure): original surface slab without the molecule attached
+                static_distances (list): array of distances that had static calculations done
+                name (str): name of FW
+                vasp_input_set: something like MPSurfaceSet or another vasp set that contains basic parameters
+                    for the calculations to be performed
+                override_default_vasp_params: input set parameters to be passed on to OptimizeFW if no input set
+                    is defined
+                parents: FWs of Static distance calculations
+                vastodb_kwargs (dict): Passed on to VaspToDB Firetask
+                optimize_kwargs (dict): Passed on to OptimizeFW launched FW once optimal distance is found.
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
 
@@ -81,7 +79,7 @@ class EnergyLandscapeFW(Firework):
 
         def __init__(self, structure=None, name="static", vasp_input_set=None, vasp_input_set_params=None,
                                  vasp_cmd=VASP_CMD, db_file=DB_FILE, vasptodb_kwargs=None,
-                                 parents=None, contcar_to_poscar = True,runvaspcustodian_kwargs = None,**kwargs):
+                                 parents=None,runvaspcustodian_kwargs = None, **kwargs):
                 """
                 Copied from StaticFW - modified to not overwrite passed information when supplying a parent.
                 Only looks at structure passed, and not parent structure.
@@ -199,8 +197,9 @@ class BulkFW(Firework):
                  vasp_input_set=None, user_incar_settings=None,
                  slab_gen_params=None, min_lw=None, slab_fw_params=None,
                  ads_site_finder_params=None, ads_structures_params=None,
-                 slab_ads_fw_params=None, optimize_distance=True, parents=None,
-                 **kwargs):
+                 slab_ads_fw_params=None, optimize_distance=True,
+                 static_distances = None, static_fws_params = None,
+                 parents=None,**kwargs):
         """
         Optimize bulk structure and add a slab generator firework as
         addition.
@@ -241,6 +240,10 @@ class BulkFW(Firework):
                 calculations to determine the optimal
                 adsorbate - surface distance before optimizing the
                 slab + adsorbate structure
+            static_distances (list): if optimize_distance is true, these are
+                the distances at which to test the adsorbate distance
+            static_fws_params (dict): dictionary for setting custum user kpoints
+                and custom user incar  settings, or passing an input set.
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: other kwargs that are passed to
                 Firework.__init__.
@@ -271,7 +274,8 @@ class BulkFW(Firework):
             ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params,
             slab_ads_fw_params=slab_ads_fw_params, add_fw_name=add_fw_name,
-            optimize_distance=optimize_distance))
+            optimize_distance=optimize_distance,
+            static_distances=static_distances, static_fws_params = static_fws_params))
 
         super(BulkFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
@@ -283,7 +287,8 @@ class SlabGeneratorFW(Firework):
                  slab_gen_params=None, min_lw=None, slab_fw_params=None,
                  ads_site_finder_params=None, ads_structures_params=None,
                  slab_ads_fw_params=None, bulk_dir=None,
-                 optimize_distance=True, parents=None):
+                 optimize_distance=True, static_distances  = None,
+                 static_fws_params = None, parents=None):
 
         """
         Generate slabs from a bulk structure and add the corresponding
@@ -319,6 +324,10 @@ class SlabGeneratorFW(Firework):
                 calculations to determine the optimal
                 adsorbate - surface distance before optimizing the
                 slab + adsorbate structure
+            static_distances (list): if optimize_distance is true, these are
+                the distances at which to test the adsorbate distance
+            static_fws_params (dict): dictionary for setting custum user kpoints
+                and custom user incar  settings, or passing an input set.
             parents ([Firework]): parents of this particular firework
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
@@ -332,7 +341,8 @@ class SlabGeneratorFW(Firework):
             ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params,
             slab_ads_fw_params=slab_ads_fw_params, bulk_dir=bulk_dir,
-            optimize_distance=optimize_distance)
+            optimize_distance=optimize_distance,
+            static_distances=static_distances, static_fws_params=static_fws_params)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
@@ -350,6 +360,7 @@ class SlabFW(Firework):
                  ads_structures_params=None, slab_ads_fw_params=None,
                  bulk_dir=None, miller_index=None, shift=None,
                  user_incar_settings=None, optimize_distance=True,
+                 static_distances=None,static_fws_params=None,
                  parents=None, **kwargs):
         """
         Optimize slab structure and add a slab + adsorbate generator
@@ -397,6 +408,12 @@ class SlabFW(Firework):
                 calculations to determine the optimal
                 adsorbate - surface distance before optimizing the
                 slab + adsorbate structure
+            static_distances (list): if optimize_distance is true, these are
+                the distances at which to test the adsorbate distance
+            static_fws_params (dict): dictionary for setting custum user kpoints
+                and custom user incar  settings, or passing an input set.
+            static_distances (list): if optimize_distance is true, these are
+                the distances at which to test the adsorbate distance
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: Other kwargs that are passed to
                 Firework.__init__.
@@ -440,7 +457,9 @@ class SlabFW(Firework):
             slab_ads_fw_params=slab_ads_fw_params, add_fw_name=add_fw_name,
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
             slab_name=slab_name, bulk_dir=bulk_dir, miller_index=miller_index,
-            shift=shift, optimize_distance=optimize_distance))
+            shift=shift, optimize_distance=optimize_distance,
+            static_distances=static_distances,
+            static_fws_params=static_fws_params))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -453,7 +472,8 @@ class SlabAdsGeneratorFW(Firework):
                  ads_structures_params=None, slab_ads_fw_params=None,
                  slab_name=None, bulk_dir=None,
                  slab_dir=None, miller_index=None, shift=None,
-                 optimize_distance=True, parents=None):
+                 optimize_distance=True, static_distances = None,
+                 static_fws_params=None,parents=None):
         """
         Generate slab + adsorbate structures from a slab structure and
         add the corresponding slab + adsorbate optimization fireworks as
@@ -494,6 +514,10 @@ class SlabAdsGeneratorFW(Firework):
                 calculations to determine the optimal
                 adsorbate - surface distance before optimizing the
                 slab + adsorbate structure
+            static_distances (list): if optimize_distance is true, these are
+                the distances at which to test the adsorbate distance
+            static_fws_params (dict): dictionary for setting custum user kpoints
+                and custom user incar  settings, or passing an input set.
             parents ([Firework]): parents of this particular firework
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
@@ -510,7 +534,8 @@ class SlabAdsGeneratorFW(Firework):
             slab_ads_fw_params=slab_ads_fw_params,
             slab_name=slab_name, bulk_dir=bulk_dir, slab_dir=slab_dir,
             miller_index=miller_index, shift=shift,
-            optimize_distance=optimize_distance)
+            optimize_distance=optimize_distance,
+            static_distances=static_distances, static_fws_params=static_fws_params)
         tasks.append(gen_slabs_t)
         tasks.append(PassCalcLocs(name=name))
 
