@@ -718,7 +718,6 @@ class GenerateSlabAdsTask(FiretaskBase):
                                 "energy": "output.final_energy",
                                 "structure": "output.final_structure"}},
                                 "defuse_unsuccessful": False},
-                            contcar_to_poscar=False,
                             runvaspcustodian_kwargs=
                             {"handler_group": "no_handler"},
                             spec={"_pass_job_info": True}))
