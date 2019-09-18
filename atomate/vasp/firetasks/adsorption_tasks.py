@@ -175,6 +175,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
         all_energies = []
         all_distances = []
 
+        slab_ads_struct = None
         for distance_idx, distance in enumerate(sorted(distances)):  # OA: sorted distances so the ids don't correspond anymore - do we even need ids?
             # if distance_to_state.get(distance,{}).get("state",False):
             if str(distance) in fw_spec:
