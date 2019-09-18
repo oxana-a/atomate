@@ -29,7 +29,7 @@ from pymatgen.analysis.surface_analysis import EV_PER_ANG2_TO_JOULES_PER_M2
 from pymatgen.core.bonds import CovalentBond
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.io.vasp.outputs import Vasprun
-from pymatgen.io.vasp.sets import MPSurfaceSet
+from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
 from pymatgen.util.coord import get_angle
 
 logger = get_logger(__name__)
@@ -689,8 +689,6 @@ class GenerateSlabAdsTask(FiretaskBase):
                 user_incar_settings = static_user_incar_settings,
                 user_kpoints_settings = static_user_kpoints_settings
             )
-
-
 
         for ads_idx, adsorbate in enumerate(adsorbates):
             adsorbate.add_site_property('magmom', [0.0]*adsorbate.num_sites)
