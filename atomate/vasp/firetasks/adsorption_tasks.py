@@ -73,8 +73,8 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         slab_dir = self.get("slab_dir")
         miller_index = self.get("miller_index")
         shift = self.get("shift")
-        coord = self.get("coord")
-        mvec = self.get("mvec")
+        coord = np.array(self.get("coord"))
+        mvec = np.array(self.get("mvec"))
         site_idx = self.get("site_idx")
 
         if "min_lw" not in ads_structures_params:
