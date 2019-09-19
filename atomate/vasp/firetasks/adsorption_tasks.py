@@ -229,14 +229,14 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
                             mod_spec = {"_push":
                                 {
                                     'lowest_energy':lowest_energy,
-                                    'adsorbate_energy':ads_e,
+                                    'adsorption_energy':ads_e,
                                     'optimal_distance':optimal_distance
                                 }
                             })
         return FWAction(mod_spec={"_push":
                     {
                         'lowest_energy': lowest_energy,
-                        'adsorbate_energy': ads_e,
+                        'adsorption_energy': ads_e,
                         'optimal_distance': optimal_distance
                     }
                 })
