@@ -178,10 +178,10 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
         slab_ads_struct = None
         for distance_idx, distance in enumerate(sorted(distances)):  # OA: sorted distances so the ids don't correspond anymore - do we even need ids?
             # if distance_to_state.get(distance,{}).get("state",False):
-            if str(distance) in fw_spec:
+            if "{}_energy".format(distance) in fw_spec:
                 # energy per atom
-                energy = fw_spec[str(distance)]["energy"]  # OA: this is was divided by # of atoms twice before
-                slab_ads_struct = fw_spec[str(distance)]["structure"]
+                energy = fw_spec["{}_energy".format(distance)]  # OA: this is was divided by # of atoms twice before
+                slab_ads_struct = fw_spec.get("{}_structure".format(distance)) or slab_ads_struct
 
                 #for other fitting algorithms:
                 all_energies.append(energy)
@@ -223,7 +223,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
         # ads_e = lowest_energy - slab_energy*(len(slab_structure)-2) - sum([ads_comp.get(elt, 0) * ref_elem_energy.get(elt) for elt in ref_elem_energy])
 
         #If lowest energy is a little too big, this is probably not a good site/adsorbate... No need to run future calculations
-        if ads_e>1:
+        if ads_e>10:
             #Let's exit the rest of the FW's if energy is too high, but still push the data
             return FWAction(exit=True,
                             mod_spec = {"_push":
@@ -715,9 +715,11 @@ class GenerateSlabAdsTask(FiretaskBase):
                             vasp_input_set=static_input_set,
                             vasp_cmd=vasp_cmd, db_file=db_file,
                             vasptodb_kwargs=
-                            {"task_fields_to_push": {str(distance): {
-                                "energy": "output.final_energy",
-                                "structure": "output.final_structure"}},
+                            {"task_fields_to_push": {
+                                "{}_energy".format(distance):
+                                    "output.final_energy",
+                                "{}_structure".format(distance):
+                                    "output.final_structure"},
                                 "defuse_unsuccessful": False},
                             runvaspcustodian_kwargs=
                             {"handler_group": "no_handler"},
