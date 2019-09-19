@@ -717,9 +717,9 @@ class GenerateSlabAdsTask(FiretaskBase):
                             vasptodb_kwargs=
                             {"task_fields_to_push": {
                                 "{}_energy".format(distance):
-                                    "output.final_energy",
+                                    "output.energy",
                                 "{}_structure".format(distance):
-                                    "output.final_structure"},
+                                    "output.structure"},
                                 "defuse_unsuccessful": False},
                             runvaspcustodian_kwargs=
                             {"handler_group": "no_handler"},
