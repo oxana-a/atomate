@@ -681,7 +681,8 @@ class GenerateSlabAdsTask(FiretaskBase):
                     "LREAL": False,
                     "LASPH": True,
                     "LORBIT": 11,
-                    "LELF": True
+                    "LELF": True,
+                    "IVDW":11
                 }
 
         if static_input_set is False:
