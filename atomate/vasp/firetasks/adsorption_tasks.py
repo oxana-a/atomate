@@ -211,6 +211,11 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
             #Lowest value of fit:
             lowest_energy = min(yd)
             optimal_distance = xd[np.where(yd == yd.min())[0]]
+        elif algo == "minimum":
+            import numpy as np
+            all_energies = np.array(all_energies)
+            lowest_energy = min(all_energies)
+            optimal_distance = all_distances[np.where(all_energies == all_energies.min())[0][0]]
 
         #Optimal Energy for current slab with adsorbate:
         if slab_ads_struct:
@@ -682,7 +687,8 @@ class GenerateSlabAdsTask(FiretaskBase):
                     "LASPH": True,
                     "LORBIT": 11,
                     "LELF": True,
-                    "IVDW":11
+                    "IVDW":11,
+                    "GGA":"RP"
                 }
 
         if static_input_set is False:
