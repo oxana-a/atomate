@@ -692,12 +692,6 @@ class GenerateSlabAdsTask(FiretaskBase):
                     "GGA":"RP"
                 }
 
-        if static_input_set is False:
-            static_input_set = MPStaticSet(
-                slab_structure,
-                user_incar_settings = static_user_incar_settings,
-                user_kpoints_settings = static_user_kpoints_settings
-            )
 
         for ads_idx, adsorbate in enumerate(adsorbates):
             adsorbate.add_site_property('magmom', [0.0]*adsorbate.num_sites)
@@ -717,6 +711,13 @@ class GenerateSlabAdsTask(FiretaskBase):
                             adsorbate.composition.formula,
                             slab_structure.composition.formula, miller_index,
                             distance, site_idx)
+
+                        if static_input_set is False:
+                            static_input_set = MPStaticSet(
+                                slab_ads,
+                                user_incar_settings=static_user_incar_settings,
+                                user_kpoints_settings=static_user_kpoints_settings
+                            )
 
                         fws.append(af.EnergyLandscapeFW(
                             name=ads_name, structure=slab_ads,
