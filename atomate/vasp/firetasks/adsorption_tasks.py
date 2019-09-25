@@ -1082,12 +1082,15 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     for index, site in enumerate(output_slab_ads.sites)}
 
         # atom movements during slab + adsorbate optimization
-        translation_vecs = []
+        translation_vecs = [None] * output_slab_ads.num_sites
         if input_slab_ads:
             translation_vecs = [{'old_id': old_id, 'new_id': new_id,
                                  'vector': (output_slab_ads[new_id].coords
                                             - input_slab_ads[old_id].coords)}
                                 for old_id, new_id in enumerate(id_map)]
+        output_slab_ads.add_site_property(
+            'translation_vectors', translation_vecs)
+
         nn_surface_list = []
         for n, ads_site in enumerate(ads_sites):
             neighbors = output_slab_ads.get_neighbors(
@@ -1138,8 +1141,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'band_gap': eigenvalue_band_props[0],
                 'cbm': eigenvalue_band_props[1],
                 'vbm': eigenvalue_band_props[2],
-                'is_band_gap_direct': eigenvalue_band_props[3]},
-            'translation_vectors': translation_vecs})
+                'is_band_gap_direct': eigenvalue_band_props[3]}})
 
         # cleavage energy
         area = np.linalg.norm(np.cross(output_slab.lattice.matrix[0],
