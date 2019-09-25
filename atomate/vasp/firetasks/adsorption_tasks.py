@@ -329,7 +329,8 @@ class SlabAdditionTask(FiretaskBase):
         import atomate.vasp.fireworks.adsorption as af
 
         bulk_structure = fw_spec["bulk_structure"]
-        slabs = generate_all_slabs(bulk_structure)
+        slabs = generate_all_slabs(bulk_structure, max_index=1,
+                                   min_slab_size=7.0, min_vacuum_size=10.0)
         bulk_energy = fw_spec["bulk_energy"]
         calc_locs = fw_spec["calc_locs"]
         if calc_locs:
