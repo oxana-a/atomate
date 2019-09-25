@@ -14,6 +14,7 @@ import json
 from monty.json import jsanitize
 import numpy as np
 import os
+import warnings
 from xml.etree.ElementTree import ParseError
 from atomate.utils.utils import get_logger, env_chk
 from atomate.vasp.config import DB_FILE
@@ -998,7 +999,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
                     bulk_converged = vrun_o.converged
                     if bulk_energy:
-                        assert(round(bulk_energy - vrun_o.final_energy, 7) == 0)
+                        assert(round(bulk_energy - vrun_o.final_energy, 7)
+                               == 0)
                     else:
                         bulk_energy = vrun_o.final_energy
 
@@ -1008,13 +1010,14 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 except (ParseError, AssertionError):
                     pass
             except FileNotFoundError:
-                print("\nBulk directory not found: {}\n".format(bulk_dir))
+                warnings.warn("Bulk directory not found: {}".format(bulk_dir))
 
         slab_converged, input_slab = None, None
         if slab_dir:
             try:
                 vrun_paths = [os.path.join(slab_dir, fname) for fname in
-                              os.listdir(slab_dir) if "vasprun" in fname.lower()]
+                              os.listdir(slab_dir) if "vasprun"
+                              in fname.lower()]
                 try:
                     vrun_paths.sort(key=lambda x: time_vrun(x))
                     vrun_i = Vasprun(vrun_paths[0])
@@ -1022,7 +1025,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
                     slab_converged = vrun_o.converged
                     if slab_energy:
-                        assert(round(slab_energy - vrun_o.final_energy, 7) == 0)
+                        assert(round(slab_energy - vrun_o.final_energy, 7)
+                               == 0)
                     else:
                         slab_energy = vrun_o.final_energy
 
@@ -1032,7 +1036,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 except (ParseError, AssertionError):
                     pass
             except FileNotFoundError:
-                print("\nSlab directory not found: {}\n".format(slab_dir))
+                warnings.warn("Slab directory not found: {}".format(slab_dir))
 
         slab_ads_converged, input_slab_ads = None, None
         eigenvalue_band_props = (None, None, None, None)
@@ -1060,8 +1064,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 except (ParseError, AssertionError):
                     pass
             except FileNotFoundError:
-                print("\nSlab + adsorbate directory not found: {}\n".format(
-                    slab_ads_dir))
+                warnings.warn("Slab + adsorbate directory not found: {}"
+                              .format(slab_ads_dir))
 
         ads_sites = []
         if surface_properties and id_map and output_slab_ads:
