@@ -650,7 +650,7 @@ class AdsorptionAnalysisFW(Firework):
             slab_ads_energy=slab_ads_energy, slab_structure=slab_structure,
             slab_energy=slab_energy, bulk_structure=bulk_structure,
             bulk_energy=bulk_energy, adsorbate=adsorbate, db_file=db_file,
-            job_type=job_type, slab_name=slab_name,
+            job_type=job_type, name=name, slab_name=slab_name,
             slab_ads_name=slab_ads_name, slab_ads_task_id=slab_ads_task_id,
             bulk_dir=bulk_dir, slab_dir=slab_dir, slab_ads_dir=slab_ads_dir,
             miller_index=miller_index, shift=shift, id_map=id_map,

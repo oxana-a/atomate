@@ -938,10 +938,11 @@ class AdsorptionAnalysisTask(FiretaskBase):
     required_params = []
     optional_params = ["slab_ads_structure", "slab_ads_energy",
                        "slab_structure", "slab_energy", "bulk_structure",
-                       "bulk_energy", "adsorbate", "db_file", "job_type",
-                       "slab_name", "slab_ads_name", "slab_ads_task_id",
-                       "bulk_dir", "slab_dir", "slab_ads_dir", "miller_index",
-                       "shift", "id_map", "surface_properties"]
+                       "bulk_energy", "adsorbate", "db_file", "name",
+                       "job_type", "slab_name", "slab_ads_name",
+                       "slab_ads_task_id", "bulk_dir", "slab_dir",
+                       "slab_ads_dir", "miller_index", "shift", "id_map",
+                       "surface_properties"]
 
     def run_task(self, fw_spec):
         stored_data = {}
@@ -1034,7 +1035,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 print("\nSlab directory not found: {}\n".format(slab_dir))
 
         slab_ads_converged, input_slab_ads = None, None
-        eigenvalue_band_properties = (None, None, None, None)
+        eigenvalue_band_props = (None, None, None, None)
         if slab_ads_dir:
             try:
                 vrun_paths = [os.path.join(slab_ads_dir, fname) for fname in
@@ -1055,7 +1056,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     if not output_slab_ads:
                         output_slab_ads = vrun_o.final_structure
                     input_slab_ads = vrun_i.initial_structure
-                    eigenvalue_band_properties = vrun_o.eigenvalue_band_properties
+                    eigenvalue_band_props = vrun_o.eigenvalue_band_properties
                 except (ParseError, AssertionError):
                     pass
             except FileNotFoundError:
@@ -1081,10 +1082,12 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     for index, site in enumerate(output_slab_ads.sites)}
 
         # atom movements during slab + adsorbate optimization
-        translation_vectors = [{'old_id': old_id, 'new_id': new_id,
-                                'vector': (output_slab_ads[new_id].coords
-                                           - input_slab_ads[old_id].coords)}
-                               for old_id, new_id in enumerate(id_map)]
+        translation_vecs = []
+        if input_slab_ads:
+            translation_vecs = [{'old_id': old_id, 'new_id': new_id,
+                                 'vector': (output_slab_ads[new_id].coords
+                                            - input_slab_ads[old_id].coords)}
+                                for old_id, new_id in enumerate(id_map)]
         nn_surface_list = []
         for n, ads_site in enumerate(ads_sites):
             neighbors = output_slab_ads.get_neighbors(
@@ -1121,16 +1124,19 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
         stored_data['slab_adsorbate'] = {
             'name': slab_ads_name, 'directory': slab_ads_dir,
-            'converged': slab_ads_converged,
-            'input_structure': input_slab_ads.as_dict(),
+            'converged': slab_ads_converged}
+        if input_slab_ads:
+            stored_data['slab_adsorbate'][
+                'input_structure'] = input_slab_ads.as_dict()
+        stored_data['slab_adsorbate'].update({
             'output_structure': output_slab_ads.as_dict(),
             'output_slab_ads_energy': slab_ads_energy,
             'eigenvalue_band_properties': {
-                'band_gap': eigenvalue_band_properties[0],
-                'cbm': eigenvalue_band_properties[1],
-                'vbm': eigenvalue_band_properties[2],
-                'is_band_gap_direct': eigenvalue_band_properties[3]},
-            'translation_vectors': translation_vectors}
+                'band_gap': eigenvalue_band_props[0],
+                'cbm': eigenvalue_band_props[1],
+                'vbm': eigenvalue_band_props[2],
+                'is_band_gap_direct': eigenvalue_band_props[3]},
+            'translation_vectors': translation_vecs})
 
         # cleavage energy
         area = np.linalg.norm(np.cross(output_slab.lattice.matrix[0],
