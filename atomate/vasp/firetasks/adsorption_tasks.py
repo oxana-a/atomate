@@ -986,72 +986,81 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
         bulk_converged, input_bulk = None, None
         if bulk_dir:
-            vrun_paths = [os.path.join(bulk_dir, fname) for fname in
-                          os.listdir(bulk_dir) if "vasprun" in fname.lower()]
             try:
-                vrun_paths.sort(key=lambda x: time_vrun(x))
-                vrun_i = Vasprun(vrun_paths[0])
-                vrun_o = Vasprun(vrun_paths[-1])
+                vrun_paths = [
+                    os.path.join(bulk_dir, fname) for fname in
+                    os.listdir(bulk_dir) if "vasprun" in fname.lower()]
+                try:
+                    vrun_paths.sort(key=lambda x: time_vrun(x))
+                    vrun_i = Vasprun(vrun_paths[0])
+                    vrun_o = Vasprun(vrun_paths[-1])
 
-                bulk_converged = vrun_o.converged
-                if bulk_energy:
-                    assert(round(bulk_energy - vrun_o.final_energy, 7) == 0)
-                else:
-                    bulk_energy = vrun_o.final_energy
+                    bulk_converged = vrun_o.converged
+                    if bulk_energy:
+                        assert(round(bulk_energy - vrun_o.final_energy, 7) == 0)
+                    else:
+                        bulk_energy = vrun_o.final_energy
 
-                if not output_bulk:
-                    output_bulk = vrun_o.final_structure
-                input_bulk = vrun_i.initial_structure
-
-            except (ParseError, AssertionError):
-                pass
+                    if not output_bulk:
+                        output_bulk = vrun_o.final_structure
+                    input_bulk = vrun_i.initial_structure
+                except (ParseError, AssertionError):
+                    pass
+            except FileNotFoundError:
+                print("\nBulk directory not found: {}\n".format(bulk_dir))
 
         slab_converged, input_slab = None, None
         if slab_dir:
-            vrun_paths = [os.path.join(slab_dir, fname) for fname in
-                          os.listdir(slab_dir) if "vasprun" in fname.lower()]
             try:
-                vrun_paths.sort(key=lambda x: time_vrun(x))
-                vrun_i = Vasprun(vrun_paths[0])
-                vrun_o = Vasprun(vrun_paths[-1])
+                vrun_paths = [os.path.join(slab_dir, fname) for fname in
+                              os.listdir(slab_dir) if "vasprun" in fname.lower()]
+                try:
+                    vrun_paths.sort(key=lambda x: time_vrun(x))
+                    vrun_i = Vasprun(vrun_paths[0])
+                    vrun_o = Vasprun(vrun_paths[-1])
 
-                slab_converged = vrun_o.converged
-                if slab_energy:
-                    assert(round(slab_energy - vrun_o.final_energy, 7) == 0)
-                else:
-                    slab_energy = vrun_o.final_energy
+                    slab_converged = vrun_o.converged
+                    if slab_energy:
+                        assert(round(slab_energy - vrun_o.final_energy, 7) == 0)
+                    else:
+                        slab_energy = vrun_o.final_energy
 
-                if not output_slab:
-                    output_slab = vrun_o.final_structure
-                input_slab = vrun_i.initial_structure
-
-            except (ParseError, AssertionError):
-                pass
+                    if not output_slab:
+                        output_slab = vrun_o.final_structure
+                    input_slab = vrun_i.initial_structure
+                except (ParseError, AssertionError):
+                    pass
+            except FileNotFoundError:
+                print("\nSlab directory not found: {}\n".format(slab_dir))
 
         slab_ads_converged, input_slab_ads = None, None
         eigenvalue_band_properties = (None, None, None, None)
         if slab_ads_dir:
-            vrun_paths = [os.path.join(slab_ads_dir, fname) for fname in
-                          os.listdir(slab_ads_dir)
-                          if "vasprun" in fname.lower()]
             try:
-                vrun_paths.sort(key=lambda x: time_vrun(x))
-                vrun_i = Vasprun(vrun_paths[0])
-                vrun_o = Vasprun(vrun_paths[-1])
+                vrun_paths = [os.path.join(slab_ads_dir, fname) for fname in
+                              os.listdir(slab_ads_dir)
+                              if "vasprun" in fname.lower()]
+                try:
+                    vrun_paths.sort(key=lambda x: time_vrun(x))
+                    vrun_i = Vasprun(vrun_paths[0])
+                    vrun_o = Vasprun(vrun_paths[-1])
 
-                slab_ads_converged = vrun_o.converged
-                if slab_ads_energy:
-                    assert(round(
-                        slab_ads_energy - vrun_o.final_energy, 7) == 0)
-                else:
-                    slab_ads_energy = vrun_o.final_energy
+                    slab_ads_converged = vrun_o.converged
+                    if slab_ads_energy:
+                        assert(round(
+                            slab_ads_energy - vrun_o.final_energy, 7) == 0)
+                    else:
+                        slab_ads_energy = vrun_o.final_energy
 
-                if not output_slab_ads:
-                    output_slab_ads = vrun_o.final_structure
-                input_slab_ads = vrun_i.initial_structure
-                eigenvalue_band_properties = vrun_o.eigenvalue_band_properties
-            except (ParseError, AssertionError):
-                pass
+                    if not output_slab_ads:
+                        output_slab_ads = vrun_o.final_structure
+                    input_slab_ads = vrun_i.initial_structure
+                    eigenvalue_band_properties = vrun_o.eigenvalue_band_properties
+                except (ParseError, AssertionError):
+                    pass
+            except FileNotFoundError:
+                print("\nSlab + adsorbate directory not found: {}\n".format(
+                    slab_ads_dir))
 
         ads_sites = []
         if surface_properties and id_map and output_slab_ads:
