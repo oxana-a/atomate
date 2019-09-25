@@ -1143,11 +1143,16 @@ class AdsorptionAnalysisTask(FiretaskBase):
                               'site': site1.as_dict()},
                     'site2': {'slab_ads_site_index': site_ids[site2],
                               'site': site2.as_dict()},
-                    'distance': site1.distance_and_image(site2)[0],
-                    'is_bonded': CovalentBond(site1, site2).is_bonded(
-                        site1, site2)}
+                    'distance': site1.distance_and_image(site2)[0]}
+                try:
+                    stored_data['adsorbate_bonds'][pair_name][
+                        'is_bonded'] = CovalentBond(site1, site2).is_bonded(
+                        site1, site2)
+                except ValueError:
+                    stored_data['adsorbate_bonds'][pair_name][
+                        'is_bonded'] = None
 
-        # adsorbate angles
+                    # adsorbate angles
         if len(ads_sites) > 2:
             stored_data['adsorbate_angles'] = {}
             n = 0
@@ -1236,14 +1241,17 @@ class AdsorptionAnalysisTask(FiretaskBase):
                         + surface_site_entry['site']['species'][0]['element']),
             'adsorbate_site': adsorption_site_entry,
             'surface_site': surface_site_entry,
-            'distance': distance,
-            'is_bonded': CovalentBond(PeriodicSite.from_dict(
-                adsorption_site_entry['site']),
+            'distance': distance}
+        try:
+            stored_data['adsorption_site']['is_bonded'] = CovalentBond(
+                PeriodicSite.from_dict(adsorption_site_entry['site']),
                 PeriodicSite.from_dict(surface_site_entry['site'])).is_bonded(
                 PeriodicSite.from_dict(adsorption_site_entry['site']),
-                PeriodicSite.from_dict(surface_site_entry['site']))}
+                PeriodicSite.from_dict(surface_site_entry['site']))
+        except ValueError:
+            stored_data['adsorption_site']['is_bonded'] = None
 
-        # adsorption energy
+            # adsorption energy
         scale_factor = output_slab_ads.volume / output_slab.volume
         ads_comp = Structure.from_sites(ads_sites).composition
         adsorption_en = slab_ads_energy - slab_energy * scale_factor - sum(
