@@ -1110,17 +1110,20 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
         stored_data['bulk'] = {
             'formula': output_bulk.composition.reduced_formula,
-            'directory': bulk_dir, 'converged': bulk_converged,
-            'input_structure': input_bulk.as_dict(),
-            'output_structure': output_bulk.as_dict(),
-            'output_energy': bulk_energy}
+            'directory': bulk_dir, 'converged': bulk_converged}
+        if input_bulk:
+            stored_data['bulk']['input_structure'] = input_bulk.as_dict()
+        stored_data['bulk'].update({'output_structure': output_bulk.as_dict(),
+                                    'output_energy': bulk_energy})
 
         stored_data['slab'] = {
             'name': slab_name, 'directory': slab_dir,
             'converged': slab_converged, 'miller_index': miller_index,
-            'shift': shift, 'input_structure': input_slab.as_dict(),
-            'output_structure': output_slab.as_dict(),
-            'output_energy': slab_energy}
+            'shift': shift}
+        if input_slab:
+            stored_data['slab']['input_structure'] = input_slab.as_dict()
+        stored_data['slab'].update({'output_structure': output_slab.as_dict(),
+                                    'output_energy': slab_energy})
 
         stored_data['slab_adsorbate'] = {
             'name': slab_ads_name, 'directory': slab_ads_dir,
