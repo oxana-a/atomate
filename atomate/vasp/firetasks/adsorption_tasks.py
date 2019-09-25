@@ -24,9 +24,11 @@ from fireworks.utilities.fw_serializers import DATETIME_HANDLER
 from fireworks.utilities.fw_utilities import explicit_serialize
 from pymatgen import Structure
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
+from pymatgen.analysis.local_env import CrystalNN
 from pymatgen.analysis.structure_matcher import StructureMatcher
 from pymatgen.analysis.surface_analysis import EV_PER_ANG2_TO_JOULES_PER_M2
 from pymatgen.core.bonds import CovalentBond
+from pymatgen.core.sites import PeriodicSite
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.io.vasp.outputs import Vasprun
 from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
@@ -1025,6 +1027,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 pass
 
         slab_ads_converged, input_slab_ads = None, None
+        eigenvalue_band_properties = (None, None, None, None)
         if slab_ads_dir:
             vrun_paths = [os.path.join(slab_ads_dir, fname) for fname in
                           os.listdir(slab_ads_dir)
@@ -1044,7 +1047,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 if not output_slab_ads:
                     output_slab_ads = vrun_o.final_structure
                 input_slab_ads = vrun_i.initial_structure
-
+                eigenvalue_band_properties = vrun_o.eigenvalue_band_properties
             except (ParseError, AssertionError):
                 pass
 
@@ -1071,6 +1074,25 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                 'vector': (output_slab_ads[new_id].coords
                                            - input_slab_ads[old_id].coords)}
                                for old_id, new_id in enumerate(id_map)]
+        nn_surface_list = []
+        for n, ads_site in enumerate(ads_sites):
+            neighbors = output_slab_ads.get_neighbors(
+                ads_site, output_slab_ads.lattice.c)
+
+            neighbors.sort(key=lambda x: x.distance)
+            nearest_surface_neighbor = next(neighbor for neighbor in neighbors
+                                            if neighbor.site not in ads_sites)
+
+            nn_surface_list.append([nearest_surface_neighbor.index,
+                                    nearest_surface_neighbor.distance])
+        ads_site_index = max(nn_surface_list, key=lambda x: x[1])[0]
+        output_slab_ads.sites[ads_site_index].properties[
+            'surface_properties'] += ', adsorption site'
+
+        cnn = CrystalNN()
+        output_slab_ads.add_site_property(
+            'coordination_number', [cnn.get_cn(output_slab_ads, i)
+                                    for i in range(output_slab_ads.num_sites)])
 
         stored_data['bulk'] = {
             'formula': output_bulk.composition.reduced_formula,
@@ -1092,6 +1114,11 @@ class AdsorptionAnalysisTask(FiretaskBase):
             'input_structure': input_slab_ads.as_dict(),
             'output_structure': output_slab_ads.as_dict(),
             'output_slab_ads_energy': slab_ads_energy,
+            'eigenvalue_band_properties': {
+                'band_gap': eigenvalue_band_properties[0],
+                'cbm': eigenvalue_band_properties[1],
+                'vbm': eigenvalue_band_properties[2],
+                'is_band_gap_direct': eigenvalue_band_properties[3]},
             'translation_vectors': translation_vectors}
 
         # cleavage energy
@@ -1180,17 +1207,17 @@ class AdsorptionAnalysisTask(FiretaskBase):
             neighbors = output_slab_ads.get_neighbors(
                 ads_site, output_slab_ads.lattice.c)
 
-            neighbors.sort(key=lambda x: x[1])
+            neighbors.sort(key=lambda x: x.distance)
             nearest_surface_neighbor = next(neighbor for neighbor in neighbors
-                                            if neighbor[0] not in ads_sites)
-            ns_site = nearest_surface_neighbor[0]
+                                            if neighbor.site not in ads_sites)
+            ns_site = nearest_surface_neighbor.site
 
             stored_data['nearest_surface_neighbors'][ads_site_name] = {
                 'adsorbate_site': {'slab_ads_site_index': site_ids[ads_site],
                                    'site': ads_site.as_dict()},
                 'surface_site': {'slab_ads_site_index': site_ids[ns_site],
                                  'site': ns_site.as_dict()},
-                'distance': nearest_surface_neighbor[1]}
+                'distance': nearest_surface_neighbor.distance}
 
         nn_list = [[ads_site] +
                    [stored_data['nearest_surface_neighbors'][ads_site][item]
@@ -1199,14 +1226,20 @@ class AdsorptionAnalysisTask(FiretaskBase):
                    for ads_site in stored_data['nearest_surface_neighbors']]
 
         stored_data['adsorption_site'] = {}
-        adsorption_site, surface_site, distance = min(nn_list,
-                                                      key=lambda x: x[-1])[1:]
-        stored_data['adsorption_site']['species'] = (
-                adsorption_site['site']['species'][0]['element'] + "-"
-                + surface_site['site']['species'][0]['element'])
-        stored_data['adsorption_site']['adsorbate_site'] = adsorption_site
-        stored_data['adsorption_site']['surface_site'] = surface_site
-        stored_data['adsorption_site']['distance'] = distance
+        adsorption_site_entry, surface_site_entry, distance = min(
+            nn_list, key=lambda x: x[-1])[1:]
+        stored_data['adsorption_site'] = {
+            'species': (adsorption_site_entry['site']['species'][0]['element']
+                        + "-"
+                        + surface_site_entry['site']['species'][0]['element']),
+            'adsorbate_site': adsorption_site_entry,
+            'surface_site': surface_site_entry,
+            'distance': distance,
+            'is_bonded': CovalentBond(PeriodicSite.from_dict(
+                adsorption_site_entry['site']),
+                PeriodicSite.from_dict(surface_site_entry['site'])).is_bonded(
+                PeriodicSite.from_dict(adsorption_site_entry['site']),
+                PeriodicSite.from_dict(surface_site_entry['site']))}
 
         # adsorption energy
         scale_factor = output_slab_ads.volume / output_slab.volume
