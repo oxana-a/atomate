@@ -705,6 +705,7 @@ class GenerateSlabAdsTask(FiretaskBase):
                     parents = []
                     for distance_idx, distance in enumerate(static_distances):
                         new_coord = coord+distance*asf.mvec
+                        asf = AdsorbateSiteFinder(slab_structure)
                         slab_ads = asf.add_adsorbate(adsorbate, new_coord)
                         ads_name = ("{}-{}{} distance optimization: {}. "
                                     "Site: {}").format(
