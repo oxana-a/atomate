@@ -14,6 +14,7 @@ import json
 from monty.json import jsanitize
 import numpy as np
 import os
+import warnings
 from xml.etree.ElementTree import ParseError
 from atomate.utils.utils import get_logger, env_chk
 from atomate.vasp.config import DB_FILE
@@ -24,9 +25,11 @@ from fireworks.utilities.fw_serializers import DATETIME_HANDLER
 from fireworks.utilities.fw_utilities import explicit_serialize
 from pymatgen import Structure
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder
+from pymatgen.analysis.local_env import CrystalNN
 from pymatgen.analysis.structure_matcher import StructureMatcher
 from pymatgen.analysis.surface_analysis import EV_PER_ANG2_TO_JOULES_PER_M2
 from pymatgen.core.bonds import CovalentBond
+from pymatgen.core.sites import PeriodicSite
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.io.vasp.outputs import Vasprun
 from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
@@ -326,94 +329,10 @@ class SlabAdditionTask(FiretaskBase):
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
 
-        bulk_structure = fw_spec["bulk_structure"]
-        slabs = generate_all_slabs(bulk_structure)
-        bulk_energy = fw_spec["bulk_energy"]
-        calc_locs = fw_spec["calc_locs"]
-        if calc_locs:
-            bulk_dir = calc_locs[-1].get("path")
-        else:
-            bulk_dir = self.get("bulk_dir")
-        adsorbates = self.get("adsorbates")
-        vasp_cmd = self.get("vasp_cmd")
-        db_file = self.get("db_file")
-        sgp = self.get("slab_gen_params")
-        min_lw = self.get("min_lw")
-        slab_fw_params = self.get("slab_fw_params")
-        ads_site_finder_params = self.get("ads_site_finder_params")
-        ads_structures_params = self.get("ads_structures_params")
-        slab_ads_fw_params = self.get("slab_ads_fw_params")
-        add_fw_name = self.get("add_fw_name") or "slab generator"
-        optimize_distance = self.get("optimize_distance")
-        static_distances = self.get("static_distances")
-        static_fws_params = self.get("static_fws_params")
-
-        fw = af.SlabGeneratorFW(
-            bulk_structure, name=add_fw_name, bulk_energy=bulk_energy,
-            adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
-            slab_gen_params=sgp, min_lw=min_lw, slab_fw_params=slab_fw_params,
-            ads_site_finder_params=ads_site_finder_params,
-            ads_structures_params=ads_structures_params,
-            slab_ads_fw_params=slab_ads_fw_params, bulk_dir=bulk_dir,
-            optimize_distance=optimize_distance,
-            static_distances=static_distances, static_fws_params = static_fws_params)
-
-        return FWAction(additions=fw)
-
-
-@explicit_serialize
-class GenerateSlabsTask(FiretaskBase):
-    """
-    Generate slabs from a bulk structure and add the corresponding slab
-    optimization fireworks as additions.
-
-    Required params:
-        bulk_structure (Structure): relaxed bulk structure
-    Optional params:
-        bulk_energy (float): final energy of relaxed bulk structure
-        adsorbates ([Molecule]): list of molecules to place as
-            adsorbates
-        vasp_cmd (str): vasp command
-        db_file (str): path to database file
-        slab_gen_params (dict): dictionary of kwargs for
-            generate_all_slabs
-        min_lw (float): minimum length/width for slab and
-            slab + adsorbate structures (overridden by
-            ads_structures_params if it already contains min_lw)
-        slab_fw_params (dict): dictionary of kwargs for SlabFW
-            (can include: handler_group, job_type, vasp_input_set,
-            user_incar_params)
-        ads_site_finder_params (dict): parameters to be supplied as
-            kwargs to AdsorbateSiteFinder
-        ads_structures_params (dict): dictionary of kwargs for
-            generate_adsorption_structures in AdsorptionSiteFinder
-        slab_ads_fw_params (dict): dictionary of kwargs for SlabAdsFW
-            (can include: handler_group, job_type, vasp_input_set,
-            user_incar_params)
-        bulk_dir (str): path for the corresponding bulk calculation
-            directory
-        optimize_distance (bool): whether to launch static calculations
-            to determine the optimal adsorbate - surface distance before
-            optimizing the slab + adsorbate structure
-        static_distances (list): if optimize_distance is true, these are
-            the distances at which to test the adsorbate distance
-        static_fws_params (dict): dictionary for setting custum user kpoints
-            and custom user incar  settings, or passing an input set.
-    """
-
-    required_params = ["bulk_structure"]
-    optional_params = ["bulk_energy", "adsorbates", "vasp_cmd", "db_file",
-                       "slab_gen_params", "min_lw", "slab_fw_params",
-                       "ads_site_finder_params", "ads_structures_params",
-                       "slab_ads_fw_params", "bulk_dir", "optimize_distance",
-                       "static_distances","static_fws_params"]
-
-    def run_task(self, fw_spec):
-        import atomate.vasp.fireworks.adsorption as af
         slab_fws = []
 
-        bulk_structure = self.get("bulk_structure")
-        bulk_energy = self.get("bulk_energy")
+        bulk_structure = Structure.from_dict(fw_spec["bulk_structure"])
+        bulk_energy = fw_spec["bulk_energy"]
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd")
         db_file = self.get("db_file")
@@ -432,7 +351,13 @@ class GenerateSlabsTask(FiretaskBase):
         ads_site_finder_params = self.get("ads_site_finder_params")
         ads_structures_params = self.get("ads_structures_params")
         slab_ads_fw_params = self.get("slab_ads_fw_params")
-        bulk_dir = self.get("bulk_dir")
+        calc_locs = fw_spec["calc_locs"]
+
+        if calc_locs:
+            bulk_dir = calc_locs[-1].get("path")
+        else:
+            bulk_dir = self.get("bulk_dir")
+
         optimize_distance = self.get("optimize_distance")
         static_distances = self.get("static_distances")
         static_fws_params = self.get("static_fws_params")
@@ -493,12 +418,152 @@ class GenerateSlabsTask(FiretaskBase):
                                 miller_index=slab.miller_index,
                                 shift=slab.shift,
                                 optimize_distance=optimize_distance,
-                                static_distances = static_distances,
+                                static_distances=static_distances,
                                 static_fws_params=static_fws_params,
                                 **slab_fw_params)
             slab_fws.append(slab_fw)
 
         return FWAction(additions=slab_fws)
+
+
+# @explicit_serialize
+# class GenerateSlabsTask(FiretaskBase):
+#     """
+#     Generate slabs from a bulk structure and add the corresponding slab
+#     optimization fireworks as additions.
+#
+#     Required params:
+#         bulk_structure (Structure): relaxed bulk structure
+#     Optional params:
+#         bulk_energy (float): final energy of relaxed bulk structure
+#         adsorbates ([Molecule]): list of molecules to place as
+#             adsorbates
+#         vasp_cmd (str): vasp command
+#         db_file (str): path to database file
+#         slab_gen_params (dict): dictionary of kwargs for
+#             generate_all_slabs
+#         min_lw (float): minimum length/width for slab and
+#             slab + adsorbate structures (overridden by
+#             ads_structures_params if it already contains min_lw)
+#         slab_fw_params (dict): dictionary of kwargs for SlabFW
+#             (can include: handler_group, job_type, vasp_input_set,
+#             user_incar_params)
+#         ads_site_finder_params (dict): parameters to be supplied as
+#             kwargs to AdsorbateSiteFinder
+#         ads_structures_params (dict): dictionary of kwargs for
+#             generate_adsorption_structures in AdsorptionSiteFinder
+#         slab_ads_fw_params (dict): dictionary of kwargs for SlabAdsFW
+#             (can include: handler_group, job_type, vasp_input_set,
+#             user_incar_params)
+#         bulk_dir (str): path for the corresponding bulk calculation
+#             directory
+#         optimize_distance (bool): whether to launch static calculations
+#             to determine the optimal adsorbate - surface distance before
+#             optimizing the slab + adsorbate structure
+#         static_distances (list): if optimize_distance is true, these are
+#             the distances at which to test the adsorbate distance
+#         static_fws_params (dict): dictionary for setting custum user kpoints
+#             and custom user incar  settings, or passing an input set.
+#     """
+#
+#     required_params = ["bulk_structure"]
+#     optional_params = ["bulk_energy", "adsorbates", "vasp_cmd", "db_file",
+#                        "slab_gen_params", "min_lw", "slab_fw_params",
+#                        "ads_site_finder_params", "ads_structures_params",
+#                        "slab_ads_fw_params", "bulk_dir", "optimize_distance",
+#                        "static_distances","static_fws_params"]
+#
+#     def run_task(self, fw_spec):
+#         import atomate.vasp.fireworks.adsorption as af
+#         slab_fws = []
+#
+#         bulk_structure = self.get("bulk_structure")
+#         bulk_energy = self.get("bulk_energy")
+#         adsorbates = self.get("adsorbates")
+#         vasp_cmd = self.get("vasp_cmd")
+#         db_file = self.get("db_file")
+#         sgp = self.get("slab_gen_params") or {}
+#         min_lw = self.get("min_lw") or 10.0
+#
+#         # TODO: these could be more well-thought out defaults
+#         if "min_slab_size" not in sgp:
+#             sgp["min_slab_size"] = 7.0
+#         if "min_vacuum_size" not in sgp:
+#             sgp["min_vacuum_size"] = 20.0
+#         if "max_index" not in sgp:
+#             sgp["max_index"] = 1
+#
+#         slab_fw_params = self.get("slab_fw_params") or {}
+#         ads_site_finder_params = self.get("ads_site_finder_params")
+#         ads_structures_params = self.get("ads_structures_params")
+#         slab_ads_fw_params = self.get("slab_ads_fw_params")
+#         bulk_dir = self.get("bulk_dir")
+#         optimize_distance = self.get("optimize_distance")
+#         static_distances = self.get("static_distances")
+#         static_fws_params = self.get("static_fws_params")
+#
+#         slabs = generate_all_slabs(bulk_structure, **sgp)
+#         all_slabs = slabs.copy()
+#
+#         for slab in slabs:
+#             if not slab.have_equivalent_surfaces():
+#                 # If the two terminations are not equivalent, make new slab
+#                 # by inverting the original slab and add it to the list
+#                 coords = slab.frac_coords
+#                 max_c = max([x[-1] for x in coords])
+#                 min_c = min([x[-1] for x in coords])
+#
+#                 new_coords = np.array([[x[0], x[1], max_c + min_c - x[2]]
+#                                        for x in coords])
+#
+#                 oriented_cell = slab.oriented_unit_cell
+#                 max_oc = max([x[-1] for x in oriented_cell.frac_coords])
+#                 min_oc = min([x[-1] for x in oriented_cell.frac_coords])
+#                 new_ocoords = np.array([[x[0], x[1], max_oc + min_oc - x[2]]
+#                                         for x in oriented_cell.frac_coords])
+#                 new_ocell = Structure(oriented_cell.lattice,
+#                                       oriented_cell.species_and_occu,
+#                                       new_ocoords)
+#
+#                 new_slab = Slab(slab.lattice, species=slab.species_and_occu,
+#                                 coords=new_coords,
+#                                 miller_index=slab.miller_index,
+#                                 oriented_unit_cell=new_ocell,
+#                                 shift=-slab.shift,
+#                                 scale_factor=slab.scale_factor)
+#                 all_slabs.append(new_slab)
+#
+#         for slab in all_slabs:
+#             xrep = np.ceil(
+#                 min_lw / np.linalg.norm(slab.lattice.matrix[0]))
+#             yrep = np.ceil(
+#                 min_lw / np.linalg.norm(slab.lattice.matrix[1]))
+#             repeat = [xrep, yrep, 1]
+#             slab.make_supercell(repeat)
+#             name = slab.composition.reduced_formula
+#             if getattr(slab, "miller_index", None):
+#                 name += "_{}".format(slab.miller_index)
+#             if getattr(slab, "shift", None):
+#                 name += "_{:.3f}".format(slab.shift)
+#             name += " slab optimization"
+#
+#             slab_fw = af.SlabFW(slab, name=name, bulk_structure=bulk_structure,
+#                                 bulk_energy=bulk_energy,
+#                                 adsorbates=adsorbates, vasp_cmd=vasp_cmd,
+#                                 db_file=db_file, min_lw=min_lw,
+#                                 ads_site_finder_params=ads_site_finder_params,
+#                                 ads_structures_params=ads_structures_params,
+#                                 slab_ads_fw_params=slab_ads_fw_params,
+#                                 bulk_dir=bulk_dir,
+#                                 miller_index=slab.miller_index,
+#                                 shift=slab.shift,
+#                                 optimize_distance=optimize_distance,
+#                                 static_distances = static_distances,
+#                                 static_fws_params=static_fws_params,
+#                                 **slab_fw_params)
+#             slab_fws.append(slab_fw)
+#
+#         return FWAction(additions=slab_fws)
 
 
 @explicit_serialize
@@ -548,15 +613,17 @@ class SlabAdsAdditionTask(FiretaskBase):
     optional_params = ["bulk_structure", "bulk_energy", "adsorbates",
                        "vasp_cmd", "db_file", "min_lw",
                        "ads_site_finder_params", "ads_structures_params",
-                       "slab_ads_fw_params", "add_fw_name", "slab_name",
-                       "bulk_dir", "slab_dir", "miller_index", "shift",
+                       "slab_ads_fw_params", "slab_name", "bulk_dir",
+                       "slab_dir", "miller_index", "shift",
                        "optimize_distance", "static_distances",
                        "static_fws_params"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
 
-        slab_structure = fw_spec["slab_structure"]
+        fws = []
+
+        slab_structure = Structure.from_dict(fw_spec["slab_structure"])
         slab_energy = fw_spec["slab_energy"]
         calc_locs = fw_spec["calc_locs"]
         if calc_locs:
@@ -568,132 +635,28 @@ class SlabAdsAdditionTask(FiretaskBase):
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd")
         db_file = self.get("db_file")
-        min_lw = self.get("min_lw")
-        ads_site_finder_params = self.get("ads_site_finder_params")
-        ads_structures_params = self.get("ads_structures_params")
-        slab_ads_fw_params = self.get("slab_ads_fw_params")
-        add_fw_name = self.get("add_fw_name") or "slab + adsorbate generator"
-        slab_name = self.get("slab_name")
-        bulk_dir = self.get("bulk_dir")
-        miller_index = self.get("miller_index")
-        shift = self.get("shift")
-        optimize_distance = self.get("optimize_distance")
-        static_distances = self.get("static_distances")
-        static_fws_params = self.get("static_fws_params")
-
-        fw = af.SlabAdsGeneratorFW(
-            slab_structure, slab_energy=slab_energy,
-            bulk_structure=bulk_structure, bulk_energy=bulk_energy,
-            name=add_fw_name, adsorbates=adsorbates, vasp_cmd=vasp_cmd,
-            db_file=db_file, min_lw=min_lw,
-            ads_site_finder_params=ads_site_finder_params,
-            ads_structures_params=ads_structures_params,
-            slab_ads_fw_params=slab_ads_fw_params, slab_name=slab_name,
-            bulk_dir=bulk_dir, slab_dir=slab_dir, miller_index=miller_index,
-            shift=shift, optimize_distance=optimize_distance,
-            static_distances=static_distances,
-            static_fws_params=static_fws_params)
-
-        return FWAction(additions=fw)
-
-
-@explicit_serialize
-class GenerateSlabAdsTask(FiretaskBase):
-    """
-    Generate slab + adsorbate structures from a slab structure and add
-    the corresponding slab + adsorbate optimization fireworks as
-    additions.
-
-    Required params:
-        slab_structure (Structure): relaxed slab structure
-        adsorbates ([Molecule]): list of molecules to place as
-            adsorbates
-    Optional params:
-        slab_energy (float): final energy of relaxed slab structure
-        bulk_structure (Structure): relaxed bulk structure
-        bulk_energy (float): final energy of relaxed bulk structure
-        vasp_cmd (str): vasp command
-        db_file (str): path to database file
-        min_lw (float): minimum length/width for slab + adsorbate
-            structures (overridden by ads_structures_params if it
-            already contains min_lw)
-        ads_site_finder_params (dict): parameters to be supplied as
-            kwargs to AdsorbateSiteFinder
-        ads_structures_params (dict): dictionary of kwargs for
-            generate_adsorption_structures in AdsorptionSiteFinder
-        slab_ads_fw_params (dict): dictionary of kwargs for SlabAdsFW
-            (can include: handler_group, job_type, vasp_input_set,
-            user_incar_params)
-        slab_name (str): name for the slab
-            (format: Formula_MillerIndex_Shift)
-        bulk_dir (str): path for the corresponding bulk calculation
-            directory
-        slab_dir (str): path for the corresponding slab calculation
-            directory
-        miller_index ([h, k, l]): Miller index of plane parallel to
-            the slab surface
-        shift (float): the shift in the c-direction applied to get
-            the termination for the slab surface
-        optimize_distance (bool): whether to launch static calculations
-            to determine the optimal adsorbate - surface distance before
-            optimizing the slab + adsorbate structure
-        static_distances (list): if optimize_distance is true, these are
-            the distances at which to test the adsorbate distance
-        static_fws_params (dict): dictionary for setting custum user kpoints
-            and custom user incar  settings, or passing an input set.
-    """
-
-    required_params = ["slab_structure", "adsorbates"]
-    optional_params = ["slab_energy", "bulk_structure", "bulk_energy",
-                       "vasp_cmd", "db_file", "min_lw",
-                       "ads_site_finder_params", "ads_structures_params",
-                       "slab_ads_fw_params", "slab_name", "bulk_dir",
-                       "slab_dir", "miller_index", "shift", "static_distances",
-                       "optimize_distance", "static_distances","static_fws_params"]
-
-    def run_task(self, fw_spec):
-        import atomate.vasp.fireworks.adsorption as af
-        fws = []
-
-        slab_structure = self.get("slab_structure")
-        slab_energy = self.get("slab_energy")
-        bulk_structure = self.get("bulk_structure")
-        bulk_energy = self.get("bulk_energy")
-        adsorbates = self.get("adsorbates")
-        vasp_cmd = self.get("vasp_cmd")
-        db_file = self.get("db_file")
+        min_lw = self.get("min_lw") or 10.0
         ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params") or {}
+        if "min_lw" not in ads_structures_params:
+            ads_structures_params["min_lw"] = min_lw
         slab_ads_fw_params = self.get("slab_ads_fw_params") or {}
-        min_lw = self.get("min_lw") or 10.0
+        slab_name = self.get("slab_name")
         bulk_dir = self.get("bulk_dir")
-        slab_dir = self.get("slab_dir")
         miller_index = self.get("miller_index")
         shift = self.get("shift")
         optimize_distance = self.get("optimize_distance")
         static_distances = self.get("static_distances") or [0.5, 1.0, 1.5, 2.0]
-        slab_name = self.get("slab_name")
-
         static_fws_params = self.get("static_fws_params") or {}
         static_input_set = static_fws_params.get("vasp_input_set", False)
-        static_user_incar_settings = static_fws_params.get("user_incar_settings", False)
-        static_user_kpoints_settings = static_fws_params.get("user_kpoints_settings", None)
 
-        if static_user_incar_settings is False:
-            static_user_incar_settings = {
-                    "ALGO": "All",
-                    "ISMEAR": -5,
-                    "ADDGRID": True,
-                    "LREAL": False,
-                    "LASPH": True,
-                    "LORBIT": 11,
-                    "LELF": True,
-                    "IVDW":11,
-                    "GGA":"RP"
-                }
-        static_input_rewrite = False
-        if static_input_set is False: static_input_rewrite = True
-
+        static_user_incar_settings = static_fws_params.get(
+            "user_incar_settings", {"ALGO": "All", "ISMEAR": -5,
+                                    "ADDGRID": True, "LREAL": False,
+                                    "LASPH": True, "LORBIT": 11,
+                                    "LELF": True, "IVDW": 11, "GGA": "RP"})
+        static_user_kpoints_settings = static_fws_params.get(
+            "user_kpoints_settings", None)
 
         for ads_idx, adsorbate in enumerate(adsorbates):
             adsorbate.add_site_property('magmom', [0.0]*adsorbate.num_sites)
@@ -701,26 +664,33 @@ class GenerateSlabAdsTask(FiretaskBase):
             if optimize_distance:
 
                 asf = AdsorbateSiteFinder(slab_structure)
-                coords = asf.find_adsorption_sites(distance=0.0)['all']
+                find_args = ads_structures_params.get("find_args", {})
+                find_args['distance'] = 0.0
+                coords = asf.find_adsorption_sites(**find_args)['all']
+
+                add_ads_params = {key: ads_structures_params[key]
+                                  for key in ads_structures_params
+                                  if key != 'find_args'}
 
                 for site_idx, coord in enumerate(coords):
                     parents = []
                     for distance_idx, distance in enumerate(static_distances):
                         new_coord = coord+distance*asf.mvec
-                        asf = AdsorbateSiteFinder(slab_structure)
-                        slab_ads = asf.add_adsorbate(adsorbate, new_coord)
+
+                        slab_ads = asf.add_adsorbate(adsorbate, new_coord,
+                                                     **add_ads_params)
                         ads_name = ("{}-{}{} distance optimization: {}. "
                                     "Site: {}").format(
                             adsorbate.composition.formula,
                             slab_structure.composition.formula, miller_index,
                             distance, site_idx)
 
-                        if static_input_rewrite:
+                        if static_input_set is False:
                             static_input_set = MPStaticSet(
                                 slab_ads,
                                 user_incar_settings=static_user_incar_settings,
-                                user_kpoints_settings=static_user_kpoints_settings
-                            )
+                                user_kpoints_settings=
+                                static_user_kpoints_settings)
 
                         fws.append(af.EnergyLandscapeFW(
                             name=ads_name, structure=slab_ads,
@@ -757,8 +727,6 @@ class GenerateSlabAdsTask(FiretaskBase):
                         spec={"_allow_fizzled_parents": True}))
 
             else:
-                if "min_lw" not in ads_structures_params:
-                    ads_structures_params["min_lw"] = min_lw
                 if "selective_dynamics" not in ads_site_finder_params:
                     ads_site_finder_params["selective_dynamics"] = True
                 slabs_ads = (AdsorbateSiteFinder(
@@ -772,9 +740,11 @@ class GenerateSlabAdsTask(FiretaskBase):
                     slab_ads_name = "{} {} [{}]".format(slab_name, ads_name, n)
                     fw_name = slab_ads_name + " slab + adsorbate optimization"
 
-                    # get id map from original structure to output one and
-                    # surface properties to be able to find adsorbate sites later
-                    vis = MPSurfaceSet(slab_ads, bulk=False)
+                    # get id map from original structure to output one
+                    # and surface properties to be able to find
+                    # adsorbate sites later
+                    vis = slab_ads_fw_params.get(
+                        "vasp_input_set", MPSurfaceSet(slab_ads, bulk=False))
                     new_slab_ads = vis.structure
                     sm = StructureMatcher(primitive_cell=False)
                     id_map = sm.get_transformation(slab_ads, new_slab_ads)[-1]
@@ -795,6 +765,203 @@ class GenerateSlabAdsTask(FiretaskBase):
                     fws.append(slab_ads_fw)
 
         return FWAction(additions=Workflow(fws))
+
+
+# @explicit_serialize
+# class GenerateSlabAdsTask(FiretaskBase):
+#     """
+#     Generate slab + adsorbate structures from a slab structure and add
+#     the corresponding slab + adsorbate optimization fireworks as
+#     additions.
+#
+#     Required params:
+#         slab_structure (Structure): relaxed slab structure
+#         adsorbates ([Molecule]): list of molecules to place as
+#             adsorbates
+#     Optional params:
+#         slab_energy (float): final energy of relaxed slab structure
+#         bulk_structure (Structure): relaxed bulk structure
+#         bulk_energy (float): final energy of relaxed bulk structure
+#         vasp_cmd (str): vasp command
+#         db_file (str): path to database file
+#         min_lw (float): minimum length/width for slab + adsorbate
+#             structures (overridden by ads_structures_params if it
+#             already contains min_lw)
+#         ads_site_finder_params (dict): parameters to be supplied as
+#             kwargs to AdsorbateSiteFinder
+#         ads_structures_params (dict): dictionary of kwargs for
+#             generate_adsorption_structures in AdsorptionSiteFinder
+#         slab_ads_fw_params (dict): dictionary of kwargs for SlabAdsFW
+#             (can include: handler_group, job_type, vasp_input_set,
+#             user_incar_params)
+#         slab_name (str): name for the slab
+#             (format: Formula_MillerIndex_Shift)
+#         bulk_dir (str): path for the corresponding bulk calculation
+#             directory
+#         slab_dir (str): path for the corresponding slab calculation
+#             directory
+#         miller_index ([h, k, l]): Miller index of plane parallel to
+#             the slab surface
+#         shift (float): the shift in the c-direction applied to get
+#             the termination for the slab surface
+#         optimize_distance (bool): whether to launch static calculations
+#             to determine the optimal adsorbate - surface distance before
+#             optimizing the slab + adsorbate structure
+#         static_distances (list): if optimize_distance is true, these are
+#             the distances at which to test the adsorbate distance
+#         static_fws_params (dict): dictionary for setting custum user kpoints
+#             and custom user incar  settings, or passing an input set.
+#     """
+#
+#     required_params = ["slab_structure", "adsorbates"]
+#     optional_params = ["slab_energy", "bulk_structure", "bulk_energy",
+#                        "vasp_cmd", "db_file", "min_lw",
+#                        "ads_site_finder_params", "ads_structures_params",
+#                        "slab_ads_fw_params", "slab_name", "bulk_dir",
+#                        "slab_dir", "miller_index", "shift", "static_distances",
+#                        "optimize_distance", "static_distances","static_fws_params"]
+#
+#     def run_task(self, fw_spec):
+#         import atomate.vasp.fireworks.adsorption as af
+#         fws = []
+#
+#         slab_structure = self.get("slab_structure")
+#         slab_energy = self.get("slab_energy")
+#         bulk_structure = self.get("bulk_structure")
+#         bulk_energy = self.get("bulk_energy")
+#         adsorbates = self.get("adsorbates")
+#         vasp_cmd = self.get("vasp_cmd")
+#         db_file = self.get("db_file")
+#         ads_site_finder_params = self.get("ads_site_finder_params") or {}
+#         ads_structures_params = self.get("ads_structures_params") or {}
+#         slab_ads_fw_params = self.get("slab_ads_fw_params") or {}
+#         min_lw = self.get("min_lw") or 10.0
+#         bulk_dir = self.get("bulk_dir")
+#         slab_dir = self.get("slab_dir")
+#         miller_index = self.get("miller_index")
+#         shift = self.get("shift")
+#         optimize_distance = self.get("optimize_distance")
+#         static_distances = self.get("static_distances") or [0.5, 1.0, 1.5, 2.0]
+#         slab_name = self.get("slab_name")
+#
+#         static_fws_params = self.get("static_fws_params") or {}
+#         static_input_set = static_fws_params.get("vasp_input_set", False)
+#         static_user_incar_settings = static_fws_params.get("user_incar_settings", False)
+#         static_user_kpoints_settings = static_fws_params.get("user_kpoints_settings", None)
+#
+#         if static_user_incar_settings is False:
+#             static_user_incar_settings = {
+#                     "ALGO": "All",
+#                     "ISMEAR": -5,
+#                     "ADDGRID": True,
+#                     "LREAL": False,
+#                     "LASPH": True,
+#                     "LORBIT": 11,
+#                     "LELF": True,
+#                     "IVDW":11,
+#                     "GGA":"RP"
+#                 }
+#
+#         for ads_idx, adsorbate in enumerate(adsorbates):
+#             adsorbate.add_site_property('magmom', [0.0]*adsorbate.num_sites)
+#
+#             if optimize_distance:
+#
+#                 asf = AdsorbateSiteFinder(slab_structure)
+#                 coords = asf.find_adsorption_sites(distance=0.0)['all']
+#
+#                 for site_idx, coord in enumerate(coords):
+#                     parents = []
+#                     for distance_idx, distance in enumerate(static_distances):
+#                         new_coord = coord+distance*asf.mvec
+#                         slab_ads = asf.add_adsorbate(adsorbate, new_coord)
+#                         ads_name = ("{}-{}{} distance optimization: {}. "
+#                                     "Site: {}").format(
+#                             adsorbate.composition.formula,
+#                             slab_structure.composition.formula, miller_index,
+#                             distance, site_idx)
+#
+#                         if static_input_set is False:
+#                             static_input_set = MPStaticSet(
+#                                 slab_ads,
+#                                 user_incar_settings=static_user_incar_settings,
+#                                 user_kpoints_settings=static_user_kpoints_settings
+#                             )
+#
+#                         fws.append(af.EnergyLandscapeFW(
+#                             name=ads_name, structure=slab_ads,
+#                             vasp_input_set=static_input_set,
+#                             vasp_cmd=vasp_cmd, db_file=db_file,
+#                             vasptodb_kwargs=
+#                             {"task_fields_to_push": {
+#                                 "{}_energy".format(distance):
+#                                     "output.energy",
+#                                 "{}_structure".format(distance):
+#                                     "output.structure"},
+#                                 "defuse_unsuccessful": False},
+#                             runvaspcustodian_kwargs=
+#                             {"handler_group": "no_handler"},
+#                             spec={"_pass_job_info": True}))
+#                         parents.append(fws[-1])
+#
+#                     fws.append(af.DistanceOptimizationFW(
+#                         adsorbate, slab_structure, coord=coord,
+#                         mvec=asf.mvec, static_distances=static_distances,
+#                         name=("Optimal Distance Analysis, Adsorbate: {}, "
+#                               "Surface: {}, Site: {}").format(
+#                             adsorbate.composition.formula, miller_index,
+#                             site_idx), vasp_cmd=vasp_cmd, db_file=db_file,
+#                         slab_energy=slab_energy, bulk_structure=bulk_structure,
+#                         bulk_energy=bulk_energy, min_lw=min_lw,
+#                         ads_site_finder_params=ads_site_finder_params,
+#                         ads_structures_params=ads_structures_params,
+#                         slab_ads_fw_params=slab_ads_fw_params,
+#                         slab_name=slab_name,
+#                         bulk_dir=bulk_dir, slab_dir=slab_dir,
+#                         miller_index=miller_index, shift=shift,
+#                         site_idx=site_idx, parents=parents,
+#                         spec={"_allow_fizzled_parents": True}))
+#
+#             else:
+#                 if "min_lw" not in ads_structures_params:
+#                     ads_structures_params["min_lw"] = min_lw
+#                 if "selective_dynamics" not in ads_site_finder_params:
+#                     ads_site_finder_params["selective_dynamics"] = True
+#                 slabs_ads = (AdsorbateSiteFinder(
+#                     slab_structure, **ads_site_finder_params)
+#                     .generate_adsorption_structures(
+#                     adsorbate, **ads_structures_params))
+#                 for n, slab_ads in enumerate(slabs_ads):
+#                     # Create adsorbate fw
+#                     ads_name = ''.join([site.species_string for site
+#                                         in adsorbate.sites])
+#                     slab_ads_name = "{} {} [{}]".format(slab_name, ads_name, n)
+#                     fw_name = slab_ads_name + " slab + adsorbate optimization"
+#
+#                     # get id map from original structure to output one and
+#                     # surface properties to be able to find adsorbate sites later
+#                     vis = slab_ads_fw_params.get(
+#                         "vasp_input_set", MPSurfaceSet(slab_ads, bulk=False))
+#                     new_slab_ads = vis.structure
+#                     sm = StructureMatcher(primitive_cell=False)
+#                     id_map = sm.get_transformation(slab_ads, new_slab_ads)[-1]
+#                     surface_properties = slab_ads.site_properties[
+#                         'surface_properties']
+#
+#                     slab_ads_fw = af.SlabAdsFW(
+#                         slab_ads, name=fw_name, slab_structure=slab_structure,
+#                         slab_energy=slab_energy, bulk_structure=bulk_structure,
+#                         bulk_energy=bulk_energy, adsorbate=adsorbate,
+#                         vasp_cmd=vasp_cmd, db_file=db_file,
+#                         slab_name=slab_name, slab_ads_name=slab_ads_name,
+#                         bulk_dir=bulk_dir, slab_dir=slab_dir,
+#                         miller_index=miller_index, shift=shift, id_map=id_map,
+#                         surface_properties=surface_properties,
+#                         **slab_ads_fw_params)
+#
+#                     fws.append(slab_ads_fw)
+#
+#         return FWAction(additions=Workflow(fws))
 
 
 @explicit_serialize
@@ -937,10 +1104,11 @@ class AdsorptionAnalysisTask(FiretaskBase):
     required_params = []
     optional_params = ["slab_ads_structure", "slab_ads_energy",
                        "slab_structure", "slab_energy", "bulk_structure",
-                       "bulk_energy", "adsorbate", "db_file", "job_type",
-                       "slab_name", "slab_ads_name", "slab_ads_task_id",
-                       "bulk_dir", "slab_dir", "slab_ads_dir", "miller_index",
-                       "shift", "id_map", "surface_properties"]
+                       "bulk_energy", "adsorbate", "db_file", "name",
+                       "job_type", "slab_name", "slab_ads_name",
+                       "slab_ads_task_id", "bulk_dir", "slab_dir",
+                       "slab_ads_dir", "miller_index", "shift", "id_map",
+                       "surface_properties"]
 
     def run_task(self, fw_spec):
         stored_data = {}
@@ -985,71 +1153,84 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
         bulk_converged, input_bulk = None, None
         if bulk_dir:
-            vrun_paths = [os.path.join(bulk_dir, fname) for fname in
-                          os.listdir(bulk_dir) if "vasprun" in fname.lower()]
             try:
-                vrun_paths.sort(key=lambda x: time_vrun(x))
-                vrun_i = Vasprun(vrun_paths[0])
-                vrun_o = Vasprun(vrun_paths[-1])
+                vrun_paths = [
+                    os.path.join(bulk_dir, fname) for fname in
+                    os.listdir(bulk_dir) if "vasprun" in fname.lower()]
+                try:
+                    vrun_paths.sort(key=lambda x: time_vrun(x))
+                    vrun_i = Vasprun(vrun_paths[0])
+                    vrun_o = Vasprun(vrun_paths[-1])
 
-                bulk_converged = vrun_o.converged
-                if bulk_energy:
-                    assert(round(bulk_energy - vrun_o.final_energy, 7) == 0)
-                else:
-                    bulk_energy = vrun_o.final_energy
+                    bulk_converged = vrun_o.converged
+                    if bulk_energy:
+                        assert(round(bulk_energy - vrun_o.final_energy, 7)
+                               == 0)
+                    else:
+                        bulk_energy = vrun_o.final_energy
 
-                if not output_bulk:
-                    output_bulk = vrun_o.final_structure
-                input_bulk = vrun_i.initial_structure
-
-            except (ParseError, AssertionError):
-                pass
+                    if not output_bulk:
+                        output_bulk = vrun_o.final_structure
+                    input_bulk = vrun_i.initial_structure
+                except (ParseError, AssertionError):
+                    pass
+            except FileNotFoundError:
+                warnings.warn("Bulk directory not found: {}".format(bulk_dir))
 
         slab_converged, input_slab = None, None
         if slab_dir:
-            vrun_paths = [os.path.join(slab_dir, fname) for fname in
-                          os.listdir(slab_dir) if "vasprun" in fname.lower()]
             try:
-                vrun_paths.sort(key=lambda x: time_vrun(x))
-                vrun_i = Vasprun(vrun_paths[0])
-                vrun_o = Vasprun(vrun_paths[-1])
+                vrun_paths = [os.path.join(slab_dir, fname) for fname in
+                              os.listdir(slab_dir) if "vasprun"
+                              in fname.lower()]
+                try:
+                    vrun_paths.sort(key=lambda x: time_vrun(x))
+                    vrun_i = Vasprun(vrun_paths[0])
+                    vrun_o = Vasprun(vrun_paths[-1])
 
-                slab_converged = vrun_o.converged
-                if slab_energy:
-                    assert(round(slab_energy - vrun_o.final_energy, 7) == 0)
-                else:
-                    slab_energy = vrun_o.final_energy
+                    slab_converged = vrun_o.converged
+                    if slab_energy:
+                        assert(round(slab_energy - vrun_o.final_energy, 7)
+                               == 0)
+                    else:
+                        slab_energy = vrun_o.final_energy
 
-                if not output_slab:
-                    output_slab = vrun_o.final_structure
-                input_slab = vrun_i.initial_structure
-
-            except (ParseError, AssertionError):
-                pass
+                    if not output_slab:
+                        output_slab = vrun_o.final_structure
+                    input_slab = vrun_i.initial_structure
+                except (ParseError, AssertionError):
+                    pass
+            except FileNotFoundError:
+                warnings.warn("Slab directory not found: {}".format(slab_dir))
 
         slab_ads_converged, input_slab_ads = None, None
+        eigenvalue_band_props = (None, None, None, None)
         if slab_ads_dir:
-            vrun_paths = [os.path.join(slab_ads_dir, fname) for fname in
-                          os.listdir(slab_ads_dir)
-                          if "vasprun" in fname.lower()]
             try:
-                vrun_paths.sort(key=lambda x: time_vrun(x))
-                vrun_i = Vasprun(vrun_paths[0])
-                vrun_o = Vasprun(vrun_paths[-1])
+                vrun_paths = [os.path.join(slab_ads_dir, fname) for fname in
+                              os.listdir(slab_ads_dir)
+                              if "vasprun" in fname.lower()]
+                try:
+                    vrun_paths.sort(key=lambda x: time_vrun(x))
+                    vrun_i = Vasprun(vrun_paths[0])
+                    vrun_o = Vasprun(vrun_paths[-1])
 
-                slab_ads_converged = vrun_o.converged
-                if slab_ads_energy:
-                    assert(round(
-                        slab_ads_energy - vrun_o.final_energy, 7) == 0)
-                else:
-                    slab_ads_energy = vrun_o.final_energy
+                    slab_ads_converged = vrun_o.converged
+                    if slab_ads_energy:
+                        assert(round(
+                            slab_ads_energy - vrun_o.final_energy, 7) == 0)
+                    else:
+                        slab_ads_energy = vrun_o.final_energy
 
-                if not output_slab_ads:
-                    output_slab_ads = vrun_o.final_structure
-                input_slab_ads = vrun_i.initial_structure
-
-            except (ParseError, AssertionError):
-                pass
+                    if not output_slab_ads:
+                        output_slab_ads = vrun_o.final_structure
+                    input_slab_ads = vrun_i.initial_structure
+                    eigenvalue_band_props = vrun_o.eigenvalue_band_properties
+                except (ParseError, AssertionError):
+                    pass
+            except FileNotFoundError:
+                warnings.warn("Slab + adsorbate directory not found: {}"
+                              .format(slab_ads_dir))
 
         ads_sites = []
         if surface_properties and id_map and output_slab_ads:
@@ -1070,32 +1251,65 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     for index, site in enumerate(output_slab_ads.sites)}
 
         # atom movements during slab + adsorbate optimization
-        translation_vectors = [{'old_id': old_id, 'new_id': new_id,
-                                'vector': (output_slab_ads[new_id].coords
-                                           - input_slab_ads[old_id].coords)}
-                               for old_id, new_id in enumerate(id_map)]
+        translation_vecs = [None] * output_slab_ads.num_sites
+        if input_slab_ads:
+            translation_vecs = [(output_slab_ads[i].coords
+                                 - input_slab_ads[i].coords)
+                                for i in range(output_slab_ads.num_sites)]
+        output_slab_ads.add_site_property(
+            'translation_vector', translation_vecs)
+
+        nn_surface_list = []
+        for n, ads_site in enumerate(ads_sites):
+            neighbors = output_slab_ads.get_neighbors(
+                ads_site, output_slab_ads.lattice.c)
+
+            neighbors.sort(key=lambda x: x.distance)
+            nearest_surface_neighbor = next(neighbor for neighbor in neighbors
+                                            if neighbor.site not in ads_sites)
+
+            nn_surface_list.append([nearest_surface_neighbor.index,
+                                    nearest_surface_neighbor.distance])
+        ads_site_index = max(nn_surface_list, key=lambda x: x[1])[0]
+        output_slab_ads.sites[ads_site_index].properties[
+            'surface_properties'] += ', adsorption site'
+
+        cnn = CrystalNN()
+        output_slab_ads.add_site_property(
+            'coordination_number', [cnn.get_cn(output_slab_ads, i)
+                                    for i in range(output_slab_ads.num_sites)])
 
         stored_data['bulk'] = {
             'formula': output_bulk.composition.reduced_formula,
-            'directory': bulk_dir, 'converged': bulk_converged,
-            'input_structure': input_bulk.as_dict(),
-            'output_structure': output_bulk.as_dict(),
-            'output_energy': bulk_energy}
+            'directory': bulk_dir, 'converged': bulk_converged}
+        if input_bulk:
+            stored_data['bulk']['input_structure'] = input_bulk.as_dict()
+        stored_data['bulk'].update({'output_structure': output_bulk.as_dict(),
+                                    'output_energy': bulk_energy})
 
         stored_data['slab'] = {
             'name': slab_name, 'directory': slab_dir,
             'converged': slab_converged, 'miller_index': miller_index,
-            'shift': shift, 'input_structure': input_slab.as_dict(),
-            'output_structure': output_slab.as_dict(),
-            'output_energy': slab_energy}
+            'shift': shift}
+        if input_slab:
+            stored_data['slab']['input_structure'] = input_slab.as_dict()
+        stored_data['slab'].update({'output_structure': output_slab.as_dict(),
+                                    'output_energy': slab_energy})
 
         stored_data['slab_adsorbate'] = {
             'name': slab_ads_name, 'directory': slab_ads_dir,
-            'converged': slab_ads_converged,
-            'input_structure': input_slab_ads.as_dict(),
+            'converged': slab_ads_converged}
+        if input_slab_ads:
+            stored_data['slab_adsorbate'][
+                'input_structure'] = input_slab_ads.as_dict()
+        stored_data['slab_adsorbate'].update({
             'output_structure': output_slab_ads.as_dict(),
             'output_slab_ads_energy': slab_ads_energy,
-            'translation_vectors': translation_vectors}
+            'eigenvalue_band_properties': {
+                'band_gap': eigenvalue_band_props[0],
+                'cbm': eigenvalue_band_props[1],
+                'vbm': eigenvalue_band_props[2],
+                'is_band_gap_direct': eigenvalue_band_props[3]}})
 
         # cleavage energy
         area = np.linalg.norm(np.cross(output_slab.lattice.matrix[0],
@@ -1117,11 +1331,16 @@ class AdsorptionAnalysisTask(FiretaskBase):
                               'site': site1.as_dict()},
                     'site2': {'slab_ads_site_index': site_ids[site2],
                               'site': site2.as_dict()},
-                    'distance': site1.distance_and_image(site2)[0],
-                    'is_bonded': CovalentBond(site1, site2).is_bonded(
-                        site1, site2)}
+                    'distance': site1.distance_and_image(site2)[0]}
+                try:
+                    stored_data['adsorbate_bonds'][pair_name][
+                        'is_bonded'] = CovalentBond(site1, site2).is_bonded(
+                        site1, site2)
+                except ValueError:
+                    stored_data['adsorbate_bonds'][pair_name][
+                        'is_bonded'] = None
 
-        # adsorbate angles
+                    # adsorbate angles
         if len(ads_sites) > 2:
             stored_data['adsorbate_angles'] = {}
             n = 0
@@ -1183,17 +1402,17 @@ class AdsorptionAnalysisTask(FiretaskBase):
             neighbors = output_slab_ads.get_neighbors(
                 ads_site, output_slab_ads.lattice.c)
 
-            neighbors.sort(key=lambda x: x[1])
+            neighbors.sort(key=lambda x: x.distance)
             nearest_surface_neighbor = next(neighbor for neighbor in neighbors
-                                            if neighbor[0] not in ads_sites)
-            ns_site = nearest_surface_neighbor[0]
+                                            if neighbor.site not in ads_sites)
+            ns_site = nearest_surface_neighbor.site
 
             stored_data['nearest_surface_neighbors'][ads_site_name] = {
                 'adsorbate_site': {'slab_ads_site_index': site_ids[ads_site],
                                    'site': ads_site.as_dict()},
                 'surface_site': {'slab_ads_site_index': site_ids[ns_site],
                                  'site': ns_site.as_dict()},
-                'distance': nearest_surface_neighbor[1]}
+                'distance': nearest_surface_neighbor.distance}
 
         nn_list = [[ads_site] +
                    [stored_data['nearest_surface_neighbors'][ads_site][item]
@@ -1202,16 +1421,25 @@ class AdsorptionAnalysisTask(FiretaskBase):
                    for ads_site in stored_data['nearest_surface_neighbors']]
 
         stored_data['adsorption_site'] = {}
-        adsorption_site, surface_site, distance = min(nn_list,
-                                                      key=lambda x: x[-1])[1:]
-        stored_data['adsorption_site']['species'] = (
-                adsorption_site['site']['species'][0]['element'] + "-"
-                + surface_site['site']['species'][0]['element'])
-        stored_data['adsorption_site']['adsorbate_site'] = adsorption_site
-        stored_data['adsorption_site']['surface_site'] = surface_site
-        stored_data['adsorption_site']['distance'] = distance
+        adsorption_site_entry, surface_site_entry, distance = min(
+            nn_list, key=lambda x: x[-1])[1:]
+        stored_data['adsorption_site'] = {
+            'species': (adsorption_site_entry['site']['species'][0]['element']
+                        + "-"
+                        + surface_site_entry['site']['species'][0]['element']),
+            'adsorbate_site': adsorption_site_entry,
+            'surface_site': surface_site_entry,
+            'distance': distance}
+        try:
+            stored_data['adsorption_site']['is_bonded'] = CovalentBond(
+                PeriodicSite.from_dict(adsorption_site_entry['site']),
+                PeriodicSite.from_dict(surface_site_entry['site'])).is_bonded(
+                PeriodicSite.from_dict(adsorption_site_entry['site']),
+                PeriodicSite.from_dict(surface_site_entry['site']))
+        except ValueError:
+            stored_data['adsorption_site']['is_bonded'] = None
 
-        # adsorption energy
+            # adsorption energy
         scale_factor = output_slab_ads.volume / output_slab.volume
         ads_comp = Structure.from_sites(ads_sites).composition
         adsorption_en = slab_ads_energy - slab_energy * scale_factor - sum(
