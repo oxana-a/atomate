@@ -388,17 +388,12 @@ class SlabFW(Firework):
             slab_name += "_{}".format(miller_index)
         if shift:
             slab_name += "_{:.3f}".format(shift)
-        add_fw_name = slab_name
-        for ads in adsorbates:
-            add_fw_name += " " + ''.join([site.species_string for site in
-                                          ads.sites])
-        add_fw_name += " slab + adsorbate generator"
 
         t.append(at.SlabAdsAdditionTask(
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
             min_lw=min_lw, ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params,
-            slab_ads_fw_params=slab_ads_fw_params, add_fw_name=add_fw_name,
+            slab_ads_fw_params=slab_ads_fw_params,
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
             slab_name=slab_name, bulk_dir=bulk_dir, miller_index=miller_index,
             shift=shift, optimize_distance=optimize_distance,
