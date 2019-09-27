@@ -691,6 +691,8 @@ class GenerateSlabAdsTask(FiretaskBase):
                     "IVDW":11,
                     "GGA":"RP"
                 }
+        static_input_rewrite = False
+        if static_input_set is False: static_input_rewrite = True
 
 
         for ads_idx, adsorbate in enumerate(adsorbates):
@@ -713,7 +715,7 @@ class GenerateSlabAdsTask(FiretaskBase):
                             slab_structure.composition.formula, miller_index,
                             distance, site_idx)
 
-                        if static_input_set is False:
+                        if static_input_rewrite:
                             static_input_set = MPStaticSet(
                                 slab_ads,
                                 user_incar_settings=static_user_incar_settings,

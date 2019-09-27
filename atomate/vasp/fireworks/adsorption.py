@@ -112,6 +112,7 @@ class EnergyLandscapeFW(Firework):
                 vasp_input_set_params = vasp_input_set_params or {}
                 vasptodb_kwargs = vasptodb_kwargs or {}
                 runvaspcustodian_kwargs = runvaspcustodian_kwargs or {}
+
                 if "additional_fields" not in vasptodb_kwargs:
                         vasptodb_kwargs["additional_fields"] = {}
                 vasptodb_kwargs["additional_fields"]["task_label"] = name
@@ -120,7 +121,7 @@ class EnergyLandscapeFW(Firework):
 
                 
                 if structure:
-                        vasp_input_set = vasp_input_set or MPStaticSet(structure)
+                        vasp_input_set = vasp_input_set or MPStaticSet(structure,  **vasp_input_set_params)
                         t.append(WriteVaspFromIOSet(structure=structure,
                             vasp_input_set=vasp_input_set,vasp_input_params=vasp_input_set_params))
                 else:
