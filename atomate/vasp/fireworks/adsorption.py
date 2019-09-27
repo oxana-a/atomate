@@ -366,7 +366,7 @@ class SlabFW(Firework):
         import atomate.vasp.firetasks.adsorption_tasks as at
 
         user_incar_settings = (user_incar_settings
-                               or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200, "GGA":"RP"})
+                               or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200, "GGA":RP})
         vis = vasp_input_set or MPSurfaceSet(
             slab_structure, bulk=False,
             user_incar_settings=user_incar_settings)
