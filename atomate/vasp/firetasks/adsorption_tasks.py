@@ -86,16 +86,9 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
             ads_site_finder_params["selective_dynamics"] = True
 
         # Load optimal distance from fw_spec
-        optimal_distance = fw_spec.get("optimal_distance")[0] #when you _push to fw_spec it pushes it as an array for  some reason...
+        optimal_distance = fw_spec.get("optimal_distance")[0]
 
-        # Set default variables if none passed, FUTURE
-        # override_default_vasp_params = self.get("override_default_vasp_params", {})
 
-        # Get custom variables
-        # optimize_kwargs = self.get("optimize_kwargs", {})
-        # if optimize_kwargs is None: optimize_kwargs = {}
-        # vasptodb_kwargs = self.get("vasptodb_kwargs", {})
-        # if vasptodb_kwargs is None: vasptodb_kwargs = {}
 
         # Create structure with optimal distance
         asf = AdsorbateSiteFinder(slab_structure, **ads_site_finder_params)
@@ -103,15 +96,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         slab_ads = asf.add_adsorbate(adsorbate, new_coord,
                                      **ads_structures_params)
 
-        # VASP input set
-        # vasp_input_set = MPSurfaceSet(slab_ads, user_incar_settings=user_incar_settings, bulk=False)
 
-        # # Create new OptimizeFW
-        # from atomate.vasp.fireworks.adsorption import AdsorptionOptimizeFW # this is bad form...
-        # new_fw = AdsorptionOptimizeFW(slab_ads, vasp_input_set = vasp_input_set, vasp_cmd = vasp_cmd, db_file = db_file,
-        #     vasptodb_kwargs = vasptodb_kwargs,override_default_vasp_params = override_default_vasp_params,**optimize_kwargs)
-        # new_fw.spec["_fworker"] = fw_spec["_fworker"]
-        # new_fw.spec["optimal_distance"] = optimal_distance
 
         ads_name = ''.join([site.species_string for site
                             in adsorbate.sites])
@@ -606,8 +591,9 @@ class SlabAdsAdditionTask(FiretaskBase):
             optimizing the slab + adsorbate structure
         static_distances (list): if optimize_distance is true, these are
             the distances at which to test the adsorbate distance
-        static_fws_params (dict): dictionary for setting custum user kpoints
-            and custom user incar  settings, or passing an input set.
+        static_fws_params (dict): dictionary for setting custum user
+            kpoints and custom user incar  settings, or passing an input
+            set.
     """
     required_params = []
     optional_params = ["bulk_structure", "bulk_energy", "adsorbates",
@@ -648,12 +634,9 @@ class SlabAdsAdditionTask(FiretaskBase):
         optimize_distance = self.get("optimize_distance")
         static_distances = self.get("static_distances") or [0.5, 1.0, 1.5, 2.0]
         static_fws_params = self.get("static_fws_params") or {}
-        static_input_set = static_fws_params.get("vasp_input_set", False)
+        static_input_set = static_fws_params.get("vasp_input_set", None)
         static_user_incar_settings = static_fws_params.get(
-            "user_incar_settings", {"ALGO": "All", "ISMEAR": -5,
-                                    "ADDGRID": True, "LREAL": False,
-                                    "LASPH": True, "LORBIT": 11,
-                                    "LELF": True, "IVDW": 11, "GGA": "RP"})
+            "user_incar_settings", None)
         static_user_kpoints_settings = static_fws_params.get(
             "user_kpoints_settings", None)
 
@@ -684,16 +667,13 @@ class SlabAdsAdditionTask(FiretaskBase):
                             slab_structure.composition.formula, miller_index,
                             distance, site_idx)
 
-                        if static_input_set is False:
-                            static_input_set = MPStaticSet(
-                                slab_ads,
-                                user_incar_settings=static_user_incar_settings,
-                                user_kpoints_settings=
-                                static_user_kpoints_settings)
-
                         fws.append(af.EnergyLandscapeFW(
                             name=ads_name, structure=slab_ads,
                             vasp_input_set=static_input_set,
+                            static_user_incar_settings=
+                            static_user_incar_settings,
+                            static_user_kpoints_settings=
+                            static_user_kpoints_settings,
                             vasp_cmd=vasp_cmd, db_file=db_file,
                             vasptodb_kwargs=
                             {"task_fields_to_push": {
