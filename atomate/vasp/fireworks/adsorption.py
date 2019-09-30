@@ -390,10 +390,9 @@ class SlabAdsFW(Firework):
                  slab_energy=None, bulk_structure=None, bulk_energy=None,
                  adsorbate=None, vasp_input_set=None, vasp_cmd=VASP_CMD,
                  db_file=DB_FILE, job_type="double_relaxation_run",
-                 handler_group="md", slab_name=None, slab_ads_name=None,
-                 bulk_dir=None, slab_dir=None, miller_index=None, shift=None,
-                 user_incar_settings=None, id_map=None,
-                 surface_properties=None, in_site_type=None, parents=None,
+                 handler_group="md", slab_name=None, bulk_dir=None,
+                 slab_dir=None, miller_index=None, shift=None,
+                 user_incar_settings=None, slab_ads_data=None, parents=None,
                  **kwargs):
         """
         Optimize slab + adsorbate structure.
@@ -447,7 +446,7 @@ class SlabAdsFW(Firework):
 
         user_incar_settings = (user_incar_settings
                                or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200,
-                                   "IVDW":11,"GGA":"RP"})
+                                   "IVDW": 11, "GGA": "RP"})
         vis = vasp_input_set or MPSurfaceSet(
             slab_ads_structure, bulk=False,
             user_incar_settings=user_incar_settings)
@@ -480,9 +479,8 @@ class SlabAdsFW(Firework):
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
             adsorbate=adsorbate, analysis_fw_name=analysis_fw_name,
             db_file=db_file, job_type=job_type, slab_name=slab_name,
-            slab_ads_name=slab_ads_name, bulk_dir=bulk_dir, slab_dir=slab_dir,
-            miller_index=miller_index, shift=shift, id_map=id_map,
-            surface_properties=surface_properties, in_site_type=in_site_type))
+            bulk_dir=bulk_dir, slab_dir=slab_dir, miller_index=miller_index,
+            shift=shift, slab_ads_data=slab_ads_data))
 
         super(SlabAdsFW, self).__init__(t, parents=parents, name=name,
                                         **kwargs)
@@ -490,14 +488,12 @@ class SlabAdsFW(Firework):
 
 class AdsorptionAnalysisFW(Firework):
 
-    def __init__(self, slab_ads_structure=None, slab_ads_energy=None,
-                 slab_structure=None, slab_energy=None, bulk_structure=None,
-                 bulk_energy=None, adsorbate=None, db_file=DB_FILE,
-                 job_type=None, name="adsorption analysis", slab_name=None,
-                 slab_ads_name=None, slab_ads_task_id=None, bulk_dir=None,
-                 slab_dir=None, slab_ads_dir=None, miller_index=None,
-                 shift=None, id_map=None, surface_properties=None,
-                 in_site_type=None, parents=None):
+    def __init__(self, slab_structure=None, slab_energy=None,
+                 bulk_structure=None, bulk_energy=None, adsorbate=None,
+                 db_file=DB_FILE, job_type=None, name="adsorption analysis",
+                 slab_name=None, bulk_dir=None, slab_dir=None,
+                 miller_index=None, shift=None, slab_ads_data=None,
+                 parents=None):
         """
         Analyze data from Adsorption workflow for a slab + adsorbate
         structure and save it to database.
@@ -544,15 +540,12 @@ class AdsorptionAnalysisFW(Firework):
         tasks = []
 
         ads_an_t = at.AdsorptionAnalysisTask(
-            slab_ads_structure=slab_ads_structure,
-            slab_ads_energy=slab_ads_energy, slab_structure=slab_structure,
-            slab_energy=slab_energy, bulk_structure=bulk_structure,
-            bulk_energy=bulk_energy, adsorbate=adsorbate, db_file=db_file,
-            job_type=job_type, name=name, slab_name=slab_name,
-            slab_ads_name=slab_ads_name, slab_ads_task_id=slab_ads_task_id,
-            bulk_dir=bulk_dir, slab_dir=slab_dir, slab_ads_dir=slab_ads_dir,
-            miller_index=miller_index, shift=shift, id_map=id_map,
-            surface_properties=surface_properties, in_site_type=in_site_type)
+            slab_structure=slab_structure, slab_energy=slab_energy,
+            bulk_structure=bulk_structure, bulk_energy=bulk_energy,
+            adsorbate=adsorbate, db_file=db_file, job_type=job_type,
+            name=name, slab_name=slab_name, bulk_dir=bulk_dir,
+            slab_dir=slab_dir, miller_index=miller_index, shift=shift,
+            slab_ads_data=slab_ads_data)
         tasks.append(ads_an_t)
 
         super(AdsorptionAnalysisFW, self).__init__(tasks, parents=parents,

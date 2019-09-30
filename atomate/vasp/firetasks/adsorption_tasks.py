@@ -598,16 +598,20 @@ class SlabAdsAdditionTask(FiretaskBase):
                     surface_properties = slab_ads.site_properties[
                         'surface_properties']
 
+                    slab_ads_data = {'id_map': id_map,
+                                     'surface_properties':surface_properties,
+                                     'in_site_type': in_site_type,
+                                     'name': slab_ads_name}
+
                     slab_ads_fw = af.SlabAdsFW(
                         slab_ads, name=fw_name, slab_structure=slab_structure,
                         slab_energy=slab_energy, bulk_structure=bulk_structure,
                         bulk_energy=bulk_energy, adsorbate=adsorbate,
                         vasp_cmd=vasp_cmd, db_file=db_file,
-                        slab_name=slab_name, slab_ads_name=slab_ads_name,
-                        bulk_dir=bulk_dir, slab_dir=slab_dir,
-                        miller_index=miller_index, shift=shift, id_map=id_map,
-                        surface_properties=surface_properties,
-                        in_site_type=in_site_type, **slab_ads_fw_params)
+                        slab_name=slab_name, bulk_dir=bulk_dir,
+                        slab_dir=slab_dir, miller_index=miller_index,
+                        shift=shift, slab_ads_data=slab_ads_data,
+                        **slab_ads_fw_params)
 
                     fws.append(slab_ads_fw)
 
@@ -657,14 +661,14 @@ class AnalysisAdditionTask(FiretaskBase):
     required_params = []
     optional_params = ["slab_structure", "slab_energy", "bulk_structure",
                        "bulk_energy", "adsorbate", "analysis_fw_name",
-                       "db_file", "job_type", "slab_name", "slab_ads_name",
-                       "bulk_dir", "slab_dir", "slab_ads_dir", "miller_index",
-                       "shift", "id_map", "surface_properties", "in_site_type"]
+                       "db_file", "job_type", "slab_name", "bulk_dir",
+                       "slab_dir", "slab_ads_dir", "miller_index", "shift",
+                       "slab_ads_data"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
 
-        slab_ads_structure = fw_spec["slab_ads_structure"]
+        output_slab_ads = fw_spec["slab_ads_structure"]
         slab_ads_energy = fw_spec["slab_ads_energy"]
         slab_ads_task_id = fw_spec["slab_ads_task_id"]
         calc_locs = fw_spec["calc_locs"]
@@ -678,30 +682,85 @@ class AnalysisAdditionTask(FiretaskBase):
         bulk_energy = self.get("bulk_energy")
         adsorbate = self.get("adsorbate")
         analysis_fw_name = self.get("analysis_fw_name") or (
-                slab_ads_structure.composition.reduced_formula
+                output_slab_ads.composition.reduced_formula
                 + " adsorption analysis")
         db_file = self.get("db_file")
         job_type = self.get("job_type")
         slab_name = self.get("slab_name")
-        slab_ads_name = self.get("slab_ads_name")
         bulk_dir = self.get("bulk_dir")
         slab_dir = self.get("slab_dir")
         miller_index = self.get("miller_index")
         shift = self.get("shift")
-        id_map = self.get("id_map")
-        surface_properties = self.get("surface_properties")
-        in_site_type = self.get("in_site_type")
+        slab_ads_data = self.get("slab_ads_data") or {}
+
+        slab_ads_data.update({'task_id': slab_ads_task_id})
+
+        # extract data from vasprun to pass it on
+        if slab_ads_dir:
+            slab_ads_data.update({'directory': slab_ads_dir})
+            try:
+                vrun_paths = [os.path.join(slab_ads_dir, fname) for fname in
+                              os.listdir(slab_ads_dir)
+                              if "vasprun" in fname.lower()]
+                try:
+                    vrun_paths.sort(key=lambda x: time_vrun(x))
+                    vrun_i = Vasprun(vrun_paths[0])
+                    vrun_o = Vasprun(vrun_paths[-1])
+
+                    slab_ads_converged = vrun_o.converged
+                    if slab_ads_energy:
+                        assert(round(
+                            slab_ads_energy - vrun_o.final_energy, 7) == 0)
+                    else:
+                        slab_ads_energy = vrun_o.final_energy
+
+                    if not output_slab_ads:
+                        output_slab_ads = vrun_o.final_structure
+                    input_slab_ads = vrun_i.initial_structure
+                    eigenvalue_band_props = vrun_o.eigenvalue_band_properties
+                    # d-Band Center analysis:
+                    dos_spd = vrun_o.complete_dos.get_spd_dos()  # get SPD DOS
+                    dos_d = list(dos_spd.items())[2][1]  # Get 'd' band dos
+                    # add spin up and spin down densities
+                    total_d_densities = dos_d.get_densities()
+
+                    # Get integrated density for d
+                    total_integrated_density = np.trapz(total_d_densities,
+                                                        x=dos_d.energies,
+                                                        dx=.01)
+                    # Find E which splits integrated d DOS into 2
+                    # (d-band center):
+                    d_band_center_slab_ads = 0
+                    for k in range(len(total_d_densities)):
+                        c_int = np.trapz(total_d_densities[:k],
+                                         x=dos_d.energies[:k],
+                                         dx=.01)
+                        if c_int > (total_integrated_density / 2):
+                            d_band_center_slab_ads = dos_d.energies[k]
+                            break
+
+                    slab_ads_data.update({
+                        'input_structure': input_slab_ads,
+                        'converged': slab_ads_converged,
+                        'eigenvalue_band_properties': eigenvalue_band_props,
+                        'd_band_center_slab_ads': d_band_center_slab_ads})
+
+                except (ParseError, AssertionError):
+                    pass
+            except FileNotFoundError:
+                warnings.warn("Slab + adsorbate directory not found: {}"
+                              .format(slab_ads_dir))
+
+        slab_ads_data.update({'output_structure': output_slab_ads,
+                              'final_energy': slab_ads_energy})
 
         fw = af.AdsorptionAnalysisFW(
-            slab_ads_structure=slab_ads_structure,
-            slab_ads_energy=slab_ads_energy, slab_structure=slab_structure,
+            slab_ads_data=slab_ads_data, slab_structure=slab_structure,
             slab_energy=slab_energy, bulk_structure=bulk_structure,
             bulk_energy=bulk_energy, adsorbate=adsorbate, db_file=db_file,
             job_type=job_type, name=analysis_fw_name, slab_name=slab_name,
-            slab_ads_name=slab_ads_name, slab_ads_task_id=slab_ads_task_id,
-            bulk_dir=bulk_dir, slab_dir=slab_dir, slab_ads_dir=slab_ads_dir,
-            miller_index=miller_index, shift=shift, id_map=id_map,
-            surface_properties=surface_properties, in_site_type=in_site_type)
+            bulk_dir=bulk_dir, slab_dir=slab_dir, miller_index=miller_index,
+            shift=shift)
 
         return FWAction(additions=fw)
 
@@ -753,18 +812,28 @@ class AdsorptionAnalysisTask(FiretaskBase):
     """
 
     required_params = []
-    optional_params = ["slab_ads_structure", "slab_ads_energy",
-                       "slab_structure", "slab_energy", "bulk_structure",
+    optional_params = ["slab_structure", "slab_energy", "bulk_structure",
                        "bulk_energy", "adsorbate", "db_file", "name",
-                       "job_type", "slab_name", "slab_ads_name",
-                       "slab_ads_task_id", "bulk_dir", "slab_dir",
-                       "slab_ads_dir", "miller_index", "shift", "id_map",
-                       "surface_properties", "in_site_type"]
+                       "job_type", "slab_name", "bulk_dir", "slab_dir",
+                       "miller_index", "shift", "slab_ads_data"]
 
     def run_task(self, fw_spec):
         stored_data = {}
-        output_slab_ads = self.get("slab_ads_structure")
-        slab_ads_energy = self.get("slab_ads_energy")
+
+        slab_ads_data = self.get("slab_ads_data") or {}
+        output_slab_ads = slab_ads_data.get("output_structure")
+        slab_ads_energy = slab_ads_data.get("final_energy")
+        slab_ads_name = slab_ads_data.get("name")
+        slab_ads_task_id = slab_ads_data.get("task_id")
+        slab_ads_dir = slab_ads_data.get("directory")
+        id_map = slab_ads_data.get("id_map")
+        surface_properties = slab_ads_data.get("surface_properties")
+        in_site_type = slab_ads_data.get("in_site_type")
+        input_slab_ads = slab_ads_data.get("input_structure")
+        slab_ads_converged = slab_ads_data.get('slab_ads_converged')
+        eigenvalue_band_props = slab_ads_data.get('eigenvalue_band_props')
+        d_band_center_slab_ads = slab_ads_data.get('d_band_center_slab_ads')
+
         output_slab = self.get("slab_structure")
         slab_energy = self.get("slab_energy")
         output_bulk = self.get("bulk_structure")
@@ -773,16 +842,10 @@ class AdsorptionAnalysisTask(FiretaskBase):
         db_file = self.get("db_file") or DB_FILE
         task_name = self.get("name")
         slab_name = self.get("slab_name")
-        slab_ads_name = self.get("slab_ads_name")
-        slab_ads_task_id = self.get("slab_ads_task_id")
         bulk_dir = self.get("bulk_dir")
         slab_dir = self.get("slab_dir")
-        slab_ads_dir = self.get("slab_ads_dir")
         miller_index = self.get("miller_index")
         shift = self.get("shift")
-        id_map = self.get("id_map")
-        surface_properties = self.get("surface_properties")
-        in_site_type = self.get("in_site_type")
 
         stored_data['task_name'] = task_name
 
@@ -790,18 +853,6 @@ class AdsorptionAnalysisTask(FiretaskBase):
             'formula': ''.join([site.species_string for
                                 site in adsorbate.sites]),
             'input_structure': adsorbate.as_dict()}
-
-        def time_vrun(path):
-            # helper function that returns the creation time
-            # (type: datetime.datetime) of a vasprun file as extracted
-            # from it given its file path
-            vrun = Vasprun(path)
-            date = vrun.generator['date']
-            time = vrun.generator['time']
-            date_time_string = '{} {}'.format(date, time)
-            date_time = datetime.strptime(date_time_string,
-                                          '%Y %m %d %H:%M:%S')
-            return date_time
 
         bulk_converged, input_bulk = None, None
         if bulk_dir:
@@ -869,62 +920,62 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                          dx=.01)
                         if c_int > (total_integrated_density / 2):
                             d_band_center_slab = dos_d.energies[k]
-                            break;
+                            break
                 except (ParseError, AssertionError):
                     pass
             except FileNotFoundError:
                 warnings.warn("Slab directory not found: {}".format(slab_dir))
 
-        slab_ads_converged, input_slab_ads = None, None
-        eigenvalue_band_props = (None, None, None, None)
-        if slab_ads_dir:
-            try:
-                vrun_paths = [os.path.join(slab_ads_dir, fname) for fname in
-                              os.listdir(slab_ads_dir)
-                              if "vasprun" in fname.lower()]
-                try:
-                    vrun_paths.sort(key=lambda x: time_vrun(x))
-                    vrun_i = Vasprun(vrun_paths[0])
-                    vrun_o = Vasprun(vrun_paths[-1])
-
-                    slab_ads_converged = vrun_o.converged
-                    if slab_ads_energy:
-                        assert(round(
-                            slab_ads_energy - vrun_o.final_energy, 7) == 0)
-                    else:
-                        slab_ads_energy = vrun_o.final_energy
-
-                    if not output_slab_ads:
-                        output_slab_ads = vrun_o.final_structure
-                    input_slab_ads = vrun_i.initial_structure
-                    eigenvalue_band_props = vrun_o.eigenvalue_band_properties
-                    # d-Band Center analysis:
-                    dos_spd = vrun_o.complete_dos.get_spd_dos() #get SPD DOS
-                    dos_d = list(dos_spd.items())[2][1] #Get 'd' band dos
-                    #add spin up and spin down densities
-                    total_d_densities = dos_d.get_densities()
-                    import numpy as np
-                    #Get integrated density for d
-                    total_integrated_density = np.trapz(total_d_densities,
-                                                        x=dos_d.energies,
-                                                        dx=.01)
-                    #Find E which splits integrated d DOS into 2
-                    # (d-band center):
-                    d_band_center_slab_ads = 0
-                    for k in range(len(total_d_densities)):
-                        c_int = np.trapz(total_d_densities[:k],
-                                         x=dos_d.energies[:k],
-                                         dx=.01)
-                        if c_int > (total_integrated_density / 2):
-                            d_band_center_slab_ads = dos_d.energies[k]
-                            break;
-
-
-                except (ParseError, AssertionError):
-                    pass
-            except FileNotFoundError:
-                warnings.warn("Slab + adsorbate directory not found: {}"
-                              .format(slab_ads_dir))
+        # slab_ads_converged, input_slab_ads = None, None
+        # eigenvalue_band_props = (None, None, None, None)
+        # if slab_ads_dir:
+        #     try:
+        #         vrun_paths = [os.path.join(slab_ads_dir, fname) for fname in
+        #                       os.listdir(slab_ads_dir)
+        #                       if "vasprun" in fname.lower()]
+        #         try:
+        #             vrun_paths.sort(key=lambda x: time_vrun(x))
+        #             vrun_i = Vasprun(vrun_paths[0])
+        #             vrun_o = Vasprun(vrun_paths[-1])
+        #
+        #             slab_ads_converged = vrun_o.converged
+        #             if slab_ads_energy:
+        #                 assert(round(
+        #                     slab_ads_energy - vrun_o.final_energy, 7) == 0)
+        #             else:
+        #                 slab_ads_energy = vrun_o.final_energy
+        #
+        #             if not output_slab_ads:
+        #                 output_slab_ads = vrun_o.final_structure
+        #             input_slab_ads = vrun_i.initial_structure
+        #             eigenvalue_band_props = vrun_o.eigenvalue_band_properties
+        #             # d-Band Center analysis:
+        #             dos_spd = vrun_o.complete_dos.get_spd_dos() #get SPD DOS
+        #             dos_d = list(dos_spd.items())[2][1] #Get 'd' band dos
+        #             #add spin up and spin down densities
+        #             total_d_densities = dos_d.get_densities()
+        #             import numpy as np
+        #             #Get integrated density for d
+        #             total_integrated_density = np.trapz(total_d_densities,
+        #                                                 x=dos_d.energies,
+        #                                                 dx=.01)
+        #             #Find E which splits integrated d DOS into 2
+        #             # (d-band center):
+        #             d_band_center_slab_ads = 0
+        #             for k in range(len(total_d_densities)):
+        #                 c_int = np.trapz(total_d_densities[:k],
+        #                                  x=dos_d.energies[:k],
+        #                                  dx=.01)
+        #                 if c_int > (total_integrated_density / 2):
+        #                     d_band_center_slab_ads = dos_d.energies[k]
+        #                     break;
+        #
+        #
+        #         except (ParseError, AssertionError):
+        #             pass
+        #     except FileNotFoundError:
+        #         warnings.warn("Slab + adsorbate directory not found: {}"
+        #                       .format(slab_ads_dir))
 
         ads_sites = []
         if surface_properties and id_map and output_slab_ads:
@@ -1012,7 +1063,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'cbm': eigenvalue_band_props[1],
                 'vbm': eigenvalue_band_props[2],
                 'is_band_gap_direct': eigenvalue_band_props[3]},
-            'd_band_center':d_band_center_slab_ads
+            'd_band_center': d_band_center_slab_ads
         })
 
         # cleavage energy
@@ -1166,3 +1217,16 @@ class AdsorptionAnalysisTask(FiretaskBase):
             logger.info("Adsorption analysis complete.")
 
         return FWAction()
+
+
+def time_vrun(path):
+    # helper function that returns the creation time
+    # (type: datetime.datetime) of a vasprun file as extracted
+    # from it given its file path
+    vrun = Vasprun(path)
+    date = vrun.generator['date']
+    time = vrun.generator['time']
+    date_time_string = '{} {}'.format(date, time)
+    date_time = datetime.strptime(date_time_string,
+                                  '%Y %m %d %H:%M:%S')
+    return date_time
