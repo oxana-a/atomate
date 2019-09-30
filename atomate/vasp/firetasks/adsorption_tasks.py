@@ -1205,6 +1205,29 @@ class AdsorptionAnalysisTask(FiretaskBase):
                         output_slab_ads = vrun_o.final_structure
                     input_slab_ads = vrun_i.initial_structure
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
+                    # d-Band Center analysis:
+                    dos_spd = vrun_o.complete_dos.get_spd_dos() #get SPD DOS
+                    dos_d = list(dos_spd.items())[2][1] #Get 'd' band dos
+                    #add spin up and spin down densities
+                    total_d_densities = list(dos_d.densities.items())[0][1] + \
+                                        list(dos_d.densities.items())[1][1]
+                    import numpy as np
+                    #Get integrated density for d
+                    total_integrated_density = np.trapz(total_d_densities,
+                                                        x=dos_d.energies,
+                                                        dx=.01)
+                    #Find E which splits integrated d DOS into 2
+                    # (d-band center):
+                    d_band_center = 0
+                    for k in range(len(total_d_densities)):
+                        c_int = np.trapz(total_d_densities[:k],
+                                         x=dos_d.energies[:k],
+                                         dx=.01)
+                        if c_int > (total_integrated_density / 2):
+                            d_band_center = dos_d.energies[k]
+                            break;
+
+
                 except (ParseError, AssertionError):
                     pass
             except FileNotFoundError:
@@ -1288,7 +1311,9 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'band_gap': eigenvalue_band_props[0],
                 'cbm': eigenvalue_band_props[1],
                 'vbm': eigenvalue_band_props[2],
-                'is_band_gap_direct': eigenvalue_band_props[3]}})
+                'is_band_gap_direct': eigenvalue_band_props[3]},
+            'd_band_center':d_band_center
+        })
 
         # cleavage energy
         area = np.linalg.norm(np.cross(output_slab.lattice.matrix[0],
