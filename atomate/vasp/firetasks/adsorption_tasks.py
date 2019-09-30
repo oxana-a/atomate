@@ -1181,8 +1181,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     dos_spd = vrun_o.complete_dos.get_spd_dos()  # get SPD DOS
                     dos_d = list(dos_spd.items())[2][1]  # Get 'd' band dos
                     # add spin up and spin down densities
-                    total_d_densities = list(dos_d.densities.items())[0][1] + \
-                                        list(dos_d.densities.items())[1][1]
+                    total_d_densities = dos_d.get_densities()
                     import numpy as np
                     # Get integrated density for d
                     total_integrated_density = np.trapz(total_d_densities,
@@ -1230,8 +1229,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     dos_spd = vrun_o.complete_dos.get_spd_dos() #get SPD DOS
                     dos_d = list(dos_spd.items())[2][1] #Get 'd' band dos
                     #add spin up and spin down densities
-                    total_d_densities = list(dos_d.densities.items())[0][1] + \
-                                        list(dos_d.densities.items())[1][1]
+                    total_d_densities = dos_d.get_densities()
                     import numpy as np
                     #Get integrated density for d
                     total_integrated_density = np.trapz(total_d_densities,
