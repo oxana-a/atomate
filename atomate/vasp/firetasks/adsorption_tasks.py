@@ -1177,6 +1177,27 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     if not output_slab:
                         output_slab = vrun_o.final_structure
                     input_slab = vrun_i.initial_structure
+                    # d-Band Center analysis:
+                    dos_spd = vrun_o.complete_dos.get_spd_dos()  # get SPD DOS
+                    dos_d = list(dos_spd.items())[2][1]  # Get 'd' band dos
+                    # add spin up and spin down densities
+                    total_d_densities = list(dos_d.densities.items())[0][1] + \
+                                        list(dos_d.densities.items())[1][1]
+                    import numpy as np
+                    # Get integrated density for d
+                    total_integrated_density = np.trapz(total_d_densities,
+                                                        x=dos_d.energies,
+                                                        dx=.01)
+                    # Find E which splits integrated d DOS into 2
+                    # (d-band center):
+                    d_band_center_slab = 0
+                    for k in range(len(total_d_densities)):
+                        c_int = np.trapz(total_d_densities[:k],
+                                         x=dos_d.energies[:k],
+                                         dx=.01)
+                        if c_int > (total_integrated_density / 2):
+                            d_band_center_slab = dos_d.energies[k]
+                            break;
                 except (ParseError, AssertionError):
                     pass
             except FileNotFoundError:
@@ -1218,13 +1239,13 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                                         dx=.01)
                     #Find E which splits integrated d DOS into 2
                     # (d-band center):
-                    d_band_center = 0
+                    d_band_center_slab_ads = 0
                     for k in range(len(total_d_densities)):
                         c_int = np.trapz(total_d_densities[:k],
                                          x=dos_d.energies[:k],
                                          dx=.01)
                         if c_int > (total_integrated_density / 2):
-                            d_band_center = dos_d.energies[k]
+                            d_band_center_slab_ads = dos_d.energies[k]
                             break;
 
 
@@ -1296,7 +1317,9 @@ class AdsorptionAnalysisTask(FiretaskBase):
         if input_slab:
             stored_data['slab']['input_structure'] = input_slab.as_dict()
         stored_data['slab'].update({'output_structure': output_slab.as_dict(),
-                                    'output_energy': slab_energy})
+                                    'output_energy': slab_energy,
+                                    'd_band_center': d_band_center_slab
+                                    })
 
         stored_data['slab_adsorbate'] = {
             'name': slab_ads_name, 'directory': slab_ads_dir,
@@ -1312,7 +1335,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'cbm': eigenvalue_band_props[1],
                 'vbm': eigenvalue_band_props[2],
                 'is_band_gap_direct': eigenvalue_band_props[3]},
-            'd_band_center':d_band_center
+            'd_band_center':d_band_center_slab_ads
         })
 
         # cleavage energy
