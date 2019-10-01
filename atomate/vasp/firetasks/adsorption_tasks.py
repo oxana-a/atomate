@@ -1151,6 +1151,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
         # adsorbate surface nearest neighbors
         stored_data['nearest_surface_neighbors'] = {}
+        ads_neighbors = []
         for n, ads_site in enumerate(ads_sites):
             ads_site_name = ("adsorbate_site [{}]: {}"
                              .format(n, ads_site.specie))
@@ -1158,39 +1159,102 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 ads_site, output_slab_ads.lattice.c)
 
             neighbors.sort(key=lambda x: x.distance)
-            nearest_surface_neighbor = next(neighbor for neighbor in neighbors
-                                            if neighbor.site not in ads_sites)
-            ns_site = nearest_surface_neighbor.site
+            surface_neighbors = [neighbor for neighbor in neighbors
+                                 if neighbor.site not in ads_sites]
+
+            ads_neighbors.append([ads_site, surface_neighbors[0],
+                                  surface_neighbors[1], surface_neighbors[2]])
+
+            first_site = surface_neighbors[0].site
+            first_distance = surface_neighbors[0].distance
 
             stored_data['nearest_surface_neighbors'][ads_site_name] = {
                 'adsorbate_site': {'slab_ads_site_index': site_ids[ads_site],
                                    'site': ads_site.as_dict()},
-                'surface_site': {'slab_ads_site_index': site_ids[ns_site],
-                                 'site': ns_site.as_dict()},
-                'distance': nearest_surface_neighbor.distance}
+                'surface_site': {'slab_ads_site_index': site_ids[first_site],
+                                 'site': first_site.as_dict()},
+                'distance': first_distance}
+            try:
+                stored_data['nearest_surface_neighbors'][ads_site_name][
+                    'is_bonded'] = CovalentBond(ads_site, first_site).is_bonded(
+                    ads_site, first_site)
+            except ValueError:
+                stored_data['nearest_surface_neighbors'][ads_site_name][
+                    'is_bonded'] = None
 
-        nn_list = [[ads_site] +
-                   [stored_data['nearest_surface_neighbors'][ads_site][item]
-                    for item in
-                    stored_data['nearest_surface_neighbors'][ads_site]]
-                   for ads_site in stored_data['nearest_surface_neighbors']]
+        adsorption_site, first_neighbor, second_neighbor, third_neighbor = max(
+            ads_neighbors, key=lambda x: x[1].distance)
 
-        stored_data['adsorption_site'] = {}
-        adsorption_site_entry, surface_site_entry, distance = min(
-            nn_list, key=lambda x: x[-1])[1:]
+        first_site = first_neighbor.site
+        first_distance = first_neighbor.distance
+
+        second_site = second_neighbor.site
+        second_distance = second_neighbor.distance
+
+        third_site = third_neighbor.site
+        third_distance = third_neighbor.distance
+
+        if second_distance < 1.2*first_distance and (
+                third_distance > 1.4*first_distance):
+            base = first_site.distance(second_site)
+            p = (first_distance + second_distance + base)/2
+            area = 2 * (p * (p-first_distance) * (p-second_distance) *
+                        (p-base))**0.5
+            d_to_surface = 2 * area / base
+
+            out_site_type = 'bridge'
+            surface_sites = {'site1': first_site.as_dict(),
+                             'site2': second_site.as_dict()}
+            distances = {'to_site1': first_distance,
+                         'to_site2': second_distance,
+                         'to_surface': d_to_surface}
+
+        elif second_distance < 1.2*first_distance and (
+                third_distance < 1.4*first_distance):
+            fs = first_site.distance(second_site)
+            st = second_site.distance(third_site)
+            tf = third_site.distance(first_site)
+
+            f = first_distance
+            s = second_distance
+            t = third_distance
+
+            p = (fs + st + tf)/2
+            area = 2 * (p * (p - f) * (p - s) * (p - t)) ** 0.5
+            vol = (1/288 * np.linalg.det(
+                [[0, 1, 1, 1, 1],
+                 [1, 0, f**2, s**2, t**2],
+                 [1, f**2, 0, fs**2, tf**2],
+                 [1, s**2, fs**2, 0, st**2],
+                 [1, t**2, tf**2, st**2, 0]]))**0.5
+            d_to_surface = 3 * vol/area
+
+            out_site_type = 'hollow'
+            surface_sites = {'site1': first_site.as_dict(),
+                             'site2': second_site.as_dict(),
+                             'site3': third_site.as_dict()}
+            distances = {'to_site1': first_distance,
+                         'to_site2': second_distance,
+                         'to_site3': third_distance,
+                         'to_surface': d_to_surface}
+
+        else:
+            out_site_type = 'ontop'
+            surface_sites = {'site1': first_site.as_dict()}
+            distances = {'to_site1': first_distance,
+                         'to_surface': first_distance}
+
         stored_data['adsorption_site'] = {
-            'species': (adsorption_site_entry['site']['species'][0]['element']
-                        + "-"
-                        + surface_site_entry['site']['species'][0]['element']),
-            'adsorbate_site': adsorption_site_entry,
-            'surface_site': surface_site_entry,
-            'distance': distance}
+            'out_site_type': out_site_type,
+            'adsorbate_site': adsorption_site.as_dict(),
+            'surface_sites': surface_sites,
+            'distances': distances}
         try:
             stored_data['adsorption_site']['is_bonded'] = CovalentBond(
-                PeriodicSite.from_dict(adsorption_site_entry['site']),
-                PeriodicSite.from_dict(surface_site_entry['site'])).is_bonded(
-                PeriodicSite.from_dict(adsorption_site_entry['site']),
-                PeriodicSite.from_dict(surface_site_entry['site']))
+                PeriodicSite.from_dict(adsorption_site),
+                PeriodicSite.from_dict(first_site)).is_bonded(
+                PeriodicSite.from_dict(adsorption_site),
+                PeriodicSite.from_dict(first_site))
         except ValueError:
             stored_data['adsorption_site']['is_bonded'] = None
 
