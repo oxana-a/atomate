@@ -24,12 +24,11 @@ from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
 class DistanceOptimizationFW(Firework):
     def __init__(self, adsorbate, slab_structure=None, coord=None,
                  mvec=None, static_distances=None, name=None,
-                 vasp_cmd=VASP_CMD, db_file=DB_FILE, slab_energy=None,
-                 bulk_structure=None, bulk_energy=None, min_lw=None,
-                 ads_site_finder_params=None, ads_structures_params=None,
-                 slab_ads_fw_params=None, slab_name=None, bulk_dir=None,
-                 slab_dir=None, miller_index=None, shift=None,
-                 site_idx=None, in_site_type=None, parents=None, **kwargs):
+                 vasp_cmd=VASP_CMD, db_file=DB_FILE, bulk_structure=None,
+                 bulk_energy=None, min_lw=None, ads_site_finder_params=None,
+                 ads_structures_params=None, slab_ads_fw_params=None,
+                 bulk_dir=None, site_idx=None, in_site_type=None,
+                 slab_data=None, parents=None, **kwargs):
 
         """
         Firework (FW) that analyzes many similar static calculations where
@@ -66,15 +65,13 @@ class DistanceOptimizationFW(Firework):
                                                  adsorbate=adsorbate))
         t.append(at.LaunchVaspFromOptimumDistance(
             adsorbate=adsorbate, slab_structure=slab_structure,
-            coord=coord, mvec=mvec, slab_energy=slab_energy,
-            bulk_structure=bulk_structure, bulk_energy=bulk_energy,
-            vasp_cmd=vasp_cmd, db_file=db_file, min_lw=min_lw,
-            ads_site_finder_params=ads_site_finder_params,
+            coord=coord, mvec=mvec, bulk_structure=bulk_structure,
+            bulk_energy=bulk_energy, vasp_cmd=vasp_cmd, db_file=db_file,
+            min_lw=min_lw, ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params,
-            slab_ads_fw_params=slab_ads_fw_params, slab_name=slab_name,
-            bulk_dir=bulk_dir, slab_dir=slab_dir, miller_index=miller_index,
-            shift=shift, site_idx=site_idx, in_site_type=in_site_type,
-            static_distances=static_distances))
+            slab_ads_fw_params=slab_ads_fw_params, bulk_dir=bulk_dir,
+            site_idx=site_idx, in_site_type=in_site_type,
+            static_distances=static_distances, slab_data=slab_data))
 
         super(DistanceOptimizationFW, self).__init__(
             t, parents=parents, name="{}-{}".format(
@@ -386,14 +383,12 @@ class SlabFW(Firework):
 class SlabAdsFW(Firework):
 
     def __init__(self, slab_ads_structure,
-                 name="slab + adsorbate optimization", slab_structure=None,
-                 slab_energy=None, bulk_structure=None, bulk_energy=None,
-                 adsorbate=None, vasp_input_set=None, vasp_cmd=VASP_CMD,
-                 db_file=DB_FILE, job_type="double_relaxation_run",
-                 handler_group="md", slab_name=None, bulk_dir=None,
-                 slab_dir=None, miller_index=None, shift=None,
-                 user_incar_settings=None, slab_ads_data=None, parents=None,
-                 **kwargs):
+                 name="slab + adsorbate optimization", bulk_structure=None,
+                 bulk_energy=None, adsorbate=None, vasp_input_set=None,
+                 vasp_cmd=VASP_CMD, db_file=DB_FILE,
+                 job_type="double_relaxation_run", handler_group="md",
+                 bulk_dir=None, user_incar_settings=None, slab_data=None,
+                 slab_ads_data=None, parents=None,  **kwargs):
         """
         Optimize slab + adsorbate structure.
 
@@ -453,8 +448,6 @@ class SlabAdsFW(Firework):
         vasptodb_kwargs = {
             'task_fields_to_push': {'slab_ads_structure': 'output.structure',
                                     'slab_ads_energy': 'output.energy',
-                                    'slab_structure': slab_structure,
-                                    'slab_energy': slab_energy,
                                     'bulk_structure': bulk_structure,
                                     'bulk_energy': bulk_energy,
                                     'adsorbate': adsorbate,
@@ -469,18 +462,19 @@ class SlabAdsFW(Firework):
         analysis_fw_name = name.replace("slab + adsorbate optimization",
                                         "adsorption analysis")
         if "adsorption analysis" not in analysis_fw_name:
+            slab_name = (slab_data.get("name")
+                         or slab_data.get(
+                        "slab_structure").composition.reduced_formula)
             ads_name = ''.join([site.species_string for site
                                 in adsorbate.sites])
             analysis_fw_name = (slab_name + " " + ads_name
                                 + " adsorption analysis")
 
         t.append(at.AnalysisAdditionTask(
-            slab_structure=slab_structure, slab_energy=slab_energy,
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
             adsorbate=adsorbate, analysis_fw_name=analysis_fw_name,
-            db_file=db_file, job_type=job_type, slab_name=slab_name,
-            bulk_dir=bulk_dir, slab_dir=slab_dir, miller_index=miller_index,
-            shift=shift, slab_ads_data=slab_ads_data))
+            db_file=db_file, job_type=job_type, bulk_dir=bulk_dir,
+            slab_data=slab_data, slab_ads_data=slab_ads_data))
 
         super(SlabAdsFW, self).__init__(t, parents=parents, name=name,
                                         **kwargs)
@@ -488,11 +482,9 @@ class SlabAdsFW(Firework):
 
 class AdsorptionAnalysisFW(Firework):
 
-    def __init__(self, slab_structure=None, slab_energy=None,
-                 bulk_structure=None, bulk_energy=None, adsorbate=None,
+    def __init__(self, bulk_structure=None, bulk_energy=None, adsorbate=None,
                  db_file=DB_FILE, job_type=None, name="adsorption analysis",
-                 slab_name=None, bulk_dir=None, slab_dir=None,
-                 miller_index=None, shift=None, slab_ads_data=None,
+                 bulk_dir=None, slab_data=None, slab_ads_data=None,
                  parents=None):
         """
         Analyze data from Adsorption workflow for a slab + adsorbate
@@ -540,11 +532,9 @@ class AdsorptionAnalysisFW(Firework):
         tasks = []
 
         ads_an_t = at.AdsorptionAnalysisTask(
-            slab_structure=slab_structure, slab_energy=slab_energy,
             bulk_structure=bulk_structure, bulk_energy=bulk_energy,
             adsorbate=adsorbate, db_file=db_file, job_type=job_type,
-            name=name, slab_name=slab_name, bulk_dir=bulk_dir,
-            slab_dir=slab_dir, miller_index=miller_index, shift=shift,
+            name=name, bulk_dir=bulk_dir, slab_data=slab_data,
             slab_ads_data=slab_ads_data)
         tasks.append(ads_an_t)
 
