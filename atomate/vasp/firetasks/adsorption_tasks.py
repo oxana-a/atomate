@@ -79,6 +79,8 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
             ads_structures_params["min_lw"] = min_lw
         if "selective_dynamics" not in ads_site_finder_params:
             ads_site_finder_params["selective_dynamics"] = True
+        if "height" not in ads_site_finder_params:
+            ads_site_finder_params["height"] = 2.0
 
         add_ads_params = {key: ads_structures_params[key] for key
                           in ads_structures_params if key != 'find_args'}
@@ -318,7 +320,7 @@ class SlabAdditionTask(FiretaskBase):
 
         # TODO: these could be more well-thought out defaults
         if "min_slab_size" not in sgp:
-            sgp["min_slab_size"] = 7.0
+            sgp["min_slab_size"] = 12.0
         if "min_vacuum_size" not in sgp:
             sgp["min_vacuum_size"] = 20.0
         if "max_index" not in sgp:
@@ -420,6 +422,13 @@ class SlabAdditionTask(FiretaskBase):
 
             slab_data = {'miller_index': slab.miller_index,
                          'shift': slab.shift}
+
+            if "selective_dynamics" not in ads_site_finder_params:
+                ads_site_finder_params["selective_dynamics"] = True
+            if "height" not in ads_site_finder_params:
+                ads_site_finder_params["height"] = 2.0
+
+            slab = AdsorbateSiteFinder(slab, **ads_site_finder_params).slab
 
             slab_fw = af.SlabFW(slab, name=name, adsorbates=adsorbates,
                                 vasp_cmd=vasp_cmd, db_file=db_file,
@@ -649,6 +658,8 @@ class SlabAdsAdditionTask(FiretaskBase):
             else:
                 if "selective_dynamics" not in ads_site_finder_params:
                     ads_site_finder_params["selective_dynamics"] = True
+                if "height" not in ads_site_finder_params:
+                    ads_site_finder_params["height"] = 2.0
                 asf = AdsorbateSiteFinder(output_slab,
                                           **ads_site_finder_params)
                 coords = asf.find_adsorption_sites(**find_args)
