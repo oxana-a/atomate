@@ -79,8 +79,6 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
             ads_structures_params["min_lw"] = min_lw
         if "selective_dynamics" not in ads_site_finder_params:
             ads_site_finder_params["selective_dynamics"] = True
-        if "height" not in ads_site_finder_params:
-            ads_site_finder_params["height"] = 2.0
 
         add_ads_params = {key: ads_structures_params[key] for key
                           in ads_structures_params if key != 'find_args'}
@@ -92,6 +90,17 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         asf = AdsorbateSiteFinder(slab_structure, **ads_site_finder_params)
         new_coord = coord + optimal_distance * mvec
         slab_ads = asf.add_adsorbate(adsorbate, new_coord, **add_ads_params)
+
+        # add selective dynamics for height 2.0 instead of
+        # the height used to determine surface sites
+        if ads_site_finder_params["selective_dynamics"]:
+            sel_dyn_params = ads_site_finder_params.copy()
+            sel_dyn_params['height'] = 2.0
+            sel_dyn = AdsorbateSiteFinder(
+                slab_structure, **sel_dyn_params).add_adsorbate(
+                adsorbate, new_coord, **add_ads_params).site_properties[
+                'selective_dynamics']
+            slab_ads.add_site_property('selective_dynamics', sel_dyn)
 
         ads_name = ''.join([site.species_string for site
                             in adsorbate.sites])
@@ -425,10 +434,16 @@ class SlabAdditionTask(FiretaskBase):
 
             if "selective_dynamics" not in ads_site_finder_params:
                 ads_site_finder_params["selective_dynamics"] = True
-            if "height" not in ads_site_finder_params:
-                ads_site_finder_params["height"] = 2.0
 
-            slab = AdsorbateSiteFinder(slab, **ads_site_finder_params).slab
+            # add selective dynamics for height 2.0 instead of
+            # the height used to determine surface sites
+            if ads_site_finder_params["selective_dynamics"]:
+                sel_dyn_params = ads_site_finder_params.copy()
+                sel_dyn_params['height'] = 2.0
+                sel_dyn = AdsorbateSiteFinder(
+                    slab, selective_dynamics=True,
+                    height=2.0).slab.site_properties['selective_dynamics']
+                slab.add_site_property('selective_dynamics', sel_dyn)
 
             slab_fw = af.SlabFW(slab, name=name, adsorbates=adsorbates,
                                 vasp_cmd=vasp_cmd, db_file=db_file,
@@ -658,16 +673,29 @@ class SlabAdsAdditionTask(FiretaskBase):
             else:
                 if "selective_dynamics" not in ads_site_finder_params:
                     ads_site_finder_params["selective_dynamics"] = True
-                if "height" not in ads_site_finder_params:
-                    ads_site_finder_params["height"] = 2.0
+
                 asf = AdsorbateSiteFinder(output_slab,
                                           **ads_site_finder_params)
                 coords = asf.find_adsorption_sites(**find_args)
+
                 for n, in_site_type, coord in enumerate(chain.from_iterable(
                             [product([position], coords[position])
                              for position in find_args['positions']])):
                     slab_ads = asf.add_adsorbate(adsorbate, coord,
                                                  **add_ads_params)
+
+                    # add selective dynamics for height 2.0 instead of
+                    # the height used to determine surface sites
+                    if ads_site_finder_params["selective_dynamics"]:
+                        sel_dyn_params = ads_site_finder_params.copy()
+                        sel_dyn_params['height'] = 2.0
+                        sel_dyn = AdsorbateSiteFinder(
+                            output_slab, **sel_dyn_params).add_adsorbate(
+                            adsorbate, new_coord,
+                            **add_ads_params).site_properties[
+                            'selective_dynamics']
+                        slab_ads.add_site_property(
+                            'selective_dynamics', sel_dyn)
 
                     # Create adsorbate fw
                     ads_name = ''.join([site.species_string for site
