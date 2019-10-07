@@ -337,7 +337,7 @@ class SlabAdditionTask(FiretaskBase):
             sgp["max_index"] = 1
 
         slab_fw_params = self.get("slab_fw_params") or {}
-        ads_site_finder_params = self.get("ads_site_finder_params")
+        ads_site_finder_params = self.get("ads_site_finder_params") or {}
         ads_structures_params = self.get("ads_structures_params")
         slab_ads_fw_params = self.get("slab_ads_fw_params")
         calc_locs = fw_spec["calc_locs"]
