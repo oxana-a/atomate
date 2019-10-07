@@ -119,7 +119,8 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         slab_ads_data = {'id_map': id_map,
                          'surface_properties': surface_properties,
                          'in_site_type': in_site_type,
-                         'name': slab_ads_name}
+                         'name': slab_ads_name,
+                         'mvec': mvec}
 
         slab_ads_fw = af.SlabAdsFW(
             slab_ads, name=fw_name, adsorbate=adsorbate, vasp_cmd=vasp_cmd,
@@ -238,35 +239,35 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
                 })
 
 
-@explicit_serialize
-class GetPassedJobInformation(FiretaskBase):
-    """
-    Firetask that analyzes _job_info array in FW spec to get parrent FW state and add the distance information
-    "_pass_job_info" must exist in parent FW's spec.
-    """
-
-    required_params = ["distances"]
-
-    def run_task(self, fw_spec):
-
-        distances = self["distances"]
-
-        fw_status = {}
-
-        # Load state and correspond it to distance
-        for distance in distances:
-            for fwid in fw_spec["_job_info"]:
-                str_distance = str(distance)
-                if str_distance+"." in fwid["name"]:
-                    if "state" in fwid:
-                        if fwid["state"] is not "FIZZLED":
-                            fw_status[str_distance] = {"state":True}
-                        else:
-                            fw_status[str_distance] = {"state":False}
-                    # else:
-                    #     fw_status[str_distance] = {"state": None}
-        # Modify spec for future tasks
-        return FWAction(mod_spec={"_push":{"distance_to_state":fw_status}})
+# @explicit_serialize
+# class GetPassedJobInformation(FiretaskBase):
+#     """
+#     Firetask that analyzes _job_info array in FW spec to get parrent FW state and add the distance information
+#     "_pass_job_info" must exist in parent FW's spec.
+#     """
+#
+#     required_params = ["distances"]
+#
+#     def run_task(self, fw_spec):
+#
+#         distances = self["distances"]
+#
+#         fw_status = {}
+#
+#         # Load state and correspond it to distance
+#         for distance in distances:
+#             for fwid in fw_spec["_job_info"]:
+#                 str_distance = str(distance)
+#                 if str_distance+"." in fwid["name"]:
+#                     if "state" in fwid:
+#                         if fwid["state"] is not "FIZZLED":
+#                             fw_status[str_distance] = {"state":True}
+#                         else:
+#                             fw_status[str_distance] = {"state":False}
+#                     # else:
+#                     #     fw_status[str_distance] = {"state": None}
+#         # Modify spec for future tasks
+#         return FWAction(mod_spec={"_push":{"distance_to_state":fw_status}})
 
 
 @explicit_serialize
@@ -717,7 +718,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                     slab_ads_data = {'id_map': id_map,
                                      'surface_properties':surface_properties,
                                      'in_site_type': in_site_type,
-                                     'name': slab_ads_name}
+                                     'name': slab_ads_name,
+                                     'mvec': asf.mvec}
 
                     slab_ads_fw = af.SlabAdsFW(
                         slab_ads, name=fw_name, adsorbate=adsorbate,
@@ -949,6 +951,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         slab_ads_converged = slab_ads_data.get('converged')
         evalue_band_props_slab_ads = slab_ads_data.get('eigenvalue_band_props')
         d_band_center_slab_ads = slab_ads_data.get('d_band_center')
+        mvec = slab_ads_data.get("mvec")
 
         adsorbate = self.get("adsorbate")
         db_file = self.get("db_file") or DB_FILE
@@ -1194,7 +1197,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 third_distance > 1.4*first_distance):
             base = first_site.distance(second_site)
             p = (first_distance + second_distance + base)/2
-            area = 2 * (p * (p-first_distance) * (p-second_distance) *
+            area = (p * (p-first_distance) * (p-second_distance) *
                         (p-base))**0.5
             d_to_surface = 2 * area / base
 
@@ -1207,23 +1210,19 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
         elif second_distance < 1.2*first_distance and (
                 third_distance < 1.4*first_distance):
-            fs = first_site.distance(second_site)
-            st = second_site.distance(third_site)
-            tf = third_site.distance(first_site)
+            ads = adsorbate_site.coords
+            f = first_site.coords
+            s = second_site.coords
+            t = third_site.coords
 
-            f = first_distance
-            s = second_distance
-            t = third_distance
+            fs = s - f
+            ft = t - f
 
-            p = (fs + st + tf)/2
-            area = 2 * (p * (p - f) * (p - s) * (p - t)) ** 0.5
-            vol = (1/288 * np.linalg.det(
-                [[0, 1, 1, 1, 1],
-                 [1, 0, f**2, s**2, t**2],
-                 [1, f**2, 0, fs**2, tf**2],
-                 [1, s**2, fs**2, 0, st**2],
-                 [1, t**2, tf**2, st**2, 0]]))**0.5
-            d_to_surface = 3 * vol/area
+            n = np.cross(fs, ft)
+            a, b, c = n
+            d = n.dot(-f)
+
+            d_to_surface = np.abs(n.dot(ads) + d) / (a**2 + b**2 + c**2)**0.5
 
             out_site_type = 'hollow'
             surface_sites = {'site1': first_site.as_dict(),
@@ -1234,12 +1233,21 @@ class AdsorptionAnalysisTask(FiretaskBase):
                          'to_site3': third_distance,
                          'to_surface': d_to_surface}
 
-        else:
+        elif (adsorbate_site.coords - first_site.coords).dot(
+                mvec)/np.linalg.norm(adsorbate_site.coords -
+                                     first_site.coords) > 0.95:
             out_site_type = 'ontop'
             surface_sites = {'site1': first_site.as_dict()}
             distances = {'to_site1': first_distance,
                          'to_surface': first_distance}
-
+        else:
+            out_site_type = 'other'
+            surface_sites = {'site1': first_site.as_dict(),
+                             'site2': second_site.as_dict(),
+                             'site3': third_site.as_dict()}
+            distances = {'to_site1': first_distance,
+                         'to_site2': second_distance,
+                         'to_site3': third_distance}
         stored_data['adsorption_site'] = {
             'in_site_type': in_site_type,
             'out_site_type': out_site_type,
