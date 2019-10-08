@@ -924,7 +924,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         bulk_dir = bulk_data.get("directory")
         input_bulk = bulk_data.get("input_structure")
         bulk_converged = bulk_data.get("converged")
-        evalue_band_props_bulk = bulk_data.get('eigenvalue_band_props')
+        evalue_band_props_bulk = bulk_data.get('eigenvalue_band_properties')
 
         slab_data = self.get("slab_data") or {}
         output_slab = slab_data.get("output_structure")
@@ -935,7 +935,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         shift = slab_data.get("shift")
         input_slab = slab_data.get("input_structure")
         slab_converged = slab_data.get('converged')
-        evalue_band_props_slab = slab_data.get('eigenvalue_band_props')
+        evalue_band_props_slab = slab_data.get('eigenvalue_band_properties')
         d_band_center_slab = slab_data.get('d_band_center')
 
         slab_ads_data = self.get("slab_ads_data") or {}
@@ -949,7 +949,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         in_site_type = slab_ads_data.get("in_site_type")
         input_slab_ads = slab_ads_data.get("input_structure")
         slab_ads_converged = slab_ads_data.get('converged')
-        evalue_band_props_slab_ads = slab_ads_data.get('eigenvalue_band_props')
+        evalue_band_props_slab_ads = slab_ads_data.get(
+            'eigenvalue_band_properties')
         d_band_center_slab_ads = slab_ads_data.get('d_band_center')
         mvec = slab_ads_data.get("mvec")
 
