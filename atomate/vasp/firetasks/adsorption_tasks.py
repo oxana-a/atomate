@@ -1262,10 +1262,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
             'distances': distances}
         try:
             stored_data['adsorption_site']['is_bonded'] = CovalentBond(
-                PeriodicSite.from_dict(adsorbate_site),
-                PeriodicSite.from_dict(first_site)).is_bonded(
-                PeriodicSite.from_dict(adsorbate_site),
-                PeriodicSite.from_dict(first_site))
+                adsorbate_site, first_site).is_bonded(
+                adsorbate_site, first_site)
         except ValueError:
             stored_data['adsorption_site']['is_bonded'] = None
 
