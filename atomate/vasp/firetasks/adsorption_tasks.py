@@ -1025,8 +1025,9 @@ class AdsorptionAnalysisTask(FiretaskBase):
             stored_data['bulk']['input_structure'] = input_bulk.as_dict()
         stored_data['bulk'].update({
             'output_structure': output_bulk.as_dict(),
-            'output_energy': bulk_energy,
-            'eigenvalue_band_properties': {
+            'output_energy': bulk_energy})
+        if evalue_band_props_bulk:
+            stored_data['bulk'].update({'eigenvalue_band_properties': {
                 'band_gap': evalue_band_props_bulk[0],
                 'cbm': evalue_band_props_bulk[1],
                 'vbm': evalue_band_props_bulk[2],
@@ -1040,13 +1041,14 @@ class AdsorptionAnalysisTask(FiretaskBase):
             stored_data['slab']['input_structure'] = input_slab.as_dict()
         stored_data['slab'].update({
             'output_structure': output_slab.as_dict(),
-            'output_energy': slab_energy,
-            'eigenvalue_band_properties': {
+            'output_energy': slab_energy})
+        if evalue_band_props_slab:
+            stored_data['slab'].update({'eigenvalue_band_properties': {
                 'band_gap': evalue_band_props_slab[0],
                 'cbm': evalue_band_props_slab[1],
                 'vbm': evalue_band_props_slab[2],
-                'is_band_gap_direct': evalue_band_props_slab[3]},
-            'd_band_center': d_band_center_slab})
+                'is_band_gap_direct': evalue_band_props_slab[3]}})
+        stored_data['slab'].update({'d_band_center': d_band_center_slab})
 
         stored_data['slab_adsorbate'] = {
             'name': slab_ads_name, 'directory': slab_ads_dir,
@@ -1056,12 +1058,15 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'input_structure'] = input_slab_ads.as_dict()
         stored_data['slab_adsorbate'].update({
             'output_structure': output_slab_ads.as_dict(),
-            'output_slab_ads_energy': slab_ads_energy,
-            'eigenvalue_band_properties': {
-                'band_gap': evalue_band_props_slab_ads[0],
-                'cbm': evalue_band_props_slab_ads[1],
-                'vbm': evalue_band_props_slab_ads[2],
-                'is_band_gap_direct': evalue_band_props_slab_ads[3]},
+            'output_slab_ads_energy': slab_ads_energy})
+        if evalue_band_props_slab_ads:
+            stored_data['slab_adsorbate'].update({
+                'eigenvalue_band_properties': {
+                    'band_gap': evalue_band_props_slab_ads[0],
+                    'cbm': evalue_band_props_slab_ads[1],
+                    'vbm': evalue_band_props_slab_ads[2],
+                    'is_band_gap_direct': evalue_band_props_slab_ads[3]}})
+        stored_data['slab_adsorbate'].update({
             'd_band_center': d_band_center_slab_ads})
 
         # cleavage energy
