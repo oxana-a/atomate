@@ -1174,8 +1174,9 @@ class AdsorptionAnalysisTask(FiretaskBase):
             stored_data['nearest_surface_neighbors'][ads_site_name] = {
                 'adsorbate_site': {'slab_ads_site_index': site_ids[ads_site],
                                    'site': ads_site.as_dict()},
-                'surface_site': {'slab_ads_site_index': site_ids[first_site],
-                                 'site': first_site.as_dict()},
+                'surface_site': {
+                    'slab_ads_site_index': surface_neighbors[0].index,
+                    'site': first_site.as_dict()},
                 'distance': first_distance}
             try:
                 stored_data['nearest_surface_neighbors'][ads_site_name][
