@@ -1190,7 +1190,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
             ads_neighbors.append([ads_site, surface_neighbors[0],
                                   surface_neighbors[1], surface_neighbors[2]])
 
-            first_site = surface_neighbors[0][0]
+            first_index = surface_neighbors[0][2]
+            first_site = output_slab_ads.sites[first_index]
             first_distance = surface_neighbors[0][1]
 
             stored_data['nearest_surface_neighbors'][ads_site_name] = {
@@ -1199,7 +1200,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                         output_slab_ads.sites.index(ads_site),
                     'site': ads_site.as_dict()},
                 'surface_site': {
-                    'slab_ads_site_index': surface_neighbors[0][2],
+                    'slab_ads_site_index': first_index,
                     'site': first_site.as_dict()},
                 'distance': first_distance}
             try:
@@ -1215,13 +1216,16 @@ class AdsorptionAnalysisTask(FiretaskBase):
         adsorbate_site, first_neighbor, second_neighbor, third_neighbor = min(
             ads_neighbors, key=lambda x: x[1][1])
 
-        first_site = first_neighbor[0]
+        first_index = first_neighbor[2]
+        first_site = output_slab_ads.sites[first_index]
         first_distance = first_neighbor[1]
 
-        second_site = second_neighbor[0]
+        second_index = second_neighbor[2]
+        second_site = output_slab_ads.sites[second_index]
         second_distance = second_neighbor[1]
-
-        third_site = third_neighbor[0]
+        
+        third_index = third_neighbor[2]
+        third_site = output_slab_ads.sites[third_index]
         third_distance = third_neighbor[1]
 
         if second_distance < 1.2*first_distance and (
