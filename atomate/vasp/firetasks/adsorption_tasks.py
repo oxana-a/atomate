@@ -924,7 +924,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         bulk_dir = bulk_data.get("directory")
         input_bulk = bulk_data.get("input_structure")
         bulk_converged = bulk_data.get("converged")
-        evalue_band_props_bulk = bulk_data.get('eigenvalue_band_properties')
+        evalue_band_props_bulk = bulk_data.get(
+            'eigenvalue_band_properties') or [None]*4
 
         slab_data = self.get("slab_data") or {}
         output_slab = slab_data.get("output_structure")
@@ -935,7 +936,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         shift = slab_data.get("shift")
         input_slab = slab_data.get("input_structure")
         slab_converged = slab_data.get('converged')
-        evalue_band_props_slab = slab_data.get('eigenvalue_band_properties')
+        evalue_band_props_slab = slab_data.get(
+            'eigenvalue_band_properties') or [None]*4
         d_band_center_slab = slab_data.get('d_band_center')
 
         slab_ads_data = self.get("slab_ads_data") or {}
@@ -950,7 +952,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         input_slab_ads = slab_ads_data.get("input_structure")
         slab_ads_converged = slab_ads_data.get('converged')
         evalue_band_props_slab_ads = slab_ads_data.get(
-            'eigenvalue_band_properties')
+            'eigenvalue_band_properties') or [None]*4
         d_band_center_slab_ads = slab_ads_data.get('d_band_center')
         mvec = slab_ads_data.get("mvec")
 
@@ -980,9 +982,10 @@ class AdsorptionAnalysisTask(FiretaskBase):
         elif adsorbate and output_slab_ads:
             ads_sites = [output_slab_ads.sites[new_id] for new_id
                          in id_map[-adsorbate.num_sites:]]
+        ads_ids = [output_slab_ads.sites.index(site) for site in ads_sites]
 
-        site_ids = {site: index
-                    for index, site in enumerate(output_slab_ads.sites)}
+        # site_ids = {site: index
+        #             for index, site in enumerate(output_slab_ads.sites)}
 
         # atom movements during slab + adsorbate optimization
         translation_vecs = [None] * output_slab_ads.num_sites
@@ -998,12 +1001,12 @@ class AdsorptionAnalysisTask(FiretaskBase):
             neighbors = output_slab_ads.get_neighbors(
                 ads_site, output_slab_ads.lattice.c)
 
-            neighbors.sort(key=lambda x: x.distance)
+            neighbors.sort(key=lambda x: x[1])
             nearest_surface_neighbor = next(neighbor for neighbor in neighbors
-                                            if neighbor.site not in ads_sites)
+                                            if neighbor[2] not in ads_ids)
 
-            nn_surface_list.append([nearest_surface_neighbor.index,
-                                    nearest_surface_neighbor.distance])
+            nn_surface_list.append([nearest_surface_neighbor[2],
+                                    nearest_surface_neighbor[1]])
         ads_site_index = min(nn_surface_list, key=lambda x: x[1])[0]
         output_slab_ads.sites[ads_site_index].properties[
             'surface_properties'] += ', adsorption site'
@@ -1026,9 +1029,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
             stored_data['bulk']['input_structure'] = input_bulk.as_dict()
         stored_data['bulk'].update({
             'output_structure': output_bulk.as_dict(),
-            'output_energy': bulk_energy})
-        if evalue_band_props_bulk:
-            stored_data['bulk'].update({'eigenvalue_band_properties': {
+            'output_energy': bulk_energy,
+            'eigenvalue_band_properties': {
                 'band_gap': evalue_band_props_bulk[0],
                 'cbm': evalue_band_props_bulk[1],
                 'vbm': evalue_band_props_bulk[2],
@@ -1042,9 +1044,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
             stored_data['slab']['input_structure'] = input_slab.as_dict()
         stored_data['slab'].update({
             'output_structure': output_slab.as_dict(),
-            'output_energy': slab_energy})
-        if evalue_band_props_slab:
-            stored_data['slab'].update({'eigenvalue_band_properties': {
+            'output_energy': slab_energy,
+            'eigenvalue_band_properties': {
                 'band_gap': evalue_band_props_slab[0],
                 'cbm': evalue_band_props_slab[1],
                 'vbm': evalue_band_props_slab[2],
@@ -1059,10 +1060,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'input_structure'] = input_slab_ads.as_dict()
         stored_data['slab_adsorbate'].update({
             'output_structure': output_slab_ads.as_dict(),
-            'output_slab_ads_energy': slab_ads_energy})
-        if evalue_band_props_slab_ads:
-            stored_data['slab_adsorbate'].update({
-                'eigenvalue_band_properties': {
+            'output_slab_ads_energy': slab_ads_energy,
+            'eigenvalue_band_properties': {
                     'band_gap': evalue_band_props_slab_ads[0],
                     'cbm': evalue_band_props_slab_ads[1],
                     'vbm': evalue_band_props_slab_ads[2],
@@ -1086,10 +1085,14 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 pair_name = ("pair [{}]: {}-{}"
                              .format(n, site1.specie, site2.specie))
                 stored_data['adsorbate_bonds'][pair_name] = {
-                    'site1': {'slab_ads_site_index': site_ids[site1],
-                              'site': site1.as_dict()},
-                    'site2': {'slab_ads_site_index': site_ids[site2],
-                              'site': site2.as_dict()},
+                    'site1': {
+                        'slab_ads_site_index':
+                            output_slab_ads.sites.index(site1),
+                        'site': site1.as_dict()},
+                    'site2': {
+                        'slab_ads_site_index':
+                            output_slab_ads.sites.index(site2),
+                        'site': site2.as_dict()},
                     'distance': site1.distance_and_image(site2)[0]}
                 try:
                     stored_data['adsorbate_bonds'][pair_name][
@@ -1112,12 +1115,18 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                   .format(n, site2.specie, site1.specie,
                                           site3.specie))
                     stored_data['adsorbate_angles'][angle_name] = {
-                        'vertex': {'slab_ads_site_index': site_ids[site1],
-                                   'site': site1.as_dict()},
-                        'edge1': {'slab_ads_site_index': site_ids[site2],
-                                  'site': site2.as_dict()},
-                        'edge2': {'slab_ads_site_index': site_ids[site3],
-                                  'site': site3.as_dict()},
+                        'vertex': {
+                            'slab_ads_site_index':
+                                output_slab_ads.sites.index(site1),
+                            'site': site1.as_dict()},
+                        'edge1': {
+                            'slab_ads_site_index':
+                                output_slab_ads.sites.index(site2),
+                            'site': site2.as_dict()},
+                        'edge2': {
+                            'slab_ads_site_index':
+                                output_slab_ads.sites.index(site3),
+                            'site': site3.as_dict()},
                         'angle': get_angle(v1, v2)}
                     n += 1
                 if (CovalentBond(site2, site1).is_bonded(site2, site1) and
@@ -1128,12 +1137,18 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                   .format(n, site1.specie, site2.specie,
                                           site3.specie))
                     stored_data['adsorbate_angles'][angle_name] = {
-                        'vertex': {'slab_ads_site_index': site_ids[site2],
-                                   'site': site2.as_dict()},
-                        'edge1': {'slab_ads_site_index': site_ids[site1],
-                                  'site': site1.as_dict()},
-                        'edge2': {'slab_ads_site_index': site_ids[site3],
-                                  'site': site3.as_dict()},
+                        'vertex': {
+                            'slab_ads_site_index':
+                                output_slab_ads.sites.index(site2),
+                            'site': site2.as_dict()},
+                        'edge1': {
+                            'slab_ads_site_index':
+                                output_slab_ads.sites.index(site1),
+                            'site': site1.as_dict()},
+                        'edge2': {
+                            'slab_ads_site_index':
+                                output_slab_ads.sites.index(site3),
+                            'site': site3.as_dict()},
                         'angle': get_angle(v1, v2)}
                     n += 1
                 if (CovalentBond(site3, site1).is_bonded(site3, site1) and
@@ -1144,12 +1159,18 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                   .format(n, site1.specie, site3.specie,
                                           site2.specie))
                     stored_data['adsorbate_angles'][angle_name] = {
-                        'vertex': {'slab_ads_site_index': site_ids[site3],
-                                   'site': site3.as_dict()},
-                        'edge1': {'slab_ads_site_index': site_ids[site1],
-                                  'site': site1.as_dict()},
-                        'edge2': {'slab_ads_site_index': site_ids[site2],
-                                  'site': site2.as_dict()},
+                        'vertex': {
+                            'slab_ads_site_index':
+                                output_slab_ads.sites.index(site3),
+                            'site': site3.as_dict()},
+                        'edge1': {
+                            'slab_ads_site_index':
+                                output_slab_ads.sites.index(site1),
+                            'site': site1.as_dict()},
+                        'edge2': {
+                            'slab_ads_site_index':
+                                output_slab_ads.sites.index(site2),
+                            'site': site2.as_dict()},
                         'angle': get_angle(v1, v2)}
                     n += 1
 
@@ -1162,26 +1183,29 @@ class AdsorptionAnalysisTask(FiretaskBase):
             neighbors = output_slab_ads.get_neighbors(
                 ads_site, output_slab_ads.lattice.c)
 
-            neighbors.sort(key=lambda x: x.distance)
+            neighbors.sort(key=lambda x: x[1])
             surface_neighbors = [neighbor for neighbor in neighbors
-                                 if neighbor.site not in ads_sites]
+                                 if neighbor[2] not in ads_ids]
 
             ads_neighbors.append([ads_site, surface_neighbors[0],
                                   surface_neighbors[1], surface_neighbors[2]])
 
-            first_site = surface_neighbors[0].site
-            first_distance = surface_neighbors[0].distance
+            first_site = surface_neighbors[0][0]
+            first_distance = surface_neighbors[0][1]
 
             stored_data['nearest_surface_neighbors'][ads_site_name] = {
-                'adsorbate_site': {'slab_ads_site_index': site_ids[ads_site],
-                                   'site': ads_site.as_dict()},
+                'adsorbate_site': {
+                    'slab_ads_site_index':
+                        output_slab_ads.sites.index(ads_site),
+                    'site': ads_site.as_dict()},
                 'surface_site': {
-                    'slab_ads_site_index': surface_neighbors[0].index,
+                    'slab_ads_site_index': surface_neighbors[0][2],
                     'site': first_site.as_dict()},
                 'distance': first_distance}
             try:
                 stored_data['nearest_surface_neighbors'][ads_site_name][
-                    'is_bonded'] = CovalentBond(ads_site, first_site).is_bonded(
+                    'is_bonded'] = CovalentBond(
+                    ads_site, first_site).is_bonded(
                     ads_site, first_site)
             except ValueError:
                 stored_data['nearest_surface_neighbors'][ads_site_name][
@@ -1189,16 +1213,16 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
         # adsorption site
         adsorbate_site, first_neighbor, second_neighbor, third_neighbor = min(
-            ads_neighbors, key=lambda x: x[1].distance)
+            ads_neighbors, key=lambda x: x[1][1])
 
-        first_site = first_neighbor.site
-        first_distance = first_neighbor.distance
+        first_site = first_neighbor[0]
+        first_distance = first_neighbor[1]
 
-        second_site = second_neighbor.site
-        second_distance = second_neighbor.distance
+        second_site = second_neighbor[0]
+        second_distance = second_neighbor[1]
 
-        third_site = third_neighbor.site
-        third_distance = third_neighbor.distance
+        third_site = third_neighbor[0]
+        third_distance = third_neighbor[1]
 
         if second_distance < 1.2*first_distance and (
                 third_distance > 1.4*first_distance):
