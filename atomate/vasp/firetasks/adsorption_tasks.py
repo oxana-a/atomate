@@ -516,7 +516,7 @@ class SlabAdsAdditionTask(FiretaskBase):
 
         bulk_data = self.get("bulk_data")
         slab_data = self.get("slab_data") or {}
-        slab_name = slab_data.get("slab_name")
+        slab_name = slab_data.get("name")
         # miller_index = slab_data.get("miller_index")
 
         if slab_dir:
