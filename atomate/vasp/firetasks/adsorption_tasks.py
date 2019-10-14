@@ -585,7 +585,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                 find_args['distance'] = 0.0
                 coords = asf.find_adsorption_sites(**find_args)
 
-                for site_idx, in_site_type, coord in enumerate(
+                for site_idx, (in_site_type, coord) in enumerate(
                         chain.from_iterable(
                             [product([position], coords[position])
                              for position in find_args['positions']])):
@@ -657,7 +657,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                                           **ads_site_finder_params)
                 coords = asf.find_adsorption_sites(**find_args)
 
-                for n, in_site_type, coord in enumerate(chain.from_iterable(
+                for n, (in_site_type, coord) in enumerate(chain.from_iterable(
                             [product([position], coords[position])
                              for position in find_args['positions']])):
                     slab_ads = asf.add_adsorbate(adsorbate, coord,
