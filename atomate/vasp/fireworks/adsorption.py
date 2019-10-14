@@ -23,11 +23,11 @@ from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
 
 class DistanceOptimizationFW(Firework):
     def __init__(self, adsorbate, slab_structure=None, coord=None,
-                 mvec=None, static_distances=None, name=None,
-                 vasp_cmd=VASP_CMD, db_file=DB_FILE, min_lw=None,
-                 ads_site_finder_params=None, ads_structures_params=None,
-                 slab_ads_fw_params=None, site_idx=None, in_site_type=None,
-                 bulk_data=None, slab_data=None, parents=None, **kwargs):
+                 static_distances=None, name=None, vasp_cmd=VASP_CMD,
+                 db_file=DB_FILE, min_lw=None, ads_site_finder_params=None,
+                 ads_structures_params=None, slab_ads_fw_params=None,
+                 bulk_data=None, slab_data=None, slab_ads_data=None,
+                 parents=None, **kwargs):
 
         """
         Firework (FW) that analyzes many similar static calculations where
@@ -64,12 +64,12 @@ class DistanceOptimizationFW(Firework):
                                                  adsorbate=adsorbate))
         t.append(at.LaunchVaspFromOptimumDistance(
             adsorbate=adsorbate, slab_structure=slab_structure,
-            coord=coord, mvec=mvec, vasp_cmd=vasp_cmd, db_file=db_file,
-            min_lw=min_lw, ads_site_finder_params=ads_site_finder_params,
+            coord=coord, vasp_cmd=vasp_cmd, db_file=db_file, min_lw=min_lw,
+            ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params,
-            slab_ads_fw_params=slab_ads_fw_params, site_idx=site_idx,
-            in_site_type=in_site_type, static_distances=static_distances,
-            bulk_data=bulk_data, slab_data=slab_data))
+            slab_ads_fw_params=slab_ads_fw_params,
+            static_distances=static_distances, bulk_data=bulk_data,
+            slab_data=slab_data, slab_ads_data=slab_ads_data))
 
         super(DistanceOptimizationFW, self).__init__(
             t, parents=parents, name="{}-{}".format(

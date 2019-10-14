@@ -48,12 +48,12 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
     that distance.
     """
 
-    required_params = ["adsorbate", "coord", "mvec", "slab_structure",
+    required_params = ["adsorbate", "coord", "slab_structure",
                        "static_distances"]
     optional_params = ["vasp_cmd", "db_file", "min_lw",
                        "ads_site_finder_params", "ads_structures_params",
-                       "slab_ads_fw_params", "site_idx", "in_site_type",
-                       "bulk_data", "slab_data"]
+                       "slab_ads_fw_params", "bulk_data", "slab_data",
+                       "slab_ads_data"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -67,13 +67,13 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         ads_structures_params = self.get("ads_structures_params") or {}
         slab_ads_fw_params = self.get("slab_ads_fw_params") or {}
         coord = np.array(self.get("coord"))
-        mvec = np.array(self.get("mvec"))
-        site_idx = self.get("site_idx")
-        in_site_type = self.get("in_site_type")
         bulk_data = self.get("bulk_data")
         slab_data = self.get("slab_data")
-        slab_name = (slab_data.get("name") or
-                     slab_structure.composition.reduced_formula)
+        slab_ads_data = self.get("slab_ads_data") or {}
+
+        mvec = slab_ads_data.get("mvec") or AdsorbateSiteFinder(
+            slab_structure, **ads_site_finder_params).mvec
+        in_site_type = slab_ads_data.get("in_site_type")
 
         if "min_lw" not in ads_structures_params:
             ads_structures_params["min_lw"] = min_lw
@@ -102,10 +102,9 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
                 'selective_dynamics']
             slab_ads.add_site_property('selective_dynamics', sel_dyn)
 
-        ads_name = ''.join([site.species_string for site
-                            in adsorbate.sites])
-        slab_ads_name = "{} {} [{}]".format(slab_name, ads_name, site_idx)
-        fw_name = slab_ads_name + " slab + adsorbate optimization"
+        slab_ads_name = (slab_ads_data.get("name")
+                         or slab_ads.composition.reduced_formula)
+        fw_name = "{} slab + adsorbate optimization".format(slab_ads_name)
 
         # get id map from original structure to output one and
         # surface properties to be able to find adsorbate sites later
@@ -116,11 +115,8 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         surface_properties = slab_ads.site_properties[
             'surface_properties']
 
-        slab_ads_data = {'id_map': id_map,
-                         'surface_properties': surface_properties,
-                         'in_site_type': in_site_type,
-                         'name': slab_ads_name,
-                         'mvec': mvec}
+        slab_ads_data.update({'id_map': id_map,
+                              'surface_properties': surface_properties})
 
         slab_ads_fw = af.SlabAdsFW(
             slab_ads, name=fw_name, adsorbate=adsorbate, vasp_cmd=vasp_cmd,
@@ -237,37 +233,6 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
                         'optimal_distance': optimal_distance
                     }
                 })
-
-
-# @explicit_serialize
-# class GetPassedJobInformation(FiretaskBase):
-#     """
-#     Firetask that analyzes _job_info array in FW spec to get parrent FW state and add the distance information
-#     "_pass_job_info" must exist in parent FW's spec.
-#     """
-#
-#     required_params = ["distances"]
-#
-#     def run_task(self, fw_spec):
-#
-#         distances = self["distances"]
-#
-#         fw_status = {}
-#
-#         # Load state and correspond it to distance
-#         for distance in distances:
-#             for fwid in fw_spec["_job_info"]:
-#                 str_distance = str(distance)
-#                 if str_distance+"." in fwid["name"]:
-#                     if "state" in fwid:
-#                         if fwid["state"] is not "FIZZLED":
-#                             fw_status[str_distance] = {"state":True}
-#                         else:
-#                             fw_status[str_distance] = {"state":False}
-#                     # else:
-#                     #     fw_status[str_distance] = {"state": None}
-#         # Modify spec for future tasks
-#         return FWAction(mod_spec={"_push":{"distance_to_state":fw_status}})
 
 
 @explicit_serialize
@@ -552,7 +517,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         bulk_data = self.get("bulk_data")
         slab_data = self.get("slab_data") or {}
         slab_name = slab_data.get("slab_name")
-        miller_index = slab_data.get("miller_index")
+        # miller_index = slab_data.get("miller_index")
 
         if slab_dir:
             slab_data.update({'directory': slab_dir})
@@ -620,56 +585,69 @@ class SlabAdsAdditionTask(FiretaskBase):
                 find_args['distance'] = 0.0
                 coords = asf.find_adsorption_sites(**find_args)
 
-                for in_site_type in find_args['positions']:
-                    for site_idx, coord in enumerate(coords[in_site_type]):
-                        parents = []
-                        for distance_idx, distance in enumerate(
-                                static_distances):
-                            new_coord = coord + distance*asf.mvec
+                for site_idx, in_site_type, coord in enumerate(
+                        chain.from_iterable(
+                            [product([position], coords[position])
+                             for position in find_args['positions']])):
+                    parents = []
+                    ads_name = ''.join([site.species_string for site
+                                        in adsorbate.sites])
+                    slab_ads_name = "{} {} [{}]".format(
+                        slab_name, ads_name, site_idx)
 
-                            slab_ads = asf.add_adsorbate(adsorbate, new_coord,
-                                                         **add_ads_params)
-                            ads_name = ("{}-{}{} distance optimization: {}. "
-                                        "Site: {}").format(
-                                adsorbate.composition.formula,
-                                output_slab.composition.formula,
-                                miller_index, distance, site_idx)
+                    for distance_idx, distance in enumerate(
+                            static_distances):
+                        new_coord = coord + distance*asf.mvec
 
-                            fws.append(af.EnergyLandscapeFW(
-                                name=ads_name, structure=slab_ads,
-                                vasp_input_set=static_input_set,
-                                static_user_incar_settings=
-                                static_user_incar_settings,
-                                static_user_kpoints_settings=
-                                static_user_kpoints_settings,
-                                vasp_cmd=vasp_cmd, db_file=db_file,
-                                vasptodb_kwargs=
-                                {"task_fields_to_push": {
-                                    "{}_energy".format(distance):
-                                        "output.energy",
-                                    "{}_structure".format(distance):
-                                        "output.structure"},
-                                    "defuse_unsuccessful": False},
-                                runvaspcustodian_kwargs=
-                                {"handler_group": "no_handler"},
-                                spec={"_pass_job_info": True}))
-                            parents.append(fws[-1])
+                        slab_ads = asf.add_adsorbate(adsorbate, new_coord,
+                                                     **add_ads_params)
 
-                        fws.append(af.DistanceOptimizationFW(
-                            adsorbate, slab_structure=output_slab, coord=coord,
-                            mvec=asf.mvec, static_distances=static_distances,
-                            name=("Optimal Distance Analysis, Adsorbate: {}, "
-                                  "Surface: {}, Site: {}").format(
-                                adsorbate.composition.formula, miller_index,
-                                site_idx), vasp_cmd=vasp_cmd, db_file=db_file,
-                            min_lw=min_lw,
-                            ads_site_finder_params=ads_site_finder_params,
-                            ads_structures_params=ads_structures_params,
-                            slab_ads_fw_params=slab_ads_fw_params,
-                            site_idx=site_idx, in_site_type=in_site_type,
-                            bulk_data=bulk_data, slab_data=slab_data,
-                            parents=parents, spec={
-                                "_allow_fizzled_parents": True}))
+                        # ads_name = ("{}-{}{} distance optimization: {}. "
+                        #             "Site: {}").format(
+                        #     adsorbate.composition.formula,
+                        #     output_slab.composition.formula,
+                        #     miller_index, distance, site_idx)
+
+                        el_fw_name = "{} static distance {:.2f}".format(
+                            slab_ads_name, distance)
+
+                        fws.append(af.EnergyLandscapeFW(
+                            name=el_fw_name, structure=slab_ads,
+                            vasp_input_set=static_input_set,
+                            static_user_incar_settings=
+                            static_user_incar_settings,
+                            static_user_kpoints_settings=
+                            static_user_kpoints_settings,
+                            vasp_cmd=vasp_cmd, db_file=db_file,
+                            vasptodb_kwargs=
+                            {"task_fields_to_push": {
+                                "{}_energy".format(distance):
+                                    "output.energy",
+                                "{}_structure".format(distance):
+                                    "output.structure"},
+                                "defuse_unsuccessful": False},
+                            runvaspcustodian_kwargs=
+                            {"handler_group": "no_handler"},
+                            spec={"_pass_job_info": True}))
+                        parents.append(fws[-1])
+
+                    slab_ads_data = {'in_site_type': in_site_type,
+                                     'name': slab_ads_name,
+                                     'mvec': asf.mvec}
+
+                    do_fw_name = "{} distance analysis".format(
+                        slab_ads_name)
+
+                    fws.append(af.DistanceOptimizationFW(
+                        adsorbate, slab_structure=output_slab, coord=coord,
+                        static_distances=static_distances, name=do_fw_name,
+                        vasp_cmd=vasp_cmd, db_file=db_file, min_lw=min_lw,
+                        ads_site_finder_params=ads_site_finder_params,
+                        ads_structures_params=ads_structures_params,
+                        slab_ads_fw_params=slab_ads_fw_params,
+                        bulk_data=bulk_data, slab_data=slab_data,
+                        slab_ads_data=slab_ads_data, parents=parents,
+                        spec={"_allow_fizzled_parents": True}))
 
             else:
                 if "selective_dynamics" not in ads_site_finder_params:
@@ -716,7 +694,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                         'surface_properties']
 
                     slab_ads_data = {'id_map': id_map,
-                                     'surface_properties':surface_properties,
+                                     'surface_properties': surface_properties,
                                      'in_site_type': in_site_type,
                                      'name': slab_ads_name,
                                      'mvec': asf.mvec}
@@ -1223,7 +1201,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         second_index = second_neighbor[2]
         second_site = output_slab_ads.sites[second_index]
         second_distance = second_neighbor[1]
-        
+
         third_index = third_neighbor[2]
         third_site = output_slab_ads.sites[third_index]
         third_distance = third_neighbor[1]
