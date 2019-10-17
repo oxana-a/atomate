@@ -71,7 +71,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         slab_data = self.get("slab_data")
         slab_ads_data = self.get("slab_ads_data") or {}
 
-        mvec = slab_ads_data.get("mvec") or AdsorbateSiteFinder(
+        mvec = np.array(slab_ads_data.get("mvec")) or AdsorbateSiteFinder(
             slab_structure, **ads_site_finder_params).mvec
         in_site_type = slab_ads_data.get("in_site_type")
 
@@ -932,7 +932,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         evalue_band_props_slab_ads = slab_ads_data.get(
             'eigenvalue_band_properties') or [None]*4
         d_band_center_slab_ads = slab_ads_data.get('d_band_center')
-        mvec = slab_ads_data.get("mvec")
+        mvec = np.array(slab_ads_data.get("mvec"))
 
         adsorbate = self.get("adsorbate")
         db_file = self.get("db_file") or DB_FILE
@@ -1038,7 +1038,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'input_structure'] = input_slab_ads.as_dict()
         stored_data['slab_adsorbate'].update({
             'output_structure': output_slab_ads.as_dict(),
-            'output_slab_ads_energy': slab_ads_energy,
+            'output_energy': slab_ads_energy,
             'eigenvalue_band_properties': {
                     'band_gap': evalue_band_props_slab_ads[0],
                     'cbm': evalue_band_props_slab_ads[1],
