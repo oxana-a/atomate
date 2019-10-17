@@ -71,8 +71,9 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         slab_data = self.get("slab_data")
         slab_ads_data = self.get("slab_ads_data") or {}
 
-        mvec = np.array(slab_ads_data.get("mvec")) or AdsorbateSiteFinder(
+        mvec = slab_ads_data.get("mvec") or AdsorbateSiteFinder(
             slab_structure, **ads_site_finder_params).mvec
+        mvec = np.array(mvec)
         in_site_type = slab_ads_data.get("in_site_type")
 
         if "min_lw" not in ads_structures_params:
