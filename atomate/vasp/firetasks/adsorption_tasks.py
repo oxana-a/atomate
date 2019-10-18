@@ -307,7 +307,8 @@ class SlabAdditionTask(FiretaskBase):
                        "min_lw", "slab_fw_params", "ads_site_finder_params",
                        "ads_structures_params", "slab_ads_fw_params",
                        "add_fw_name", "optimize_distance",
-                       "static_distances", "static_fws_params"]
+                       "static_distances", "static_fws_params",
+                       "dos_calculate"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -321,6 +322,7 @@ class SlabAdditionTask(FiretaskBase):
         db_file = self.get("db_file")
         sgp = self.get("slab_gen_params") or {}
         min_lw = self.get("min_lw") or 10.0
+        dos_calculate = self.get("dos_calculate") or True
 
         # TODO: these could be more well-thought out defaults
         if "min_slab_size" not in sgp:
@@ -440,6 +442,8 @@ class SlabAdditionTask(FiretaskBase):
                     height=2.0).slab.site_properties['selective_dynamics']
                 slab.add_site_property('selective_dynamics', sel_dyn)
 
+            #Chnage for DOS calc:
+            slab_fws = []
             slab_fw = af.SlabFW(slab, name=name, adsorbates=adsorbates,
                                 vasp_cmd=vasp_cmd, db_file=db_file,
                                 min_lw=min_lw,
@@ -451,7 +455,29 @@ class SlabAdditionTask(FiretaskBase):
                                 static_fws_params=static_fws_params,
                                 bulk_data=bulk_data, slab_data=slab_data,
                                 **slab_fw_params)
-            slab_fws.append(slab_fw)
+            if dos_calculate:
+                #relax, shuffle analysis step
+                analysis_task = slab_fw.tasks[-1]
+                slab_fw.tasks.remove(analysis_task)
+                slab_fws.append(slab_fw)
+                #static
+                slab_fws.append(StaticFW(name=name+" static",
+                                         vasp_cmd=vasp_cmd,
+                                         db_file=db_file,
+                                         parents=slab_fws[-1]))
+                #nscf
+                nscf_calc = NonSCFFW(parents=slab_fws[-1],
+                                     name=name+" nscf",mode="uniform",
+                                     vasp_cmd=vasp_cmd,db_file=db_file)
+                nscf_calc.tasks.append(analysis_task)
+                slab_fws.append(nscf_calc)
+            else:
+                slab_fws.append(slab_fw)
+
+            wf = Workflow(slab_fws)
+
+
+            slab_fws.append(wf)
 
         return FWAction(additions=slab_fws)
 
