@@ -148,7 +148,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
             slab_ads_fws.append(af.SlabAdsFW(
                 slab_ads, name=fw_name, adsorbate=adsorbate, vasp_cmd=vasp_cmd,
                 db_file=db_file, bulk_data=bulk_data, slab_data=slab_data,
-                slab_ads_data=slab_ads_data, **slab_ads_fw_params))
+                slab_ads_data=slab_ads_data,**slab_ads_fw_params))
 
         wf = Workflow(slab_ads_fws)
 
@@ -702,7 +702,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                         ads_structures_params=ads_structures_params,
                         slab_ads_fw_params=slab_ads_fw_params,
                         bulk_data=bulk_data, slab_data=slab_data,
-                        slab_ads_data=slab_ads_data, parents=parents,
+                        slab_ads_data=slab_ads_data,
+                        dos_calculate=dos_calculate, parents=parents,
                         spec={"_allow_fizzled_parents": True}))
 
             else:

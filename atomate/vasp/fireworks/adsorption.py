@@ -27,7 +27,7 @@ class DistanceOptimizationFW(Firework):
                  db_file=DB_FILE, min_lw=None, ads_site_finder_params=None,
                  ads_structures_params=None, slab_ads_fw_params=None,
                  bulk_data=None, slab_data=None, slab_ads_data=None,
-                 parents=None, **kwargs):
+                 dos_calculate = None, parents=None, **kwargs):
 
         """
         Firework (FW) that analyzes many similar static calculations where
@@ -69,7 +69,8 @@ class DistanceOptimizationFW(Firework):
             ads_structures_params=ads_structures_params,
             slab_ads_fw_params=slab_ads_fw_params,
             static_distances=static_distances, bulk_data=bulk_data,
-            slab_data=slab_data, slab_ads_data=slab_ads_data))
+            slab_data=slab_data, slab_ads_data=slab_ads_data,
+            dos_calculate=dos_calculate))
 
         super(DistanceOptimizationFW, self).__init__(
             t, parents=parents, name="{}-{}".format(
@@ -276,7 +277,8 @@ class SlabFW(Firework):
                  handler_group="md", min_lw=None, ads_site_finder_params=None,
                  ads_structures_params=None, slab_ads_fw_params=None,
                  user_incar_settings=None, optimize_distance=True,
-                 static_distances=None,static_fws_params=None, bulk_data=None,
+                 static_distances=None,static_fws_params=None,
+                 dos_calculate = True, bulk_data=None,
                  slab_data=None, parents=None, **kwargs):
         """
         Optimize slab structure and add a slab + adsorbate generator
@@ -372,7 +374,7 @@ class SlabFW(Firework):
             optimize_distance=optimize_distance,
             static_distances=static_distances,
             static_fws_params=static_fws_params, bulk_data=bulk_data,
-            slab_data=slab_data))
+            slab_data=slab_data, dos_calculate=dos_calculate))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
