@@ -540,7 +540,8 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
                      slab_gen_params=None, min_lw=None, slab_fw_params=None,
                      ads_site_finder_params=None, ads_structures_params=None,
                      slab_ads_fw_params=None, optimize_distance=True,
-                     static_distances = None, static_fws_params = None):
+                     dos_calculate=True, static_distances = None,
+                     static_fws_params = None):
     """
     Dynamic workflow hat finds all adsorption configurations starting
     from a bulk structure and a list of adsorbates. Slab structures are
@@ -597,6 +598,7 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
                      slab_ads_fw_params=slab_ads_fw_params,
                      optimize_distance=optimize_distance,
                      static_distances=static_distances,
+                     dos_calculate=dos_calculate,
                      static_fws_params=static_fws_params,
                      **bulk_fw_params)
     fws.append(bulk_fw)
