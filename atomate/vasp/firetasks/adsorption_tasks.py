@@ -1194,8 +1194,10 @@ class AdsorptionAnalysisTask(FiretaskBase):
             d_to_surface = 2 * area / base
 
             out_site_type = 'bridge'
-            surface_sites = {'site1': first_site.as_dict(),
-                             'site2': second_site.as_dict()}
+            surface_sites = {'site1': {'index': first_index,
+                                       'site': first_site.as_dict()},
+                             'site2': {'index': second_index,
+                                       'site': second_site.as_dict()}}
             distances = {'to_site1': first_distance,
                          'to_site2': second_distance,
                          'to_surface': d_to_surface}
@@ -1217,9 +1219,12 @@ class AdsorptionAnalysisTask(FiretaskBase):
             d_to_surface = np.abs(n.dot(ads) + d) / (a**2 + b**2 + c**2)**0.5
 
             out_site_type = 'hollow'
-            surface_sites = {'site1': first_site.as_dict(),
-                             'site2': second_site.as_dict(),
-                             'site3': third_site.as_dict()}
+            surface_sites = {'site1': {'index': first_index,
+                                       'site': first_site.as_dict()},
+                             'site2': {'index': second_index,
+                                       'site': second_site.as_dict()},
+                             'site3': {'index': third_index,
+                                       'site': third_site.as_dict()}}
             distances = {'to_site1': first_distance,
                          'to_site2': second_distance,
                          'to_site3': third_distance,
@@ -1229,21 +1234,26 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 mvec)/np.linalg.norm(ads_adsorp_site.coords -
                                      first_site.coords) > 0.95:
             out_site_type = 'ontop'
-            surface_sites = {'site1': first_site.as_dict()}
+            surface_sites = {'site1': {'index': first_index,
+                                       'site': first_site.as_dict()}}
             distances = {'to_site1': first_distance,
                          'to_surface': first_distance}
         else:
             out_site_type = 'other'
-            surface_sites = {'site1': first_site.as_dict(),
-                             'site2': second_site.as_dict(),
-                             'site3': third_site.as_dict()}
+            surface_sites = {'site1': {'index': first_index,
+                                       'site': first_site.as_dict()},
+                             'site2': {'index': second_index,
+                                       'site': second_site.as_dict()},
+                             'site3': {'index': third_index,
+                                       'site': third_site.as_dict()}}
             distances = {'to_site1': first_distance,
                          'to_site2': second_distance,
                          'to_site3': third_distance}
         stored_data['adsorption_site'] = {
             'in_site_type': in_site_type,
             'out_site_type': out_site_type,
-            'adsorbate_site': ads_adsorp_site.as_dict(),
+            'adsorbate_site': {'index': ads_adsorp_id,
+                               'site': ads_adsorp_site.as_dict()},
             'surface_sites': surface_sites,
             'distances': distances}
         try:
