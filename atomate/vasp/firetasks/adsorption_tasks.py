@@ -124,21 +124,26 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         slab_ads_fws = []
         if dos_calculate:
             #relax
-            slab_ads_fws.append(af.SlabAdsFW(
+            relax_calc = af.SlabAdsFW(
                 slab_ads, name=fw_name, adsorbate=adsorbate, vasp_cmd=vasp_cmd,
                 db_file=db_file, bulk_data=bulk_data, slab_data=slab_data,
-                slab_ads_data=slab_ads_data, **slab_ads_fw_params))
+                slab_ads_data=slab_ads_data, **slab_ads_fw_params)
+            analysis_step = relax_calc.tasks[-1]
+            relax_calc.tasks.remove(analysis_step)
+            slab_ads_fws.append(relax_calc)
             #static
             slab_ads_fws.append(StaticFW(name=fw_name+" static",
                                          vasp_cmd=vasp_cmd,
                                          db_file=db_file,
                                          parents=slab_ads_fws[-1]))
             #non-scf uniform
-            slab_ads_fws.append(NonSCFFW(parents=slab_ads_fws[-1],
+            nscf_calc = NonSCFFW(parents=slab_ads_fws[-1],
                                          name=fw_name+" nscf",
                                          mode="uniform",
                                          vasp_cmd=vasp_cmd,
-                                         db_file=db_file))
+                                         db_file=db_file)
+            nscf_calc.tasks.append(analysis_step)
+            slab_ads_fws.append(analysis_step)
         else:
             slab_ads_fws.append(af.SlabAdsFW(
                 slab_ads, name=fw_name, adsorbate=adsorbate, vasp_cmd=vasp_cmd,
