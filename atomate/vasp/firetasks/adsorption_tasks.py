@@ -531,7 +531,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                        "ads_site_finder_params", "ads_structures_params",
                        "slab_ads_fw_params", "optimize_distance",
                        "static_distances", "static_fws_params",
-                       "bulk_data", "slab_data"]
+                       "bulk_data", "slab_data", "dos_calculate"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -573,6 +573,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         slab_data = self.get("slab_data") or {}
         slab_name = slab_data.get("name")
         # miller_index = slab_data.get("miller_index")
+        dos_calculate = self.get("dos_calculate") or True
 
         if slab_dir:
             slab_data.update({'directory': slab_dir})
@@ -754,12 +755,31 @@ class SlabAdsAdditionTask(FiretaskBase):
                                      'name': slab_ads_name,
                                      'mvec': asf.mvec}
 
+                    #DOS calculation implementation
                     slab_ads_fw = af.SlabAdsFW(
                         slab_ads, name=fw_name, adsorbate=adsorbate,
                         vasp_cmd=vasp_cmd, db_file=db_file,
                         bulk_data=bulk_data, slab_data=slab_data,
                         slab_ads_data=slab_ads_data, **slab_ads_fw_params)
-
+                    if dos_calculate:
+                        #relax
+                        analysis_task = slab_ads_fw.tasks[-1]
+                        slab_ads_fw.tasks.remove(analysis_task)
+                        fws.append(slab_ads_fw)
+                        #static
+                        fws.append(StaticFW(name=fw_name+" static",
+                                            vasp_cmd=vasp_cmd,
+                                            db_file=db_file,
+                                            parents=fws[-1]))
+                        #nscf
+                        nscf_calc = NonSCFFW(parents=fws[-1],
+                                             name=fw_name+ " nscf",
+                                             mode="uniform",
+                                             vasp_cmd=vasp_cmd,
+                                             db_file=db_file)
+                        nscf_calc.tasks.append(analysis_task)
+                    else:
+                        fws.append(slab_ads_fw)
                     fws.append(slab_ads_fw)
 
         return FWAction(additions=Workflow(fws))
