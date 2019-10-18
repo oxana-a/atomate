@@ -983,8 +983,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
             nn_surface_list.append([output_slab_ads.sites.index(ads_site),
                                     nearest_surface_neighbor[2],
                                     nearest_surface_neighbor[1]])
-        ads_adsorp_id, surf_adsorp_id, = min(nn_surface_list,
-                                             key=lambda x: x[2])
+        ads_adsorp_id, surf_adsorp_id = min(nn_surface_list,
+                                            key=lambda x: x[2])[:2]
         output_slab_ads.sites[surf_adsorp_id].properties[
             'surface_properties'] += ', adsorption site'
 
@@ -1171,7 +1171,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         surface_neighbors = [neighbor for neighbor in neighbors
                              if neighbor[2] not in ads_ids]
         surface_neighbors.sort(key=lambda x: x[1])
-        first_neighbor, second_neighbor, third_neighbor, = surface_neighbors
+        first_neighbor, second_neighbor, third_neighbor = surface_neighbors[:3]
 
         first_index = first_neighbor[2]
         first_site = output_slab_ads.sites[first_index]
