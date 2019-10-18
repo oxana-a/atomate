@@ -19,6 +19,7 @@ from xml.etree.ElementTree import ParseError
 from atomate.utils.utils import get_logger, env_chk
 from atomate.vasp.config import DB_FILE
 from atomate.vasp.database import VaspCalcDb
+from atomate.vasp.fireworks.core import StaticFW, NonSCFFW
 from datetime import datetime
 from fireworks.core.firework import FiretaskBase, FWAction, Workflow
 from fireworks.utilities.fw_serializers import DATETIME_HANDLER
@@ -53,7 +54,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
     optional_params = ["vasp_cmd", "db_file", "min_lw",
                        "ads_site_finder_params", "ads_structures_params",
                        "slab_ads_fw_params", "bulk_data", "slab_data",
-                       "slab_ads_data"]
+                       "slab_ads_data", "dos_calculate"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -70,6 +71,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         bulk_data = self.get("bulk_data")
         slab_data = self.get("slab_data")
         slab_ads_data = self.get("slab_ads_data") or {}
+        dos_calculate = self.get("dos_calculate") or True
 
         mvec = slab_ads_data.get("mvec") or AdsorbateSiteFinder(
             slab_structure, **ads_site_finder_params).mvec
@@ -119,13 +121,34 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         slab_ads_data.update({'id_map': id_map,
                               'surface_properties': surface_properties})
 
-        slab_ads_fw = af.SlabAdsFW(
-            slab_ads, name=fw_name, adsorbate=adsorbate, vasp_cmd=vasp_cmd,
-            db_file=db_file, bulk_data=bulk_data, slab_data=slab_data,
-            slab_ads_data=slab_ads_data, **slab_ads_fw_params)
+        slab_ads_fws = []
+        if dos_calculate:
+            #relax
+            slab_ads_fws.append(af.SlabAdsFW(
+                slab_ads, name=fw_name, adsorbate=adsorbate, vasp_cmd=vasp_cmd,
+                db_file=db_file, bulk_data=bulk_data, slab_data=slab_data,
+                slab_ads_data=slab_ads_data, **slab_ads_fw_params))
+            #static
+            slab_ads_fws.append(StaticFW(name=fw_name+" static",
+                                         vasp_cmd=vasp_cmd,
+                                         db_file=db_file,
+                                         parents=slab_ads_fws[-1]))
+            #non-scf uniform
+            slab_ads_fws.append(NonSCFFW(parents=slab_ads_fws[-1],
+                                         name=fw_name+" nscf",
+                                         mode="uniform",
+                                         vasp_cmd=vasp_cmd,
+                                         db_file=db_file))
+        else:
+            slab_ads_fws.append(af.SlabAdsFW(
+                slab_ads, name=fw_name, adsorbate=adsorbate, vasp_cmd=vasp_cmd,
+                db_file=db_file, bulk_data=bulk_data, slab_data=slab_data,
+                slab_ads_data=slab_ads_data, **slab_ads_fw_params))
+
+        wf = Workflow(slab_ads_fws)
 
         # launch it, we made it this far fam.
-        return FWAction(additions=slab_ads_fw)
+        return FWAction(additions=wf)
 
 
 @explicit_serialize
