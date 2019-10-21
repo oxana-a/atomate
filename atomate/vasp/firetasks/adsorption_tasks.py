@@ -862,6 +862,8 @@ class AnalysisAdditionTask(FiretaskBase):
         slab_data = self.get("slab_data")
         slab_ads_data = self.get("slab_ads_data") or {}
 
+        mvec = np.array(slab_ads_data.get("mvec"))
+
         id_map = slab_ads_data.get("id_map")
         surface_properties = slab_ads_data.get("surface_properties")
 
@@ -930,9 +932,16 @@ class AnalysisAdditionTask(FiretaskBase):
                     ads_ids = [output_slab_ads.sites.index(site) for site in
                                ads_sites]
 
-                    # Densities by Orbital Type for Slab
+                    #Get Surface Sites:
+                    nn_surface_list = get_nn_surface(output_slab_ads, ads_ids)
+                    ads_adsorp_id, surf_adsorp_id = min(nn_surface_list,
+                                                        key=lambda x: x[2])[:2]
+                    out_site_type, surface_sites, distances = get_site_type(
+                        output_slab_ads, ads_adsorp_id, ads_ids, mvec)
+
+                    # Densities by Orbital Type for Surface Site
                     orbital_densities_by_type = {}
-                    for site_idx in ads_ids:
+                    for site_idx in surface_sites:
                         dos_spd_site = complete_dos.get_site_spd_dos(
                             complete_dos.structure.sites[site_idx])
                         orbital_densities_for_site = {}
@@ -944,12 +953,29 @@ class AnalysisAdditionTask(FiretaskBase):
                         orbital_densities_by_type[site_idx] = \
                             orbital_densities_for_site
 
+                    #Quantify DOS overlap between adsorbate and surface
+                    for surf_ids, surf_prop in surface_sites.items():
+                        for ads_idx in ads_ids:
+                            surf_idx = surf_ids['index']
+                            surf_dos = complete_dos.get_site_dos(
+                                complete_dos.structure.sites[surf_idx]
+                            ).get_densities()
+                            ads_dos = complete_dos.get_site_dos(
+                                complete_dos.structure.sites[ads_idx]
+                            ).get_densities()
+                            overlap_surf_ads_total_pdos = np.trapz(
+                                get_overlap(surf_dos,
+                                            ads_dos
+                                            ),x=complete_dos.energies)
+
                     slab_ads_data.update({
                         'input_structure': input_slab_ads,
                         'converged': slab_ads_converged,
                         'eigenvalue_band_properties': eigenvalue_band_props,
                         'd_band_center': d_band_center_slab_ads,
-                        'orbital_densities_by_type':orbital_densities_by_type})
+                        'orbital_densities_by_type':orbital_densities_by_type,
+                        'overlap_surf_ads_total_pdos':overlap_surf_ads_total_pdos,
+                    })
 
                 except (ParseError, AssertionError):
                     pass
@@ -1060,6 +1086,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         d_band_center_slab_ads = slab_ads_data.get('d_band_center')
         orbital_densities_by_type = slab_ads_data.get(
             "orbital_densities_by_type")
+        overlap_surf_ads_total_pdos = slab_ads_data.get(
+            "overlap_surf_ads_total_pdos")
         mvec = np.array(slab_ads_data.get("mvec"))
 
         adsorbate = self.get("adsorbate")
@@ -1161,7 +1189,9 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     'is_band_gap_direct': evalue_band_props_slab_ads[3]}})
         stored_data['slab_adsorbate'].update({
             'd_band_center': d_band_center_slab_ads,
-            'orbital_densities_by_type':orbital_densities_by_type})
+            'orbital_densities_by_type':orbital_densities_by_type,
+            'overlap_surf_ads_total_pdos':overlap_surf_ads_total_pdos,
+        })
 
         # cleavage energy
         area = np.linalg.norm(np.cross(output_slab.lattice.matrix[0],
@@ -1325,6 +1355,17 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
         return FWAction()
 
+def get_overlap(y1, y2):
+    y1 = abs(y1)
+    y2 = abs(y2)
+    overlap = []
+    for k in range(0, len(y1)):
+        if y1[k] >0 and y2[k]>0:
+            o = min(y1[k], y2[k])
+            overlap.append(o)
+        else:
+            overlap.append(0)
+    return overlap
 
 def time_vrun(path):
     # helper function that returns the creation time
