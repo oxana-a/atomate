@@ -862,6 +862,9 @@ class AnalysisAdditionTask(FiretaskBase):
         slab_data = self.get("slab_data")
         slab_ads_data = self.get("slab_ads_data") or {}
 
+        id_map = slab_ads_data.get("id_map")
+        surface_properties = slab_ads_data.get("surface_properties")
+
         slab_ads_data.update({'task_id': slab_ads_task_id})
 
         # extract data from vasprun to pass it on
@@ -887,8 +890,10 @@ class AnalysisAdditionTask(FiretaskBase):
                         output_slab_ads = vrun_o.final_structure
                     input_slab_ads = vrun_i.initial_structure
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
+
                     # d-Band Center analysis:
-                    dos_spd = vrun_o.complete_dos.get_spd_dos()  # get SPD DOS
+                    complete_dos = vrun_o.complete_dos
+                    dos_spd = complete_dos.get_spd_dos()  # get SPD DOS
                     dos_d = list(dos_spd.items())[2][1]  # Get 'd' band dos
                     # add spin up and spin down densities
                     total_d_densities = dos_d.get_densities()
@@ -908,11 +913,43 @@ class AnalysisAdditionTask(FiretaskBase):
                             d_band_center_slab_ads = dos_d.energies[k]
                             break
 
+                    #Get adsorbate sites:
+                    ads_sites = []
+                    if surface_properties and id_map and output_slab_ads:
+                        ordered_surf_prop = [prop for new_id, prop in
+                                             sorted(zip(id_map,
+                                                        surface_properties))]
+                        output_slab_ads.add_site_property('surface_properties',
+                                                          ordered_surf_prop)
+                        ads_sites = [site for site in output_slab_ads.sites if
+                                     site.properties[
+                                         "surface_properties"] == "adsorbate"]
+                    elif adsorbate and output_slab_ads:
+                        ads_sites = [output_slab_ads.sites[new_id] for new_id
+                                     in id_map[-adsorbate.num_sites:]]
+                    ads_ids = [output_slab_ads.sites.index(site) for site in
+                               ads_sites]
+
+                    # Densities by Orbital Type for Slab
+                    orbital_densities_by_type = {}
+                    for site_idx in ads_ids:
+                        dos_spd_site = complete_dos.get_site_spd_dos(
+                            complete_dos.structure.sites[site_idx])
+                        orbital_densities_for_site = {}
+                        for orbital_type, elec_dos in dos_spd_site.items():
+                            orbital_densities_for_site.update(
+                                {orbital_type: np.trapz(
+                                    elec_dos.get_densities(),
+                                    x=elec_dos.energies)})
+                        orbital_densities_by_type[site_idx] = \
+                            orbital_densities_for_site
+
                     slab_ads_data.update({
                         'input_structure': input_slab_ads,
                         'converged': slab_ads_converged,
                         'eigenvalue_band_properties': eigenvalue_band_props,
-                        'd_band_center': d_band_center_slab_ads})
+                        'd_band_center': d_band_center_slab_ads,
+                        'orbital_densities_by_type':orbital_densities_by_type})
 
                 except (ParseError, AssertionError):
                     pass
@@ -1021,6 +1058,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         evalue_band_props_slab_ads = slab_ads_data.get(
             'eigenvalue_band_properties') or [None]*4
         d_band_center_slab_ads = slab_ads_data.get('d_band_center')
+        orbital_densities_by_type = slab_ads_data.get(
+            "orbital_densities_by_type")
         mvec = np.array(slab_ads_data.get("mvec"))
 
         adsorbate = self.get("adsorbate")
@@ -1121,7 +1160,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     'vbm': evalue_band_props_slab_ads[2],
                     'is_band_gap_direct': evalue_band_props_slab_ads[3]}})
         stored_data['slab_adsorbate'].update({
-            'd_band_center': d_band_center_slab_ads})
+            'd_band_center': d_band_center_slab_ads,
+            'orbital_densities_by_type':orbital_densities_by_type})
 
         # cleavage energy
         area = np.linalg.norm(np.cross(output_slab.lattice.matrix[0],
