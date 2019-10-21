@@ -486,10 +486,7 @@ class SlabAdditionTask(FiretaskBase):
 
             wf = Workflow(slab_fws)
 
-
-            slab_fws.append(wf)
-
-        return FWAction(additions=slab_fws)
+        return FWAction(additions=wf)
 
 
 @explicit_serialize
@@ -953,8 +950,12 @@ class AnalysisAdditionTask(FiretaskBase):
                         orbital_densities_by_type[site_idx] = \
                             orbital_densities_for_site
 
-                    #Quantify DOS overlap between adsorbate and surface
+                    #Quantify Total PDOS overlap between adsorbate and surface
+                    total_surf_ads_pdos_overlap = {}
                     for surf_ids, surf_prop in surface_sites.items():
+                        if not total_surf_ads_pdos_overlap.get(
+                                surf_ids, False):
+                            total_surf_ads_pdos_overlap[surf_ids] = {}
                         for ads_idx in ads_ids:
                             surf_idx = surf_ids['index']
                             surf_dos = complete_dos.get_site_dos(
@@ -963,10 +964,14 @@ class AnalysisAdditionTask(FiretaskBase):
                             ads_dos = complete_dos.get_site_dos(
                                 complete_dos.structure.sites[ads_idx]
                             ).get_densities()
-                            overlap_surf_ads_total_pdos = np.trapz(
-                                get_overlap(surf_dos,
-                                            ads_dos
-                                            ),x=complete_dos.energies)
+                            c_overlap = np.trapz(get_overlap(surf_dos,
+                                                             ads_dos),
+                                                 x=complete_dos.energies)
+                            total_surf_ads_pdos_overlap[surf_ids][ads_idx] = \
+                                c_overlap
+
+
+                    #Quantify overlap by orbital type
 
                     slab_ads_data.update({
                         'input_structure': input_slab_ads,
@@ -974,7 +979,7 @@ class AnalysisAdditionTask(FiretaskBase):
                         'eigenvalue_band_properties': eigenvalue_band_props,
                         'd_band_center': d_band_center_slab_ads,
                         'orbital_densities_by_type':orbital_densities_by_type,
-                        'overlap_surf_ads_total_pdos':overlap_surf_ads_total_pdos,
+                        'total_surf_ads_pdos_overlap':total_surf_ads_pdos_overlap,
                     })
 
                 except (ParseError, AssertionError):
@@ -1086,8 +1091,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         d_band_center_slab_ads = slab_ads_data.get('d_band_center')
         orbital_densities_by_type = slab_ads_data.get(
             "orbital_densities_by_type")
-        overlap_surf_ads_total_pdos = slab_ads_data.get(
-            "overlap_surf_ads_total_pdos")
+        total_surf_ads_pdos_overlap = slab_ads_data.get(
+            "total_surf_ads_pdos_overlap")
         mvec = np.array(slab_ads_data.get("mvec"))
 
         adsorbate = self.get("adsorbate")
@@ -1190,7 +1195,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         stored_data['slab_adsorbate'].update({
             'd_band_center': d_band_center_slab_ads,
             'orbital_densities_by_type':orbital_densities_by_type,
-            'overlap_surf_ads_total_pdos':overlap_surf_ads_total_pdos,
+            'total_surf_ads_pdos_overlap':total_surf_ads_pdos_overlap,
         })
 
         # cleavage energy
