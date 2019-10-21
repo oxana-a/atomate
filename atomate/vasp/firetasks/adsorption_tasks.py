@@ -19,6 +19,7 @@ from xml.etree.ElementTree import ParseError
 from atomate.utils.utils import get_logger, env_chk
 from atomate.vasp.config import DB_FILE
 from atomate.vasp.database import VaspCalcDb
+from atomate.vasp.drones import VaspDrone
 from atomate.vasp.fireworks.core import StaticFW, NonSCFFW
 from datetime import datetime
 from fireworks.core.firework import FiretaskBase, FWAction, Workflow
@@ -32,6 +33,7 @@ from pymatgen.analysis.surface_analysis import EV_PER_ANG2_TO_JOULES_PER_M2
 from pymatgen.core.bonds import CovalentBond
 from pymatgen.core.sites import PeriodicSite
 from pymatgen.analysis.surface_analysis import get_slab_regions
+from pymatgen.analysis.surface_analysis import WorkFunctionAnalyzer
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.io.vasp.outputs import Vasprun
 from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
@@ -651,12 +653,27 @@ class SlabAdsAdditionTask(FiretaskBase):
 
                     # Quantify overlap by orbital type
 
+                    # Work Function Analyzer
+                    vd = VaspDrone()
+                    poscar_file = vd.filter_files(
+                        ".", file_pattern="POSCAR")['standard']
+                    locpot_file = vd.filter_files(
+                        ".","LOCPOT")["standard"]
+                    outcar_file = vd.filter_files(
+                        ".", "OUTCAR")["standard"]
+                    wfa = WorkFunctionAnalyzer.from_files(
+                        poscar_file,locpot_file,outcar_file)
+                    work_function = wfa.work_function
+
+
+
                     slab_data.update({
                         'input_structure': input_slab,
                         'converged': slab_converged,
                         'eigenvalue_band_properties': eigenvalue_band_props,
                         'd_band_center': d_band_center_slab,
                         'orbital_densities_by_type':orbital_densities_by_type,
+                        'work_function':work_function,
                     })
 
                 except (ParseError, AssertionError):
@@ -1000,8 +1017,19 @@ class AnalysisAdditionTask(FiretaskBase):
                             total_surf_ads_pdos_overlap[surf_ids][ads_idx] = \
                                 c_overlap
 
+                    # Quantify overlap by orbital type
 
-                    #Quantify overlap by orbital type
+                    # Work Function Analyzer
+                    vd = VaspDrone()
+                    poscar_file = vd.filter_files(
+                        ".", file_pattern="POSCAR")['standard']
+                    locpot_file = vd.filter_files(
+                        ".", "LOCPOT")["standard"]
+                    outcar_file = vd.filter_files(
+                        ".", "OUTCAR")["standard"]
+                    wfa = WorkFunctionAnalyzer.from_files(
+                        poscar_file, locpot_file, outcar_file)
+                    work_function = wfa.work_function
 
                     slab_ads_data.update({
                         'input_structure': input_slab_ads,
@@ -1009,7 +1037,9 @@ class AnalysisAdditionTask(FiretaskBase):
                         'eigenvalue_band_properties': eigenvalue_band_props,
                         'd_band_center': d_band_center_slab_ads,
                         'orbital_densities_by_type':orbital_densities_by_type,
-                        'total_surf_ads_pdos_overlap':total_surf_ads_pdos_overlap,
+                        'total_surf_ads_pdos_overlap':
+                            total_surf_ads_pdos_overlap,
+                        'work_function':work_function,
                     })
 
                 except (ParseError, AssertionError):
@@ -1203,7 +1233,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         stored_data['slab'].update({
             'd_band_center': slab_data.get("d_band_center", False),
             "orbital_densities_by_type":slab_data.get(
-                "orbital_densities_by_type", False)
+                "orbital_densities_by_type", False),
+            'work_function':slab_data.get('work_function', False),
         })
 
         stored_data['slab_adsorbate'] = {
@@ -1227,6 +1258,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 "orbital_densities_by_type", False),
             'total_surf_ads_pdos_overlap':slab_ads_data.get(
                 "total_surf_ads_pdos_overlap", False),
+            'work_function':slab_ads_data.get('work_function', False),
         })
 
         # cleavage energy
