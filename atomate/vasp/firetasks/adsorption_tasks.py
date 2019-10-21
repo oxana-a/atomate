@@ -454,7 +454,6 @@ class SlabAdditionTask(FiretaskBase):
                 slab.add_site_property('selective_dynamics', sel_dyn)
 
             #Chnage for DOS calc:
-            slab_fws = []
             slab_fw = af.SlabFW(slab, name=name, adsorbates=adsorbates,
                                 vasp_cmd=vasp_cmd, db_file=db_file,
                                 min_lw=min_lw,
@@ -485,7 +484,7 @@ class SlabAdditionTask(FiretaskBase):
             else:
                 slab_fws.append(slab_fw)
 
-            wf = Workflow(slab_fws)
+        wf = Workflow(slab_fws)
 
         return FWAction(additions=wf)
 
