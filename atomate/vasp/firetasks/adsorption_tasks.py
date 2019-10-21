@@ -31,6 +31,7 @@ from pymatgen.analysis.structure_matcher import StructureMatcher
 from pymatgen.analysis.surface_analysis import EV_PER_ANG2_TO_JOULES_PER_M2
 from pymatgen.core.bonds import CovalentBond
 from pymatgen.core.sites import PeriodicSite
+from pymatgen.analysis.surface_analysis import get_slab_regions
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.io.vasp.outputs import Vasprun
 from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
@@ -604,8 +605,12 @@ class SlabAdsAdditionTask(FiretaskBase):
                         output_slab = vrun_o.final_structure
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
                     input_slab = vrun_i.initial_structure
+
+                    #Electronic Analysis
+
                     # d-Band Center analysis:
-                    dos_spd = vrun_o.complete_dos.get_spd_dos()  # get SPD DOS
+                    complete_dos = vrun_o.complete_dos
+                    dos_spd = complete_dos.get_spd_dos()  # get SPD DOS
                     dos_d = list(dos_spd.items())[2][1]  # Get 'd' band dos
                     # add spin up and spin down densities
                     total_d_densities = dos_d.get_densities()
@@ -623,11 +628,37 @@ class SlabAdsAdditionTask(FiretaskBase):
                         if c_int > (total_integrated_density / 2):
                             d_band_center_slab = dos_d.energies[k]
                             break
+
+                    # Get Surface Sites:
+                    z = max(max(get_slab_regions(output_slab)))
+                    surface_sites = []
+                    for site in output_slab.sites:
+                        if abs(site.frac_coords[2]-z)<.05:
+                            surface_sites.append(site)
+
+                    # Densities by Orbital Type for Surface Site
+                    orbital_densities_by_type = {}
+                    for site_idx,site in enumerate(surface_sites):
+                        dos_spd_site = complete_dos.get_site_spd_dos(
+                            complete_dos.structure.sites[site_idx])
+                        orbital_densities_for_site = {}
+                        for orbital_type, elec_dos in dos_spd_site.items():
+                            orbital_densities_for_site.update(
+                                {orbital_type: np.trapz(
+                                    elec_dos.get_densities(),
+                                    x=elec_dos.energies)})
+                        orbital_densities_by_type[site_idx] = \
+                            orbital_densities_for_site
+
+                    # Quantify overlap by orbital type
+
                     slab_data.update({
                         'input_structure': input_slab,
                         'converged': slab_converged,
                         'eigenvalue_band_properties': eigenvalue_band_props,
-                        'd_band_center': d_band_center_slab})
+                        'd_band_center': d_band_center_slab,
+                        'orbital_densities_by_type':orbital_densities_by_type,
+                    })
 
                 except (ParseError, AssertionError):
                     pass
@@ -1072,7 +1103,6 @@ class AdsorptionAnalysisTask(FiretaskBase):
         slab_converged = slab_data.get('converged')
         evalue_band_props_slab = slab_data.get(
             'eigenvalue_band_properties') or [None]*4
-        d_band_center_slab = slab_data.get('d_band_center')
 
         slab_ads_data = self.get("slab_ads_data") or {}
         output_slab_ads = slab_ads_data.get("output_structure")
@@ -1088,11 +1118,6 @@ class AdsorptionAnalysisTask(FiretaskBase):
         slab_ads_converged = slab_ads_data.get('converged')
         evalue_band_props_slab_ads = slab_ads_data.get(
             'eigenvalue_band_properties') or [None]*4
-        d_band_center_slab_ads = slab_ads_data.get('d_band_center')
-        orbital_densities_by_type = slab_ads_data.get(
-            "orbital_densities_by_type")
-        total_surf_ads_pdos_overlap = slab_ads_data.get(
-            "total_surf_ads_pdos_overlap")
         mvec = np.array(slab_ads_data.get("mvec"))
 
         adsorbate = self.get("adsorbate")
@@ -1176,7 +1201,11 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'cbm': evalue_band_props_slab[1],
                 'vbm': evalue_band_props_slab[2],
                 'is_band_gap_direct': evalue_band_props_slab[3]}})
-        stored_data['slab'].update({'d_band_center': d_band_center_slab})
+        stored_data['slab'].update({
+            'd_band_center': slab_data.get("d_band_center", False),
+            "orbital_densities_by_type":slab_data.get(
+                "orbital_densities_by_type", False)
+        })
 
         stored_data['slab_adsorbate'] = {
             'name': slab_ads_name, 'directory': slab_ads_dir,
@@ -1193,9 +1222,12 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     'vbm': evalue_band_props_slab_ads[2],
                     'is_band_gap_direct': evalue_band_props_slab_ads[3]}})
         stored_data['slab_adsorbate'].update({
-            'd_band_center': d_band_center_slab_ads,
-            'orbital_densities_by_type':orbital_densities_by_type,
-            'total_surf_ads_pdos_overlap':total_surf_ads_pdos_overlap,
+            'd_band_center': slab_ads_data.get(
+                "d_band_center", False),
+            'orbital_densities_by_type':slab_ads_data.get(
+                "orbital_densities_by_type", False),
+            'total_surf_ads_pdos_overlap':slab_ads_data.get(
+                "total_surf_ads_pdos_overlap", False),
         })
 
         # cleavage energy
