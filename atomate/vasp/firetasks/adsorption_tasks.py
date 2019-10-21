@@ -88,6 +88,15 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         optimal_distance = fw_spec.get("optimal_distance")[0]
 
         # Create structure with optimal distance
+        if "surface_properties" not in slab_structure.site_properties:
+            surf_dict = slab_structure.get_surface_sites()
+            surf_props = [
+                'surface' if i in [
+                    idx for site, idx in surf_dict["top"]]
+                else 'bottom_surface' if i in [
+                    idx for site, idx in surf_dict["bottom"]]
+                else 'subsurface' for i in range(slab_structure.num_sites)]
+            slab_structure.add_site_property("surface_properties", surf_props)
         asf = AdsorbateSiteFinder(slab_structure, **ads_site_finder_params)
         new_coord = coord + optimal_distance * mvec
         slab_ads = asf.add_adsorbate(adsorbate, new_coord, **add_ads_params)
@@ -113,8 +122,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         new_slab_ads = vis.structure
         sm = StructureMatcher(primitive_cell=False)
         id_map = sm.get_transformation(slab_ads, new_slab_ads)[-1]
-        surface_properties = slab_ads.site_properties[
-            'surface_properties']
+        surface_properties = slab_ads.site_properties['surface_properties']
 
         # input site type
         ads_ids = [i for i in range(slab_ads.num_sites)
@@ -580,6 +588,16 @@ class SlabAdsAdditionTask(FiretaskBase):
                     pass
             except FileNotFoundError:
                 warnings.warn("Slab directory not found: {}".format(slab_dir))
+
+        if "surface_properties" not in output_slab.site_properties:
+            surf_dict = output_slab.get_surface_sites()
+            surf_props = [
+                'surface' if i in [
+                    idx for site, idx in surf_dict["top"]]
+                else 'bottom_surface' if i in [
+                    idx for site, idx in surf_dict["bottom"]]
+                else 'subsurface' for i in range(output_slab.num_sites)]
+            output_slab.add_site_property("surface_properties", surf_props)
 
         slab_data.update({'output_structure': output_slab,
                           'final_energy': slab_energy})
