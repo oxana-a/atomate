@@ -631,6 +631,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                             break
 
                     # Get Surface Sites:
+                    # TODO: Replace with get_surface_sites
                     z = max(max(get_slab_regions(output_slab)))
                     surface_sites = []
                     for site in output_slab.sites:
@@ -653,6 +654,38 @@ class SlabAdsAdditionTask(FiretaskBase):
 
                     # Quantify overlap by orbital type
 
+                    # Elemental make-up of CBM and VBM
+                    cbm_elemental_makeup = {}
+                    vbm_elemental_makeup = {}
+                    (cbm, vbm) = complete_dos.get_cbm_vbm()
+                    for element in output_slab.composition:
+                        elem_dos = complete_dos.get_element_dos()[element]
+                        cbm_densities = []
+                        cbm_energies = []
+                        vbm_densities = []
+                        vbm_energies = []
+                        for energy, density in zip(
+                                elem_dos.energies,elem_dos.get_densities()):
+                            if energy > cbm:
+                                if density ==0:
+                                    break
+                                cbm_densities.append(density)
+                                cbm_energies.append(energy)
+                        for energy, density in zip(
+                                reversed(elem_dos.energies),
+                                reversed(elem_dos.get_densities())):
+                            if energy < vbm:
+                                if density ==0:
+                                    break
+                                vbm_densities.append(density)
+                                vbm_energies.append(energy)
+                        vbm_integrated = np.trapz(vbm_densities,
+                                                  x=vbm_energies)
+                        cbm_integrated = np.trapz(cbm_densities,
+                                                  x=cbm_energies)
+                        cbm_elemental_makeup[element] = cbm_integrated
+                        vbm_elemental_makeup[element] = vbm_integrated
+
                     # Work Function Analyzer
                     vd = VaspDrone()
                     poscar_file = vd.filter_files(
@@ -674,6 +707,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                         'd_band_center': d_band_center_slab,
                         'orbital_densities_by_type':orbital_densities_by_type,
                         'work_function':work_function,
+                        'cbm_elemental_makeup':cbm_elemental_makeup,
+                        'vbm_elemental_makeup':vbm_elemental_makeup,
                     })
 
                 except (ParseError, AssertionError):
@@ -1019,6 +1054,40 @@ class AnalysisAdditionTask(FiretaskBase):
 
                     # Quantify overlap by orbital type
 
+                    # Elemental make-up of CBM and VBM
+                    cbm_elemental_makeup = {}
+                    vbm_elemental_makeup = {}
+                    (cbm, vbm) = complete_dos.get_cbm_vbm()
+                    for element in output_slab_ads.composition:
+                        elem_dos = complete_dos.get_element_dos()[
+                            element]
+                        cbm_densities = []
+                        cbm_energies = []
+                        vbm_densities = []
+                        vbm_energies = []
+                        for energy, density in zip(
+                                elem_dos.energies,
+                                elem_dos.get_densities()):
+                            if energy > cbm:
+                                if density == 0:
+                                    break
+                                cbm_densities.append(density)
+                                cbm_energies.append(energy)
+                        for energy, density in zip(
+                                reversed(elem_dos.energies),
+                                reversed(elem_dos.get_densities())):
+                            if energy < vbm:
+                                if density == 0:
+                                    break
+                                vbm_densities.append(density)
+                                vbm_energies.append(energy)
+                        vbm_integrated = np.trapz(vbm_densities,
+                                                  x=vbm_energies)
+                        cbm_integrated = np.trapz(cbm_densities,
+                                                  x=cbm_energies)
+                        cbm_elemental_makeup[element] = cbm_integrated
+                        vbm_elemental_makeup[element] = vbm_integrated
+
                     # Work Function Analyzer
                     vd = VaspDrone()
                     poscar_file = vd.filter_files(
@@ -1040,6 +1109,8 @@ class AnalysisAdditionTask(FiretaskBase):
                         'total_surf_ads_pdos_overlap':
                             total_surf_ads_pdos_overlap,
                         'work_function':work_function,
+                        'cbm_elemental_makeup':cbm_elemental_makeup,
+                        'vbm_elemental_makeup':vbm_elemental_makeup,
                     })
 
                 except (ParseError, AssertionError):
@@ -1235,6 +1306,10 @@ class AdsorptionAnalysisTask(FiretaskBase):
             "orbital_densities_by_type":slab_data.get(
                 "orbital_densities_by_type", False),
             'work_function':slab_data.get('work_function', False),
+            'cbm_elemental_makeup':slab_data.get(
+                'cbm_elemental_makeup', False),
+            'vbm_elemental_makeup':slab_data.get(
+                'vbm_elemental_makeup', False)
         })
 
         stored_data['slab_adsorbate'] = {
@@ -1259,6 +1334,10 @@ class AdsorptionAnalysisTask(FiretaskBase):
             'total_surf_ads_pdos_overlap':slab_ads_data.get(
                 "total_surf_ads_pdos_overlap", False),
             'work_function':slab_ads_data.get('work_function', False),
+            'cbm_elemental_makeup':slab_ads_data.get(
+                'cbm_elemental_makeup', False),
+            'vbm_elemental_makeup': slab_ads_data.get(
+                'vbm_elemental_makeup', False),
         })
 
         # cleavage energy
