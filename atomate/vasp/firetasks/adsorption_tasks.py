@@ -480,7 +480,14 @@ class SlabAdditionTask(FiretaskBase):
                 #nscf
                 nscf_calc = NonSCFFW(parents=slab_fws[-1],
                                      name=name+" nscf",mode="uniform",
-                                     vasp_cmd=vasp_cmd,db_file=db_file)
+                                     vasp_cmd=vasp_cmd,db_file=db_file,
+                                     vasptodb_kwargs={
+                                         "task_fields_to_push":{
+                                             "slab_structure":
+                                                 "output.structure",
+                                             "slab_energy":"output.energy"
+                                         }
+                                     })
                 nscf_calc.tasks.append(analysis_task)
                 slab_fws.append(nscf_calc)
             else:
