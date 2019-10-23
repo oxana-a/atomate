@@ -245,7 +245,7 @@ class NonSCFFW(Firework):
     def __init__(self, parents=None, prev_calc_dir=None, structure=None,
                  name="nscf", mode="uniform", vasp_cmd=VASP_CMD,
                  copy_vasp_outputs=True, db_file=DB_FILE,
-                 input_set_overrides=None, vasptodb_kwargs=None, **kwargs):
+                 input_set_overrides=None, **kwargs):
         """
         Standard NonSCF Calculation Firework supporting uniform and line modes.
 
@@ -270,7 +270,6 @@ class NonSCFFW(Firework):
             \*\*kwargs: Other kwargs that are passed to Firework.__init__.
         """
         input_set_overrides = input_set_overrides or {}
-        vasptodb_kwargs = vasptodb_kwargs or {}
 
         fw_name = "{}-{} {}".format(structure.composition.reduced_formula if
                                     structure else "unknown", name, mode)
@@ -300,8 +299,7 @@ class NonSCFFW(Firework):
         t.append(VaspToDb(db_file=db_file,
                           additional_fields={"task_label": name + " " + mode},
                           parse_dos=(mode == "uniform"),
-                          bandstructure_mode=mode,
-                          **vasptodb_kwargs))
+                          bandstructure_mode=mode))
 
         super(NonSCFFW, self).__init__(t, parents=parents, name=fw_name,
                                        **kwargs)
