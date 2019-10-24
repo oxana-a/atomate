@@ -210,8 +210,8 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
             # if distance_to_state.get(distance,{}).get("state",False):
             if "{}_energy".format(distance) in fw_spec:
                 # energy per atom
-                energy = fw_spec["{}_energy".format(distance)]  # OA: this is was divided by # of atoms twice before
-                slab_ads_struct = fw_spec.get("{}_structure".format(distance)) or slab_ads_struct
+                energy = fw_spec["{}_energy".format(distance_idx)]  # OA: this is was divided by # of atoms twice before
+                slab_ads_struct = fw_spec.get("{}_structure".format(distance_idx)) or slab_ads_struct
 
                 #for other fitting algorithms:
                 all_energies.append(energy)
@@ -552,6 +552,8 @@ class SlabAdsAdditionTask(FiretaskBase):
 
         fws = []
 
+        print("load data")
+
         output_slab = Structure.from_dict(fw_spec["slab_structure"])
         slab_energy = fw_spec["slab_energy"]
         calc_locs = fw_spec["calc_locs"]
@@ -590,6 +592,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         dos_calculate = self.get("dos_calculate") or True
 
         if slab_dir:
+            print("load file")
             slab_data.update({'directory': slab_dir})
             try:
                 vrun_paths = [os.path.join(slab_dir, fname) for fname in
@@ -615,6 +618,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                     #Electronic Analysis
 
                     # d-Band Center analysis:
+                    print("dband")
                     complete_dos = vrun_o.complete_dos
                     dos_spd = complete_dos.get_spd_dos()  # get SPD DOS
                     dos_d = list(dos_spd.items())[2][1]  # Get 'd' band dos
@@ -644,6 +648,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                             surface_sites.append(site)
 
                     # Densities by Orbital Type for Surface Site
+                    print("orbital type surface")
                     orbital_densities_by_type = {}
                     for site_idx,site in enumerate(surface_sites):
                         dos_spd_site = complete_dos.get_site_spd_dos(
@@ -660,6 +665,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                     # Quantify overlap by orbital type
 
                     # Elemental make-up of CBM and VBM
+                    print("elemental makeup")
                     cbm_elemental_makeup = {}
                     vbm_elemental_makeup = {}
                     (cbm, vbm) = complete_dos.get_cbm_vbm()
@@ -692,6 +698,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                         vbm_elemental_makeup[element] = vbm_integrated
 
                     # Work Function Analyzer
+                    print("wfa")
                     vd = VaspDrone()
                     poscar_file = vd.filter_files(
                         ".", file_pattern="POSCAR")['standard']
@@ -763,9 +770,9 @@ class SlabAdsAdditionTask(FiretaskBase):
                             vasp_cmd=vasp_cmd, db_file=db_file,
                             vasptodb_kwargs={
                                 "task_fields_to_push": {
-                                    "{}_energy".format(distance):
+                                    "{}_energy".format(distance_idx):
                                         "output.energy",
-                                    "{}_structure".format(distance):
+                                    "{}_structure".format(distance_idx):
                                         "output.structure"},
                                 "defuse_unsuccessful": False},
                             runvaspcustodian_kwargs={
