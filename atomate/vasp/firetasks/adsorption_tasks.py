@@ -701,11 +701,11 @@ class SlabAdsAdditionTask(FiretaskBase):
                     print("wfa")
                     vd = VaspDrone()
                     poscar_file = vd.filter_files(
-                        ".", file_pattern="POSCAR")['standard']
+                        slab_dir, file_pattern="POSCAR")['standard']
                     locpot_file = vd.filter_files(
-                        ".","LOCPOT")["standard"]
+                        slab_dir,"LOCPOT")["standard"]
                     outcar_file = vd.filter_files(
-                        ".", "OUTCAR")["standard"]
+                        slab_dir, "OUTCAR")["standard"]
                     wfa = WorkFunctionAnalyzer.from_files(
                         poscar_file,locpot_file,outcar_file)
                     work_function = wfa.work_function
