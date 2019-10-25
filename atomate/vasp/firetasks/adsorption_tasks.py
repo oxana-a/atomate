@@ -1032,9 +1032,9 @@ class AnalysisAdditionTask(FiretaskBase):
 
                     # Densities by Orbital Type for Surface Site
                     orbital_densities_by_type = {}
-                    for site_idx in surface_sites:
+                    for site_idx, surf_prop in surface_sites.items():
                         dos_spd_site = complete_dos.get_site_spd_dos(
-                            complete_dos.structure.sites[site_idx])
+                            complete_dos.structure.sites[surf_prop["index"]])
                         orbital_densities_for_site = {}
                         for orbital_type, elec_dos in dos_spd_site.items():
                             orbital_densities_for_site.update(
@@ -1051,7 +1051,7 @@ class AnalysisAdditionTask(FiretaskBase):
                                 surf_ids, False):
                             total_surf_ads_pdos_overlap[surf_ids] = {}
                         for ads_idx in ads_ids:
-                            surf_idx = surf_ids['index']
+                            surf_idx = surf_prop['index']
                             surf_dos = complete_dos.get_site_dos(
                                 complete_dos.structure.sites[surf_idx]
                             ).get_densities()
@@ -1111,6 +1111,73 @@ class AnalysisAdditionTask(FiretaskBase):
                     wfa = WorkFunctionAnalyzer.from_files(
                         poscar_file, locpot_file, outcar_file)
                     work_function = wfa.work_function
+
+                    ##DDEC 6 Analysis
+                    slab_ads_data["ddec6"] = {}
+                    #Get DDEC6 command directory:
+                    ddec6_command = os.environ.get("DDEC6_DIR", False)
+                    if ddec6_command:
+                        slab_ads_data["ddec6"]["status"] = True
+                        #Unzip AECCAR2
+                        aeccar_file = vd.filter_files(
+                            slab_ads_dir, file_pattern="AECCAR02")["standard"]
+                        import shutil
+                        import gzip
+                        with gzip.open(aeccar_file, 'rb') as f_in:
+                            with open("AECCAR02", 'wb') as f_out:
+                                shutil.copyfileobj(f_in, f_out)
+                        #Run command
+                        import subprocess
+                        ddec6 = subprocess.Popen(
+                            [ddec6_command],
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT)
+                        #Get outputs
+                        ddec6_stdout, ddec6_stderr = ddec6.communicate()
+                        if ddec6_stderr:
+                            print("error occured with ddec6")
+                            slab_ads_data["ddec6"]["status"] = "Error"
+                        else:
+                            #Analyze outputs:
+                            #bond order
+                            # TODO: get actual bond order to every atom...
+                            bo = get_info_from_xyz(
+                                slab_ads_dir +
+                                "DDEC6_even_tempered_bond_orders.xyz",
+                                ["bond_orders"])
+                            #charges
+                            charges = get_info_from_xyz(
+                                slab_ads_dir +
+                                "DDEC6_even_tempered_net_atomic_charges.xyz",
+                                ["charges"])
+                            slab_ads_data["ddec6"]["bond_order"] = \
+                                bo["bond_order"]
+                            slab_ads_data["ddec6"]["charges"] = \
+                                charges["charges"]
+
+                            #Charges for ads, surface atoms
+                            ddec6_charges = {}
+                            ddec6_charges["adsorbate"] ={}
+                            ddec6_charges["surface"] = {}
+                            ddec6_bo = {}
+                            ddec6_bo["adsorbate"] = {}
+                            ddec6_bo["surface"] = {}
+                            for surf_idx, surf_prop in surface_sites.items():
+                                idx = surf_prop["index"]
+                                ddec6_charges["surface"][surf_idx] = \
+                                    charges[idx]
+                                ddec6_bo["surface"][surf_idx] = bo[idx]
+                            for id in ads_ids:
+                                ddec6_charges["adsorbate"][surf_idx] = \
+                                    charges[id]
+                                ddec6_bo["adsorbate"][surf_idx] = bo[id]
+                            slab_ads_data["ddec6"].update({
+                                "bond_order":ddec6_bo,"charges":ddec6_charges})
+
+                    else:
+                        print("DDEC6_DIR not in environment...")
+                        slab_ads_data["ddec6"]["status"] = False
+
 
                     slab_ads_data.update({
                         'input_structure': input_slab_ads,
@@ -1655,3 +1722,27 @@ def get_site_type(slab_ads, ads_adsorp_id, ads_ids, mvec):
                      'to_site3': third_distance}
 
     return site_type, surface_sites, distances
+
+
+def get_info_from_xyz(filename, info_array):
+    fh = open(filename, "r")
+    species_count = int(fh.readline())
+    fh.readline()[:-1]
+
+    all_info = {}
+
+    # in all files
+    all_info["coords"] = np.zeros([species_count, 3], dtype="float64")
+    all_info["species"] = []
+
+    for element in info_array:
+        all_info[element] = np.zeros(species_count, dtype="float64")
+
+    for line_number, line_content in enumerate(all_info["coords"]):
+        line = fh.readline().split()
+        all_info["species"].append(Element(line[0]))
+        all_info["coords"][line_number][:] = line[1:4]
+        for num, element in enumerate(info_array):
+            all_info[element][line_number] = line[4 + num]
+
+    return all_info
