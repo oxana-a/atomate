@@ -208,7 +208,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
         slab_ads_struct = None
         for distance_idx, distance in enumerate(sorted(distances)):  # OA: sorted distances so the ids don't correspond anymore - do we even need ids?
             # if distance_to_state.get(distance,{}).get("state",False):
-            if "{}_energy".format(distance) in fw_spec:
+            if "{}_energy".format(distance_idx) in fw_spec:
                 # energy per atom
                 energy = fw_spec["{}_energy".format(distance_idx)]  # OA: this is was divided by # of atoms twice before
                 slab_ads_struct = fw_spec.get("{}_structure".format(distance_idx)) or slab_ads_struct
