@@ -156,7 +156,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
                                          vasp_cmd=vasp_cmd,
                                          db_file=db_file)
             nscf_calc.tasks.append(analysis_step)
-            slab_ads_fws.append(analysis_step)
+            slab_ads_fws.append(nscf_calc)
         else:
             slab_ads_fws.append(af.SlabAdsFW(
                 slab_ads, name=fw_name, adsorbate=adsorbate, vasp_cmd=vasp_cmd,
