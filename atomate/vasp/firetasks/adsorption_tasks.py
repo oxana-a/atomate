@@ -1673,6 +1673,36 @@ class AdsorptionAnalysisTask(FiretaskBase):
         stored_data['adsorption_energy'] = adsorption_en
         stored_data['slab_ads_task_id'] = slab_ads_task_id
 
+        ## TODO: get differences between key electronic variables
+        stored_data["electronic_descriptors"] = {
+            "d_band_center_shift":
+                (slab_ads_data["d_band_center"]-slab_data["d_band_center"]),
+            "cbm_shift":
+                (slab_ads_data["eigenvalue_band_properties"]["cbm"]-
+                 slab_data["eigenvalue_band_properties"]["cbm"]),
+            "vbm_shift":
+                (slab_ads_data["eigenvalue_band_properties"]["cbm"] -
+                 slab_data["eigenvalue_band_properties"]["cbm"]),
+            "wf_shift":
+                (slab_ads_data["work_function"]-slab_data["work_function"]),
+            "vbm_makeup_shift":{key1:(value1-value2) for key1, value1
+                                in slab_data["vbm_elemental_makeup"].items()
+                                for key2, value2 in
+                                slab_ads_data["vbm_elemental_makeup"].items()
+                                if key1==key2},
+            "cbm_makeup_shift": {key1: (value1 - value2) for key1, value1
+                                 in slab_data["cbm_elemental_makeup"].items()
+                                 for key2, value2 in
+                                 slab_ads_data["cbm_elemental_makeup"].items()
+                                 if key1 == key2},
+            "orbital_densities_shift":{key1: (value1 - value2) for key1, value1
+                                 in slab_data["orbital_densities_by_type"].items()
+                                 for key2, value2 in
+                                 slab_ads_data["orbital_densities_by_type"].items()
+                                 if key1 == key2},
+        }
+
+
         stored_data = jsanitize(stored_data)
 
         db_file = env_chk(db_file, fw_spec)
