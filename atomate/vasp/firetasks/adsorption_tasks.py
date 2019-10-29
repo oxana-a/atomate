@@ -189,7 +189,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
         # distance_to_state = fw_spec["distance_to_state"][0]
         ads_comp = self["adsorbate"].composition
         algo = self.get("algo", "standard")
-        slab_structure = self["slab_structure"]
+        output_slab = self["slab_structure"]
 
         #Setup some initial parameters
         optimal_distance = 3.0
@@ -206,13 +206,13 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
         all_energies = []
         all_distances = []
 
-        slab_ads_struct = None
+        output_slab_ads = None
         for distance_idx, distance in enumerate(sorted(distances)):  # OA: sorted distances so the ids don't correspond anymore - do we even need ids?
             # if distance_to_state.get(distance,{}).get("state",False):
             if "{}_energy".format(distance_idx) in fw_spec:
                 # energy per atom
                 energy = fw_spec["{}_energy".format(distance_idx)]  # OA: this is was divided by # of atoms twice before
-                slab_ads_struct = fw_spec.get("{}_structure".format(distance_idx)) or slab_ads_struct
+                output_slab_ads = fw_spec.get("{}_structure".format(distance_idx)) or output_slab_ads
 
                 #for other fitting algorithms:
                 all_energies.append(energy)
@@ -249,30 +249,30 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
             optimal_distance = all_distances[np.where(all_energies == all_energies.min())[0][0]]
 
         #Optimal Energy for current slab with adsorbate:
-        if slab_ads_struct:
-            scale_factor = slab_ads_struct.volume / slab_structure.volume
-            ads_e = lowest_energy - slab_energy * scale_factor - sum(
+        if output_slab_ads:
+            scale_factor = output_slab_ads.volume / output_slab.volume
+            adsorption_en = lowest_energy - slab_energy * scale_factor - sum(
                 [ads_comp.get(element, 0) * ref_elem_energy.get(str(element)) for
                  element in ads_comp])
         else:
-            ads_e = 1000
+            adsorption_en = 1000
         # ads_e = lowest_energy - slab_energy*(len(slab_structure)-2) - sum([ads_comp.get(elt, 0) * ref_elem_energy.get(elt) for elt in ref_elem_energy])
 
         #If lowest energy is a little too big, this is probably not a good site/adsorbate... No need to run future calculations
-        if ads_e>10:
+        if adsorption_en>2:
             #Let's exit the rest of the FW's if energy is too high, but still push the data
             return FWAction(exit=True,
                             mod_spec = {"_push":
                                 {
                                     'lowest_energy':lowest_energy,
-                                    'adsorption_energy':ads_e,
+                                    'adsorption_energy':adsorption_en,
                                     'optimal_distance':optimal_distance
                                 }
                             })
         return FWAction(mod_spec={"_push":
                     {
                         'lowest_energy': lowest_energy,
-                        'adsorption_energy': ads_e,
+                        'adsorption_energy': adsorption_en,
                         'optimal_distance': optimal_distance
                     }
                 })
