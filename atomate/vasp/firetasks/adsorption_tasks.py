@@ -38,6 +38,7 @@ from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.io.vasp.outputs import Vasprun
 from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
 from pymatgen.util.coord import get_angle
+from pymatgen.core import Element
 
 logger = get_logger(__name__)
 ref_elem_energy = {'H': -3.379, 'O': -7.459, 'C': -7.329}
@@ -709,6 +710,91 @@ class SlabAdsAdditionTask(FiretaskBase):
                     wfa = WorkFunctionAnalyzer.from_files(
                         poscar_file,locpot_file,outcar_file)
                     work_function = wfa.work_function
+
+                    ##DDEC 6 Analysis
+                    slab_data["ddec6"] = {}
+                    # Get DDEC6 command directory:
+                    DDEC6_DIR = os.environ.get("DDEC6_DIR", False)
+                    if DDEC6_DIR:
+                        ddec6_command = DDEC6_DIR + "Chargemol"
+
+                        slab_data["ddec6"]["status"] = True
+                        # Unzip AECCAR2
+                        aeccar_file_0 = vd.filter_files(
+                            slab_dir, file_pattern="AECCAR0")["standard"]
+                        aeccar_file_2 = vd.filter_files(
+                            slab_dir, file_pattern="AECCAR2")["standard"]
+                        chgcar_file = vd.filter_files(
+                            slab_dir, file_pattern="CHGCAR")["standard"]
+                        potcar_file = vd.filter_files(
+                            slab_dir, file_pattern="POTCAR")["standard"]
+                        import shutil
+                        import gzip
+                        with gzip.open(aeccar_file_2, 'rb') as f_in:
+                            with open("AECCAR2", 'wb') as f_out:
+                                shutil.copyfileobj(f_in, f_out)
+                        with gzip.open(aeccar_file_0, 'rb') as f_in:
+                            with open("AECCAR0", 'wb') as f_out:
+                                shutil.copyfileobj(f_in, f_out)
+                        with gzip.open(chgcar_file, 'rb') as f_in:
+                            with open("CHGCAR", 'wb') as f_out:
+                                shutil.copyfileobj(f_in, f_out)
+                        with gzip.open(potcar_file, 'rb') as f_in:
+                            with open("POTCAR", 'wb') as f_out:
+                                shutil.copyfileobj(f_in, f_out)
+
+                        # Make Job Control Script!
+                        write_jobscript_for_ddec6(
+                            DDEC6_DIR + "atomic_densities/")
+
+                        # Run command
+                        import subprocess
+                        ddec6 = subprocess.Popen(
+                            [ddec6_command],
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT)
+                        # Get outputs
+                        ddec6_stdout, ddec6_stderr = ddec6.communicate()
+                        if ddec6_stderr:
+                            print("error occured with ddec6")
+                            slab_data["ddec6"]["status"] = "Error"
+                        else:
+                            # Analyze outputs:
+                            # bond order
+                            # TODO: get actual bond order to every atom...
+                            bo = get_info_from_xyz(
+                                slab_dir +
+                                "DDEC6_even_tempered_bond_orders.xyz",
+                                ["bond_orders"])
+                            # charges
+                            charges = get_info_from_xyz(
+                                slab_dir +
+                                "DDEC6_even_tempered_net_atomic_charges.xyz",
+                                ["charges"])
+                            slab_data["ddec6"]["bond_order"] = \
+                                bo["bond_orders"]
+                            slab_data["ddec6"]["charges"] = \
+                                charges["charges"]
+
+                            # Charges for ads, surface atoms
+                            ddec6_charges = {}
+                            ddec6_charges["adsorbate"] = {}
+                            ddec6_charges["surface"] = {}
+                            ddec6_bo = {}
+                            ddec6_bo["adsorbate"] = {}
+                            ddec6_bo["surface"] = {}
+                            for surf_idx, surf_prop in surface_sites.items():
+                                idx = surf_prop["index"]
+                                ddec6_charges["surface"][surf_idx] = \
+                                    charges[idx]
+                                ddec6_bo["surface"][surf_idx] = bo[idx]
+                            slab_data["ddec6"].update({
+                                "bond_order": ddec6_bo,
+                                "charges": ddec6_charges})
+
+                    else:
+                        print("DDEC6_DIR not in environment...")
+                        slab_data["ddec6"]["status"] = False
 
 
 
@@ -1801,4 +1887,56 @@ def write_jobscript_for_ddec6(ad_dir=None, net_charge=0.0,
     with open('job_control.txt', 'w') as fh:
         for line in lines:
             fh.write('%s\n' % line)
+
+
+def get_bond_order_info(filename):
+    # Get meta data
+    bo_xyz = get_info_from_xyz(filename, ["bond_orders"])
+
+    fh = open(filename, "r")
+
+    # Get all data
+    lines = []
+    for line in fh.readlines():
+        lines.append(line)
+
+    # Get where relevant info for each atom starts
+    bond_order_info = {}
+    for line_number, line_content in enumerate(lines):
+        if "Printing" in line_content:
+            species_index = line_content.split()[5]
+            bond_order_info[int(species_index)] = {"start": line_number}
+
+    # combine all relevant info
+    for atom, content in bond_order_info.items():
+        try:
+            for bo_line in lines[bond_order_info[atom]["start"] + 2:
+            bond_order_info[atom + 1]["start"] - 4]:
+                bonded_to = bo_line.split()[12]
+                bo = bo_line.split()[-1]
+                direction = (
+                int(bo_line.split()[4][:-1]), int(bo_line.split()[5][:-1]),
+                int(bo_line.split()[6][:-1]))
+                if direction is not (0, 0, 0):
+                    bond_order_info[atom].update({
+                        bonded_to: bo,
+                        "element": bo_xyz["species"][atom - 1],
+                        "coords": bo_xyz["coords"][atom - 1],
+                        "total_bo": bo_xyz["bond_orders"][atom - 1]
+                    })
+        except:
+            for bo_line in lines[bond_order_info[atom]["start"] + 2:-3]:
+                bonded_to = bo_line.split()[12]
+                bo = bo_line.split()[-1]
+                direction = (
+                int(bo_line.split()[4][:-1]), int(bo_line.split()[5][:-1]),
+                int(bo_line.split()[6][:-1]))
+                if direction is not (0, 0, 0):
+                    bond_order_info[atom].update({
+                        bonded_to: bo,
+                        "element": bo_xyz["species"][atom - 1],
+                        "coords": bo_xyz["coords"][atom - 1],
+                        "total_bo": bo_xyz["bond_orders"][atom - 1]
+                    })
+    return bond_order_info
 
