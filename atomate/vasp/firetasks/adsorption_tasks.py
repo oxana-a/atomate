@@ -1126,6 +1126,10 @@ class AnalysisAdditionTask(FiretaskBase):
                         with gzip.open(aeccar_file, 'rb') as f_in:
                             with open("AECCAR02", 'wb') as f_out:
                                 shutil.copyfileobj(f_in, f_out)
+
+                        #Make Job Control Script!
+                        write_jobscript_for_ddec6(slab_ads_dir)
+
                         #Run command
                         import subprocess
                         ddec6 = subprocess.Popen(
@@ -1746,3 +1750,39 @@ def get_info_from_xyz(filename, info_array):
             all_info[element][line_number] = line[4 + num]
 
     return all_info
+
+def write_jobscript_for_ddec6(data_dir=None, net_charge=0.0,
+                              periodicity=[True, True,True]):
+    lines = []
+
+    #Net Charge
+    lines.append("<net charge>")
+    lines.append(net_charge)
+    lines.append("</net charge>")
+    lines.append()
+
+    #Periodicity
+    per_a = ".true." if periodicity[0] else ".false."
+    per_b = ".true." if periodicity[1] else ".false."
+    per_c = ".true." if periodicity[2] else ".false."
+    lines.append("<periodicity along A, B, and C vectors>")
+    lines.append(per_a)
+    lines.append(per_b)
+    lines.append(per_c)
+    lines.append("</periodicity along A, B, and C vectors>")
+    lines.append()
+
+    #data dir
+    data_dir = data_dir or os.getcwd()
+    lines.append("<atomic densities directory complete path>")
+    lines.append(data_dir)
+    lines.append("</atomic densities directory complete path>")
+    lines.append()
+    lines.append("<charge type>")
+    lines.append("DDEC6")
+    lines.append("</charge type>")
+
+    with open('job_control.txt', 'w') as fh:
+        for line in lines:
+            fh.write('%s\n' % line)
+
