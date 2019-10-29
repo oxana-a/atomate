@@ -1115,20 +1115,37 @@ class AnalysisAdditionTask(FiretaskBase):
                     ##DDEC 6 Analysis
                     slab_ads_data["ddec6"] = {}
                     #Get DDEC6 command directory:
-                    ddec6_command = os.environ.get("DDEC6_DIR", False)
-                    if ddec6_command:
+                    DDEC6_DIR = os.environ.get("DDEC6_DIR", False)
+                    if DDEC6_DIR:
+                        ddec6_command = DDEC6_DIR+"Chargemol"
+
                         slab_ads_data["ddec6"]["status"] = True
                         #Unzip AECCAR2
-                        aeccar_file = vd.filter_files(
-                            slab_ads_dir, file_pattern="AECCAR02")["standard"]
+                        aeccar_file_0 = vd.filter_files(
+                            slab_ads_dir, file_pattern="AECCAR0")["standard"]
+                        aeccar_file_2 = vd.filter_files(
+                            slab_ads_dir, file_pattern="AECCAR2")["standard"]
+                        chgcar_file = vd.filter_files(
+                            slab_ads_dir, file_pattern="CHGCAR")["standard"]
+                        potcar_file = vd.filter_files(
+                            slab_ads_dir, file_pattern="POTCAR")["standard"]
                         import shutil
                         import gzip
-                        with gzip.open(aeccar_file, 'rb') as f_in:
-                            with open("AECCAR02", 'wb') as f_out:
+                        with gzip.open(aeccar_file_2, 'rb') as f_in:
+                            with open("AECCAR2", 'wb') as f_out:
+                                shutil.copyfileobj(f_in, f_out)
+                        with gzip.open(aeccar_file_0, 'rb') as f_in:
+                            with open("AECCAR0", 'wb') as f_out:
+                                shutil.copyfileobj(f_in, f_out)
+                        with gzip.open(chgcar_file, 'rb') as f_in:
+                            with open("CHGCAR", 'wb') as f_out:
+                                shutil.copyfileobj(f_in, f_out)
+                        with gzip.open(potcar_file, 'rb') as f_in:
+                            with open("POTCAR", 'wb') as f_out:
                                 shutil.copyfileobj(f_in, f_out)
 
                         #Make Job Control Script!
-                        write_jobscript_for_ddec6(slab_ads_dir)
+                        write_jobscript_for_ddec6(DDEC6_DIR+"atomic_densities/")
 
                         #Run command
                         import subprocess
@@ -1155,7 +1172,7 @@ class AnalysisAdditionTask(FiretaskBase):
                                 "DDEC6_even_tempered_net_atomic_charges.xyz",
                                 ["charges"])
                             slab_ads_data["ddec6"]["bond_order"] = \
-                                bo["bond_order"]
+                                bo["bond_orders"]
                             slab_ads_data["ddec6"]["charges"] = \
                                 charges["charges"]
 
@@ -1751,7 +1768,7 @@ def get_info_from_xyz(filename, info_array):
 
     return all_info
 
-def write_jobscript_for_ddec6(data_dir=None, net_charge=0.0,
+def write_jobscript_for_ddec6(ad_dir=None, net_charge=0.0,
                               periodicity=[True, True,True]):
     lines = []
 
@@ -1759,7 +1776,7 @@ def write_jobscript_for_ddec6(data_dir=None, net_charge=0.0,
     lines.append("<net charge>")
     lines.append(net_charge)
     lines.append("</net charge>")
-    lines.append()
+    lines.append("")
 
     #Periodicity
     per_a = ".true." if periodicity[0] else ".false."
@@ -1770,14 +1787,13 @@ def write_jobscript_for_ddec6(data_dir=None, net_charge=0.0,
     lines.append(per_b)
     lines.append(per_c)
     lines.append("</periodicity along A, B, and C vectors>")
-    lines.append()
+    lines.append("")
 
     #data dir
-    data_dir = data_dir or os.getcwd()
     lines.append("<atomic densities directory complete path>")
-    lines.append(data_dir)
+    lines.append(ad_dir)
     lines.append("</atomic densities directory complete path>")
-    lines.append()
+    lines.append("")
     lines.append("<charge type>")
     lines.append("DDEC6")
     lines.append("</charge type>")
