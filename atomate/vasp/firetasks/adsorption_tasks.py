@@ -784,6 +784,8 @@ class AnalysisAdditionTask(FiretaskBase):
         bulk_data = self.get("bulk_data")
         slab_data = self.get("slab_data")
         slab_ads_data = self.get("slab_ads_data") or {}
+        id_map = slab_ads_data.get("id_map")
+        surface_properties = slab_ads_data.get("surface_properties")
 
         slab_ads_data.update({'task_id': slab_ads_task_id})
 
@@ -842,6 +844,12 @@ class AnalysisAdditionTask(FiretaskBase):
             except FileNotFoundError:
                 warnings.warn("Slab + adsorbate directory not found: {}"
                               .format(slab_ads_dir))
+
+        if id_map and surface_properties:
+            ordered_surf_prop = [prop for new_id, prop in
+                                 sorted(zip(id_map, surface_properties))]
+            output_slab_ads.add_site_property('surface_properties',
+                                              ordered_surf_prop)
 
         slab_ads_data.update({'output_structure': output_slab_ads,
                               'final_energy': slab_ads_energy})
@@ -959,11 +967,13 @@ class AdsorptionAnalysisTask(FiretaskBase):
             'input_structure': adsorbate.as_dict()}
 
         ads_sites = []
-        if surface_properties and id_map and output_slab_ads:
+        if ("surface_properties" not in output_slab_ads.site_properties
+                and surface_properties and id_map and output_slab_ads):
             ordered_surf_prop = [prop for new_id, prop in
                                  sorted(zip(id_map, surface_properties))]
             output_slab_ads.add_site_property('surface_properties',
                                               ordered_surf_prop)
+        if "surface_properties" in output_slab_ads.site_properties:
             ads_sites = [site for site in output_slab_ads.sites if
                          site.properties["surface_properties"] == "adsorbate"]
         elif adsorbate and output_slab_ads:
