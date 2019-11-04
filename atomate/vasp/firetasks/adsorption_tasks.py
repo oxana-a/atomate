@@ -25,7 +25,7 @@ from fireworks.utilities.fw_serializers import DATETIME_HANDLER
 from fireworks.utilities.fw_utilities import explicit_serialize
 from pymatgen import Structure
 from pymatgen.analysis.adsorption import AdsorbateSiteFinder, get_mi_vec
-from pymatgen.analysis.local_env import CrystalNN
+from pymatgen.analysis.local_env import CrystalNN, MinimumDistanceNN
 from pymatgen.analysis.structure_matcher import StructureMatcher
 from pymatgen.analysis.surface_analysis import EV_PER_ANG2_TO_JOULES_PER_M2
 from pymatgen.core.bonds import CovalentBond
@@ -999,14 +999,18 @@ class AdsorptionAnalysisTask(FiretaskBase):
             'surface_properties'] += ', adsorption site'
 
         cnn = CrystalNN()
+        mdnn = MinimumDistanceNN()
         output_bulk.add_site_property(
-            'coordination_number', [cnn.get_cn(output_bulk, i)
+            'coordination_number', [{"cnn": cnn.get_cn(output_bulk, i),
+                                     "mdnn": mdnn.get_cn(output_bulk, i)}
                                     for i in range(output_bulk.num_sites)])
         output_slab.add_site_property(
-            'coordination_number', [cnn.get_cn(output_slab, i)
+            'coordination_number', [{"cnn": cnn.get_cn(output_slab, i),
+                                     "mdnn": mdnn.get_cn(output_slab, i)}
                                     for i in range(output_slab.num_sites)])
         output_slab_ads.add_site_property(
-            'coordination_number', [cnn.get_cn(output_slab_ads, i)
+            'coordination_number', [{"cnn": cnn.get_cn(output_slab_ads, i),
+                                     "mdnn": mdnn.get_cn(output_slab_ads, i)}
                                     for i in range(output_slab_ads.num_sites)])
 
         stored_data['bulk'] = {
