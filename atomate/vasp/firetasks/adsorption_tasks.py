@@ -24,15 +24,14 @@ from fireworks.core.firework import FiretaskBase, FWAction, Workflow
 from fireworks.utilities.fw_serializers import DATETIME_HANDLER
 from fireworks.utilities.fw_utilities import explicit_serialize
 from pymatgen import Structure
-from pymatgen.analysis.adsorption import AdsorbateSiteFinder
+from pymatgen.analysis.adsorption import AdsorbateSiteFinder, get_mi_vec
 from pymatgen.analysis.local_env import CrystalNN
 from pymatgen.analysis.structure_matcher import StructureMatcher
 from pymatgen.analysis.surface_analysis import EV_PER_ANG2_TO_JOULES_PER_M2
 from pymatgen.core.bonds import CovalentBond
-from pymatgen.core.sites import PeriodicSite
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.io.vasp.outputs import Vasprun
-from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
+from pymatgen.io.vasp.sets import MPSurfaceSet
 from pymatgen.util.coord import get_angle
 
 logger = get_logger(__name__)
@@ -89,14 +88,10 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 
         # Create structure with optimal distance
         if "surface_properties" not in slab_structure.site_properties:
-            surf_dict = slab_structure.get_surface_sites()
-            surf_props = [
-                'surface' if i in [
-                    idx for site, idx in surf_dict["top"]]
-                else 'bottom_surface' if i in [
-                    idx for site, idx in surf_dict["bottom"]]
-                else 'subsurface' for i in range(slab_structure.num_sites)]
+            height = ads_site_finder_params.get("height", 0.9)
+            surf_props = get_slab_surf_props(slab_structure, height=height)
             slab_structure.add_site_property("surface_properties", surf_props)
+
         asf = AdsorbateSiteFinder(slab_structure, **ads_site_finder_params)
         new_coord = coord + optimal_distance * mvec
         slab_ads = asf.add_adsorbate(adsorbate, new_coord, **add_ads_params)
@@ -282,8 +277,6 @@ class SlabAdditionTask(FiretaskBase):
             (can include: handler_group, job_type, vasp_input_set,
             user_incar_params)
         add_fw_name (str): name for the SlabGeneratorFW to be added
-        bulk_dir (str): path for the corresponding bulk calculation
-            directory
         optimize_distance (bool): whether to launch static calculations
             to determine the optimal adsorbate - surface distance before
             optimizing the slab + adsorbate structure
@@ -454,8 +447,6 @@ class SlabAdsAdditionTask(FiretaskBase):
 
     Required params:
     Optional params:
-        bulk_structure (Structure): relaxed bulk structure
-        bulk_energy (float): final energy of relaxed bulk structure
         adsorbates ([Molecule]): list of molecules to place as
             adsorbates
         vasp_cmd (str): vasp command
@@ -470,25 +461,20 @@ class SlabAdsAdditionTask(FiretaskBase):
         slab_ads_fw_params (dict): dictionary of kwargs for SlabAdsFW
             (can include: handler_group, job_type, vasp_input_set,
             user_incar_params)
-        add_fw_name (str): name for the SlabAdsGeneratorFW to be added
-        slab_name (str): name for the slab
-            (format: Formula_MillerIndex_Shift)
-        bulk_dir (str): path for the corresponding bulk calculation
-            directory
-        slab_dir (str): path for the corresponding slab calculation
-            directory
-        miller_index ([h, k, l]): Miller index of plane parallel to
-            the slab surface
-        shift (float): the shift in the c-direction applied to get
-            the termination for the slab surface
         optimize_distance (bool): whether to launch static calculations
             to determine the optimal adsorbate - surface distance before
             optimizing the slab + adsorbate structure
         static_distances (list): if optimize_distance is true, these are
             the distances at which to test the adsorbate distance
-        static_fws_params (dict): dictionary for setting custum user
+        static_fws_params (dict): dictionary for setting custom user
             kpoints and custom user incar  settings, or passing an input
             set.
+        bulk_data (dict): bulk data to be passed all the way to the
+            analysis step (expected to include directory,
+            input_structure, converged, eigenvalue_band_properties,
+            output_structure, final_energy)
+        slab_data (dict): slab data to be passed all the way to the
+            analysis step (expected to include miller_index, shift)
     """
     required_params = []
     optional_params = ["adsorbates", "vasp_cmd", "db_file", "min_lw",
@@ -590,13 +576,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                 warnings.warn("Slab directory not found: {}".format(slab_dir))
 
         if "surface_properties" not in output_slab.site_properties:
-            surf_dict = output_slab.get_surface_sites()
-            surf_props = [
-                'surface' if i in [
-                    idx for site, idx in surf_dict["top"]]
-                else 'bottom_surface' if i in [
-                    idx for site, idx in surf_dict["bottom"]]
-                else 'subsurface' for i in range(output_slab.num_sites)]
+            height = ads_site_finder_params.get("height", 0.9)
+            surf_props = get_slab_surf_props(output_slab, height=height)
             output_slab.add_site_property("surface_properties", surf_props)
 
         slab_data.update({'output_structure': output_slab,
@@ -1322,7 +1303,7 @@ def get_site_type(slab_ads, ads_adsorp_id, ads_ids, mvec):
         a, b, c = n
         d = n.dot(-f)
 
-        d_to_surface = np.abs(n.dot(ads) + d) / (a ** 2 + b ** 2 + c ** 2) ** 0.5
+        d_to_surface = np.abs(n.dot(ads) + d) / (a ** 2 + b ** 2 + c ** 2)**0.5
 
         site_type = 'hollow'
         surface_sites = {'site1': {'index': first_index,
@@ -1357,3 +1338,31 @@ def get_site_type(slab_ads, ads_adsorp_id, ads_ids, mvec):
                      'to_site3': third_distance}
 
     return site_type, surface_sites, distances
+
+
+def get_slab_surf_props(slab, mvec=None, height=0.9):
+    """
+    helper function that returns the surface properties for a slab
+    (i.e. list of "surface", "subsurface", "bottom surface") based on
+    find_surface_sites_by_height from pymatgen.analysis.adsorption,
+    but also assigns bottom surface
+    :param slab:
+    :param mvec:
+    :param height:
+    :return:
+    """
+
+    mvec = mvec or get_mi_vec(slab)
+    m_projs = np.array([np.dot(site.coords, mvec) for site in slab.sites])
+    top_mask = (m_projs - np.amax(m_projs)) >= -height
+    top_sites = [slab.sites[n] for n in np.where(top_mask)[0]]
+
+    bottom_mask = (m_projs - np.amin(m_projs)) <= height
+    bottom_sites = [slab.sites[n] for n in np.where(bottom_mask)[0]]
+
+    surf_props = [
+        'surface' if site in top_sites
+        else 'bottom surface' if site in bottom_sites
+        else 'subsurface' for site in slab.sites]
+
+    return surf_props
