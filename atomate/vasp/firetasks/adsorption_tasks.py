@@ -32,7 +32,7 @@ from pymatgen.analysis.structure_matcher import StructureMatcher
 from pymatgen.analysis.surface_analysis import EV_PER_ANG2_TO_JOULES_PER_M2
 from pymatgen.core.bonds import CovalentBond
 from pymatgen.core.sites import PeriodicSite
-from pymatgen.analysis.surface_analysis import get_slab_regions
+from pymatgen.core.surface import get_slab_regions
 from pymatgen.analysis.surface_analysis import WorkFunctionAnalyzer
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.io.vasp.outputs import Vasprun
@@ -1198,6 +1198,28 @@ class AnalysisAdditionTask(FiretaskBase):
                         poscar_file, locpot_file, outcar_file)
                     work_function = wfa.work_function
 
+                    #Bader Analysis
+                    from pymatgen.command_line.bader_caller \
+                        import BaderAnalysis
+                    chgcar_file = vd.filter_files(
+                        slab_ads_dir, file_pattern="CHGCAR")['standard']
+                    potcar_file = vd.filter_files(
+                        slab_ads_dir, file_pattern="POTCAR")["standard"]
+                    ba = BaderAnalysis(chgcar_file,potcar_file)
+                    bader_charges = {"surface":{},
+                                     "adsorbate":{}}
+                    #Bader for Surface
+                    for surf_idx, surf_prop in surface_sites.items():
+                        idx = surf_prop["index"]
+                        bader_charges["surface"][surf_idx] = \
+                            ba.get_charge(idx)
+                    #Bader for Adsorbate
+                    for id in ads_ids:
+                        bader_charges["adsorbate"][surf_idx] = \
+                            ba.get_charge(id)
+                    slab_ads_data["bader"].update(bader_charges)
+
+
                     ##DDEC 6 Analysis
                     slab_ads_data["ddec6"] = {}
                     #Get DDEC6 command directory:
@@ -1861,112 +1883,5 @@ def get_site_type(slab_ads, ads_adsorp_id, ads_ids, mvec):
     return site_type, surface_sites, distances
 
 
-def get_info_from_xyz(filename, info_array):
-    fh = open(filename, "r")
-    species_count = int(fh.readline())
-    fh.readline()[:-1]
 
-    all_info = {}
-
-    # in all files
-    all_info["coords"] = np.zeros([species_count, 3], dtype="float64")
-    all_info["species"] = []
-
-    for element in info_array:
-        all_info[element] = np.zeros(species_count, dtype="float64")
-
-    for line_number, line_content in enumerate(all_info["coords"]):
-        line = fh.readline().split()
-        all_info["species"].append(Element(line[0]))
-        all_info["coords"][line_number][:] = line[1:4]
-        for num, element in enumerate(info_array):
-            all_info[element][line_number] = line[4 + num]
-
-    return all_info
-
-def write_jobscript_for_ddec6(ad_dir=None, net_charge=0.0,
-                              periodicity=[True, True,True]):
-    lines = []
-
-    #Net Charge
-    lines.append("<net charge>")
-    lines.append(net_charge)
-    lines.append("</net charge>")
-    lines.append("")
-
-    #Periodicity
-    per_a = ".true." if periodicity[0] else ".false."
-    per_b = ".true." if periodicity[1] else ".false."
-    per_c = ".true." if periodicity[2] else ".false."
-    lines.append("<periodicity along A, B, and C vectors>")
-    lines.append(per_a)
-    lines.append(per_b)
-    lines.append(per_c)
-    lines.append("</periodicity along A, B, and C vectors>")
-    lines.append("")
-
-    #data dir
-    lines.append("<atomic densities directory complete path>")
-    lines.append(ad_dir)
-    lines.append("</atomic densities directory complete path>")
-    lines.append("")
-    lines.append("<charge type>")
-    lines.append("DDEC6")
-    lines.append("</charge type>")
-
-    with open('job_control.txt', 'w') as fh:
-        for line in lines:
-            fh.write('%s\n' % line)
-
-
-def get_bond_order_info(filename):
-    # Get meta data
-    bo_xyz = get_info_from_xyz(filename, ["bond_orders"])
-
-    fh = open(filename, "r")
-
-    # Get all data
-    lines = []
-    for line in fh.readlines():
-        lines.append(line)
-
-    # Get where relevant info for each atom starts
-    bond_order_info = {}
-    for line_number, line_content in enumerate(lines):
-        if "Printing" in line_content:
-            species_index = line_content.split()[5]
-            bond_order_info[int(species_index)] = {"start": line_number}
-
-    # combine all relevant info
-    for atom, content in bond_order_info.items():
-        try:
-            for bo_line in lines[bond_order_info[atom]["start"] + 2:
-            bond_order_info[atom + 1]["start"] - 4]:
-                bonded_to = bo_line.split()[12]
-                bo = bo_line.split()[-1]
-                direction = (
-                int(bo_line.split()[4][:-1]), int(bo_line.split()[5][:-1]),
-                int(bo_line.split()[6][:-1]))
-                if direction is not (0, 0, 0):
-                    bond_order_info[atom].update({
-                        bonded_to: bo,
-                        "element": bo_xyz["species"][atom - 1],
-                        "coords": bo_xyz["coords"][atom - 1],
-                        "total_bo": bo_xyz["bond_orders"][atom - 1]
-                    })
-        except:
-            for bo_line in lines[bond_order_info[atom]["start"] + 2:-3]:
-                bonded_to = bo_line.split()[12]
-                bo = bo_line.split()[-1]
-                direction = (
-                int(bo_line.split()[4][:-1]), int(bo_line.split()[5][:-1]),
-                int(bo_line.split()[6][:-1]))
-                if direction is not (0, 0, 0):
-                    bond_order_info[atom].update({
-                        bonded_to: bo,
-                        "element": bo_xyz["species"][atom - 1],
-                        "coords": bo_xyz["coords"][atom - 1],
-                        "total_bo": bo_xyz["bond_orders"][atom - 1]
-                    })
-    return bond_order_info
 
