@@ -185,7 +185,7 @@ class BulkFW(Firework):
                  slab_gen_params=None, min_lw=None, slab_fw_params=None,
                  ads_site_finder_params=None, ads_structures_params=None,
                  slab_ads_fw_params=None, optimize_distance=True,
-                 static_distances = None, static_fws_params = None,
+                 static_distances=None, static_fws_params=None,
                  dos_calculate=None,parents=None, **kwargs):
         """
         Optimize bulk structure and add a slab generator firework as
@@ -239,7 +239,7 @@ class BulkFW(Firework):
 
         user_incar_settings = (user_incar_settings
                                or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200,
-                                   "IVDW":11, "GGA":"RP"})
+                                   "IVDW": 11, "GGA": "RP"})
         vis = vasp_input_set or MPSurfaceSet(
             bulk_structure, bulk=True, user_incar_settings=user_incar_settings)
 
@@ -279,7 +279,7 @@ class SlabFW(Firework):
                  ads_structures_params=None, slab_ads_fw_params=None,
                  user_incar_settings=None, optimize_distance=True,
                  static_distances=None,static_fws_params=None,
-                 dos_calculate = True, bulk_data=None,
+                 dos_calculate=True, bulk_data=None,
                  slab_data=None, parents=None, **kwargs):
         """
         Optimize slab structure and add a slab + adsorbate generator
@@ -289,10 +289,8 @@ class SlabFW(Firework):
             slab_structure (Structure): input slab structure
             name (str): name for the firework (default: "slab
                 optimization")
-            bulk_structure (Structure): relaxed bulk structure
-            bulk_energy (float): final energy of relaxed bulk structure
             vasp_input_set (VaspInputSet): input set to use (default:
-                MPSurfaceSet())
+                MPSurfaceSet)
             adsorbates ([Molecule]): list of molecules to place as
                 adsorbates
             vasp_cmd (str): vasp command
@@ -301,9 +299,6 @@ class SlabFW(Firework):
                 (default "double_relaxation_run")
             handler_group (str or [ErrorHandler]): custodian handler
                 group for slab optimization (default: "md")
-            slab_gen_params (dict): dictionary of kwargs for
-                generate_all_slabs
-            max_index (int): max miller index for generate_all_slabs
             min_lw (float): minimum length/width for slab + adsorbate
                 structures (overridden by ads_structures_params if it
                 already contains min_lw)
@@ -314,12 +309,6 @@ class SlabFW(Firework):
             slab_ads_fw_params (dict): dictionary of kwargs for
                 SlabAdsFW (can include: handler_group, job_type,
                 vasp_input_set, user_incar_params)
-            bulk_dir (str): path for the corresponding bulk calculation
-                directory
-            miller_index ([h, k, l]): Miller index of plane parallel to
-                the slab surface
-            shift (float): the shift in the c-direction applied to get
-                the termination for the slab surface
             user_incar_settings (dict): incar settings to override the
                 ones from MPSurfaceSet (for slab and slab + adsorbate
                 optimizations)
@@ -327,13 +316,18 @@ class SlabFW(Firework):
                 calculations to determine the optimal
                 adsorbate - surface distance before optimizing the
                 slab + adsorbate structure
-            static_distances (list): if optimize_distance is true, these are
-                the distances at which to test the adsorbate distance
-            static_fws_params (dict): dictionary for setting custum user
-                kpoints and custom user incar  settings, or passing an input
-                set.
-            static_distances (list): if optimize_distance is true, these are
-                the distances at which to test the adsorbate distance
+            static_distances (list): if optimize_distance is true, these
+                are the distances at which to test the adsorbate
+                distance
+            static_fws_params (dict): dictionary for setting custom user
+                kpoints and custom user incar settings, or passing an
+                input set
+            bulk_data (dict): bulk data to be passed all the way to the
+                analysis step (expected to include directory,
+                input_structure, converged, eigenvalue_band_properties,
+                output_structure, final_energy)
+            slab_data (dict): slab data to be passed all the way to the
+                analysis step (expected to include miller_index, shift)
             parents ([Firework]): parents of this particular firework
             \*\*kwargs: Other kwargs that are passed to
                 Firework.__init__.
