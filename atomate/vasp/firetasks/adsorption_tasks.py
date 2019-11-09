@@ -577,7 +577,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         if 'positions' not in find_args:
             find_args['positions'] = ['ontop', 'bridge', 'hollow']
         if 'distance' not in find_args:
-            find_args['distance'] = 2.0
+            find_args['distance'] = 1.5
         add_ads_params = {key: ads_structures_params[key] for key
                           in ads_structures_params if key != 'find_args'}
 
@@ -706,90 +706,36 @@ class SlabAdsAdditionTask(FiretaskBase):
                         poscar_file,locpot_file,outcar_file)
                     work_function = wfa.work_function
 
-                    ##DDEC 6 Analysis
-                    slab_data["ddec6"] = {}
-                    # Get DDEC6 command directory:
-                    # TODO: fix with pymatgen command_line
-                    DDEC6_DIR = os.environ.get("DDEC6_DIR", False)
-                    if DDEC6_DIR:
-                        ddec6_command = DDEC6_DIR + "Chargemol"
+                    # Bader Analysis
+                    chgcar_file = vd.filter_files(
+                        slab_dir, file_pattern="CHGCAR")['standard']
+                    potcar_file = vd.filter_files(
+                        slab_dir, file_pattern="POTCAR")["standard"]
+                    ba = BaderAnalysis(chgcar_file, potcar_file)
+                    bader_charges = {"surface": {}}
+                    # Bader for Surface
+                    for surf_idx, surf_prop in surface_sites.items():
+                        idx = surf_prop["index"]
+                        bader_charges["surface"][surf_idx] = \
+                            ba.get_charge(idx)
+                    slab_data["bader"] = bader_charges
 
-                        slab_data["ddec6"]["status"] = True
-                        # Unzip AECCAR2
-                        aeccar_file_0 = vd.filter_files(
-                            slab_dir, file_pattern="AECCAR0")["standard"]
-                        aeccar_file_2 = vd.filter_files(
-                            slab_dir, file_pattern="AECCAR2")["standard"]
-                        chgcar_file = vd.filter_files(
-                            slab_dir, file_pattern="CHGCAR")["standard"]
-                        potcar_file = vd.filter_files(
-                            slab_dir, file_pattern="POTCAR")["standard"]
-                        import shutil
-                        import gzip
-                        with gzip.open(aeccar_file_2, 'rb') as f_in:
-                            with open("AECCAR2", 'wb') as f_out:
-                                shutil.copyfileobj(f_in, f_out)
-                        with gzip.open(aeccar_file_0, 'rb') as f_in:
-                            with open("AECCAR0", 'wb') as f_out:
-                                shutil.copyfileobj(f_in, f_out)
-                        with gzip.open(chgcar_file, 'rb') as f_in:
-                            with open("CHGCAR", 'wb') as f_out:
-                                shutil.copyfileobj(f_in, f_out)
-                        with gzip.open(potcar_file, 'rb') as f_in:
-                            with open("POTCAR", 'wb') as f_out:
-                                shutil.copyfileobj(f_in, f_out)
+                    # DDEC6 Analysis
+                    aeccar_files = [vd.filter_files(
+                        slab_dir,
+                        file_pattern="AECCAR{}".format(n))['standard']
+                                    for n in range(0, 3)]
 
-
-                        # Run command
-                        import subprocess
-                        ddec6 = subprocess.Popen(
-                            [ddec6_command],
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT)
-                        # Get outputs
-                        ddec6_stdout, ddec6_stderr = ddec6.communicate()
-                        if ddec6_stderr:
-                            print("error occured with ddec6")
-                            slab_data["ddec6"]["status"] = "Error"
-                        else:
-                            # Analyze outputs:
-                            # bond order
-                            # TODO: get actual bond order to every atom...
-                            bo = get_info_from_xyz(
-                                slab_dir +
-                                "DDEC6_even_tempered_bond_orders.xyz",
-                                ["bond_orders"])
-                            # charges
-                            charges = get_info_from_xyz(
-                                slab_dir +
-                                "DDEC6_even_tempered_net_atomic_charges.xyz",
-                                ["charges"])
-                            slab_data["ddec6"]["bond_order"] = \
-                                bo["bond_orders"]
-                            slab_data["ddec6"]["charges"] = \
-                                charges["charges"]
-
-                            # Charges for ads, surface atoms
-                            ddec6_charges = {}
-                            ddec6_charges["adsorbate"] = {}
-                            ddec6_charges["surface"] = {}
-                            ddec6_bo = {}
-                            ddec6_bo["adsorbate"] = {}
-                            ddec6_bo["surface"] = {}
-                            for surf_idx, surf_prop in surface_sites.items():
-                                idx = surf_prop["index"]
-                                ddec6_charges["surface"][surf_idx] = \
-                                    charges[idx]
-                                ddec6_bo["surface"][surf_idx] = bo[idx]
-                            slab_data["ddec6"].update({
-                                "bond_order": ddec6_bo,
-                                "charges": ddec6_charges})
-
-                    else:
-                        print("DDEC6_DIR not in environment...")
-                        slab_data["ddec6"]["status"] = False
-
-
+                    ddec = DDEC6Analysis(
+                        chgcar_file, potcar_file, aeccar_files, gzipped=True)
+                    ddec6_charges = {"surface": {}}
+                    # DDEC for Surface
+                    for surf_idx, surf_prop in surface_sites.items():
+                        idx = surf_prop["index"]
+                        ddec6_charges["surface"][surf_idx] = \
+                            ddec.get_charge(index=idx)
+                    slab_data["ddec6"].update({
+                        "charges": ddec6_charges})
 
                     slab_data.update({
                         'input_structure': input_slab,
@@ -1228,12 +1174,12 @@ class AnalysisAdditionTask(FiretaskBase):
                         chgcar_file,potcar_file,aeccar_files,gzipped=True)
                     ddec6_charges = {"surface": {},
                                      "adsorbate": {}}
-                    # Bader for Surface
+                    # DDEC for Surface
                     for surf_idx, surf_prop in surface_sites.items():
                         idx = surf_prop["index"]
                         ddec6_charges["surface"][surf_idx] = \
                             ddec.get_charge(index=idx)
-                    # Bader for Adsorbate
+                    # DDEC for Adsorbate
                     for id in ads_ids:
                         ddec6_charges["adsorbate"][surf_idx] = \
                             ddec.get_charge(index=id)
