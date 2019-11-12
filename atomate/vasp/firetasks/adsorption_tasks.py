@@ -717,7 +717,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                     ba = BaderAnalysis(chgcar_file, potcar_file)
                     bader_charges = {"surface": {}}
                     # Bader for Surface
-                    for surf_idx, surf_prop in surface_sites.items():
+                    for surf_idx, surf_prop in enumerate(
+                            surface_sites.items()):
                         idx = surf_prop["index"]
                         bader_charges["surface"][surf_idx] = \
                             ba.get_charge(idx)
