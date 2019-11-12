@@ -331,7 +331,10 @@ class SlabAdditionTask(FiretaskBase):
 
         slab_fws = []
 
-        output_bulk = Structure.from_dict(fw_spec["bulk_structure"])
+        try:
+            output_bulk = Structure.from_dict(fw_spec["bulk_structure"])
+        except TypeError:
+            output_bulk = fw_spec["bulk_structure"]
         bulk_energy = fw_spec["bulk_energy"]
         adsorbates = self.get("adsorbates")
         vasp_cmd = self.get("vasp_cmd")
@@ -550,7 +553,10 @@ class SlabAdsAdditionTask(FiretaskBase):
 
         print("load data")
 
-        output_slab = Structure.from_dict(fw_spec["slab_structure"])
+        try:
+            output_slab = Structure.from_dict(fw_spec["slab_structure"])
+        except TypeError:
+            output_slab = fw_spec["slab_structure"]
         slab_energy = fw_spec["slab_energy"]
         calc_locs = fw_spec["calc_locs"]
         slab_dir = None
@@ -966,7 +972,10 @@ class AnalysisAdditionTask(FiretaskBase):
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
 
-        output_slab_ads = Structure.from_dict(fw_spec["slab_ads_structure"])
+        try:
+            output_slab_ads = Structure.from_dict(fw_spec["slab_ads_structure"])
+        except:
+           output_slab_ads = fw_spec["slab_ads_structure"]
         slab_ads_energy = fw_spec["slab_ads_energy"]
         slab_ads_task_id = fw_spec["slab_ads_task_id"]
         calc_locs = fw_spec["calc_locs"]
