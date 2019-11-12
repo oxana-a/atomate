@@ -549,8 +549,11 @@ class SlabAdsAdditionTask(FiretaskBase):
         fws = []
 
         print("load data")
+        try:
+            output_slab = Structure.from_dict(fw_spec["slab_structure"])
+        except:
+            output_slab = fw_spec["slab_structure"]
 
-        output_slab = Structure.from_dict(fw_spec["slab_structure"])
         slab_energy = fw_spec["slab_energy"]
         calc_locs = fw_spec["calc_locs"]
         slab_dir = None
