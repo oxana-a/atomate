@@ -552,10 +552,9 @@ class SlabAdsAdditionTask(FiretaskBase):
         fws = []
 
         print("load data")
-
         try:
             output_slab = Structure.from_dict(fw_spec["slab_structure"])
-        except TypeError:
+        except:
             output_slab = fw_spec["slab_structure"]
         slab_energy = fw_spec["slab_energy"]
         calc_locs = fw_spec["calc_locs"]
@@ -720,7 +719,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                     ba = BaderAnalysis(chgcar_file, potcar_file)
                     bader_charges = {"surface": {}}
                     # Bader for Surface
-                    for surf_idx, surf_prop in surface_sites.items():
+                    for surf_idx, surf_prop in enumerate(
+                            surface_sites.items()):
                         idx = surf_prop["index"]
                         bader_charges["surface"][surf_idx] = \
                             ba.get_charge(idx)
