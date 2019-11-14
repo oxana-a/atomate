@@ -274,7 +274,7 @@ class SlabFW(Firework):
 
     def __init__(self, slab_structure, name="slab optimization",
                  vasp_input_set=None, adsorbates=None, vasp_cmd=VASP_CMD,
-                 db_file=DB_FILE, job_type="double_relaxation_run",
+                 db_file=DB_FILE, job_type="normal",
                  handler_group="md", min_lw=None, ads_site_finder_params=None,
                  ads_structures_params=None, slab_ads_fw_params=None,
                  user_incar_settings=None, optimize_distance=True,
@@ -378,7 +378,7 @@ class SlabAdsFW(Firework):
     def __init__(self, slab_ads_structure,
                  name="slab + adsorbate optimization", adsorbate=None,
                  vasp_input_set=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
-                 job_type="double_relaxation_run", handler_group="md",
+                 job_type="normal", handler_group="md",
                  user_incar_settings=None, bulk_data=None, slab_data=None,
                  slab_ads_data=None, parents=None, **kwargs):
         """
