@@ -496,10 +496,11 @@ class SlabAdditionTask(FiretaskBase):
                 slab_fws.append(nscf_calc)
             else:
                 slab_fws.append(slab_fw)
-
-        wf = Workflow(slab_fws)
-
-        return FWAction(additions=wf)
+        if dos_calculate:
+            wf = Workflow(slab_fws)
+            return FWAction(additions=wf)
+        else:
+            return FWAction(additions=slab_fws)
 
 
 @explicit_serialize
@@ -554,7 +555,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         print("load data")
         try:
             output_slab = Structure.from_dict(fw_spec["slab_structure"])
-        except:
+        except TypeError:
             output_slab = fw_spec["slab_structure"]
         slab_energy = fw_spec["slab_energy"]
         calc_locs = fw_spec["calc_locs"]
@@ -974,8 +975,8 @@ class AnalysisAdditionTask(FiretaskBase):
 
         try:
             output_slab_ads = Structure.from_dict(fw_spec["slab_ads_structure"])
-        except:
-           output_slab_ads = fw_spec["slab_ads_structure"]
+        except TypeError:
+            output_slab_ads = fw_spec["slab_ads_structure"]
         slab_ads_energy = fw_spec["slab_ads_energy"]
         slab_ads_task_id = fw_spec["slab_ads_task_id"]
         calc_locs = fw_spec["calc_locs"]
