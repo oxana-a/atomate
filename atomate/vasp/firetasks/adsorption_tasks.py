@@ -75,7 +75,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         bulk_data = self.get("bulk_data")
         slab_data = self.get("slab_data")
         slab_ads_data = self.get("slab_ads_data") or {}
-        dos_calculate = self.get("dos_calculate") or True
+        dos_calculate = self.get("dos_calculate", True)
 
         mvec = slab_ads_data.get("mvec") or AdsorbateSiteFinder(
             slab_structure, **ads_site_finder_params).mvec
@@ -345,7 +345,7 @@ class SlabAdditionTask(FiretaskBase):
         db_file = self.get("db_file")
         sgp = self.get("slab_gen_params") or {}
         min_lw = self.get("min_lw") or 10.0
-        dos_calculate = self.get("dos_calculate") or True
+        dos_calculate = self.get("dos_calculate", True)
 
         # TODO: these could be more well-thought out defaults
         if "min_slab_size" not in sgp:
@@ -500,10 +500,11 @@ class SlabAdditionTask(FiretaskBase):
                 slab_fws.append(nscf_calc)
             else:
                 slab_fws.append(slab_fw)
-
-        wf = Workflow(slab_fws)
-
-        return FWAction(additions=wf)
+        if dos_calculate:
+            wf = Workflow(slab_fws)
+            return FWAction(additions=wf)
+        else:
+            return FWAction(additions=slab_fws)
 
 
 @explicit_serialize
@@ -558,7 +559,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         print("load data")
         try:
             output_slab = Structure.from_dict(fw_spec["slab_structure"])
-        except:
+        except TypeError:
             output_slab = fw_spec["slab_structure"]
         slab_energy = fw_spec["slab_energy"]
         calc_locs = fw_spec["calc_locs"]
@@ -771,8 +772,9 @@ class SlabAdsAdditionTask(FiretaskBase):
         slab_data.update({'output_structure': output_slab,
                           'final_energy': slab_energy})
 
+        output_slab.remove_site_property('magmom')
         for ads_idx, adsorbate in enumerate(adsorbates):
-            adsorbate.add_site_property('magmom', [0.0]*adsorbate.num_sites)
+            # adsorbate.add_site_property('magmom', [0.0]*adsorbate.num_sites)
 
             if optimize_distance:
 
@@ -978,8 +980,8 @@ class AnalysisAdditionTask(FiretaskBase):
 
         try:
             output_slab_ads = Structure.from_dict(fw_spec["slab_ads_structure"])
-        except:
-           output_slab_ads = fw_spec["slab_ads_structure"]
+        except TypeError:
+            output_slab_ads = fw_spec["slab_ads_structure"]
         slab_ads_energy = fw_spec["slab_ads_energy"]
         slab_ads_task_id = fw_spec["slab_ads_task_id"]
         calc_locs = fw_spec["calc_locs"]
