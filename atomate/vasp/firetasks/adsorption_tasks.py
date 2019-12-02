@@ -223,7 +223,6 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
                 all_distances.append(distance)
 
                 if lowest_energy > 0 and energy < 0 and (not first_0):
-                    print("f if")
                     first_0 = True
                     distance_0 = distance
                     optimal_distance = distance
@@ -239,7 +238,6 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
                     lowest_energy = energy
                     optimal_distance = (distance_0 + distance) / 2
                 elif energy < lowest_energy and not first_0 and not second_0:
-                    print("still_lower")
                     # If nothing has crossed 0 yet just take the lowest energy distance...
                     lowest_energy = energy
                     optimal_distance = distance
@@ -596,7 +594,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         slab_data = self.get("slab_data") or {}
         slab_name = slab_data.get("name")
         # miller_index = slab_data.get("miller_index")
-        dos_calculate = self.get("dos_calculate") or True
+        dos_calculate = self.get("dos_calculate", True)
 
         if slab_dir:
             print("load file")
