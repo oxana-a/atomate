@@ -75,7 +75,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         bulk_data = self.get("bulk_data")
         slab_data = self.get("slab_data")
         slab_ads_data = self.get("slab_ads_data") or {}
-        dos_calculate = self.get("dos_calculate") or True
+        dos_calculate = self.get("dos_calculate", True)
 
         mvec = slab_ads_data.get("mvec") or AdsorbateSiteFinder(
             slab_structure, **ads_site_finder_params).mvec
@@ -341,7 +341,7 @@ class SlabAdditionTask(FiretaskBase):
         db_file = self.get("db_file")
         sgp = self.get("slab_gen_params") or {}
         min_lw = self.get("min_lw") or 10.0
-        dos_calculate = self.get("dos_calculate") or True
+        dos_calculate = self.get("dos_calculate", True)
 
         # TODO: these could be more well-thought out defaults
         if "min_slab_size" not in sgp:
@@ -591,7 +591,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         slab_data = self.get("slab_data") or {}
         slab_name = slab_data.get("name")
         # miller_index = slab_data.get("miller_index")
-        dos_calculate = self.get("dos_calculate") or True
+        dos_calculate = self.get("dos_calculate", True)
 
         if slab_dir:
             print("load file")
