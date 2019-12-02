@@ -337,7 +337,7 @@ class SlabFW(Firework):
         user_incar_settings = (user_incar_settings
                                or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 300,
                                    "IMIX": 4, "ALGO": "Fast", "LREAL": True,
-                                   "GGA": "RP"})
+                                   "GGA": "RP","IVDW":11})
         vis = vasp_input_set or MPSurfaceSet(
             slab_structure, bulk=False,
             user_incar_settings=user_incar_settings)
