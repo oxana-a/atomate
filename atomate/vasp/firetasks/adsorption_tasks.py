@@ -211,7 +211,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
         all_distances = []
 
         output_slab_ads = None
-        for distance_idx, distance in enumerate(sorted(distances)):  # OA: sorted distances so the ids don't correspond anymore - do we even need ids?
+        for distance_idx, distance in enumerate(sorted(distances)):
             # if distance_to_state.get(distance,{}).get("state",False):
             if "{}_energy".format(distance_idx) in fw_spec:
                 # energy per atom
@@ -222,19 +222,23 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
                 all_energies.append(energy)
                 all_distances.append(distance)
 
-                if lowest_energy >0 and energy <0 and not first_0:
-                    #This is the first time the energy has dived below 0. This is probably a good guess.
+                if lowest_energy > 0 and energy < 0 and (not first_0):
                     first_0 = True
                     distance_0 = distance
                     optimal_distance = distance
                     lowest_energy = energy
-                elif lowest_energy <0 and energy >0 and first_0:
-                    #Energy recrossed the 0 eV line, lets take an average
+                elif lowest_energy < 0 and energy > 0 and first_0:
+                    # Energy recrossed the 0 eV line, lets take an average
                     second_0 = True
-                    optimal_distance = (distance_0 + distance)/2
+                    optimal_distance = (distance_0 + distance) / 2
                     lowest_energy = energy
+                elif energy < lowest_energy and first_0 and not second_0:
+                    # energy has crossed 0, stayed in negative range, but has still lowered.
+                    # We should take even lower value
+                    lowest_energy = energy
+                    optimal_distance = (distance_0 + distance) / 2
                 elif energy < lowest_energy and not first_0 and not second_0:
-                    #If nothing has crossed 0 yet just take the lowest energy distance...
+                    # If nothing has crossed 0 yet just take the lowest energy distance...
                     lowest_energy = energy
                     optimal_distance = distance
 
