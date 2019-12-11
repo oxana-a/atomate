@@ -231,7 +231,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
                     # Energy recrossed the 0 eV line, lets take an average
                     second_0 = True
                     optimal_distance = (distance_0 + distance) / 2
-                    lowest_energy = energy
+                    #we shouldn't update lowest energy because its now past 0, could be way up...
                 elif energy < lowest_energy and first_0 and not second_0:
                     # energy has crossed 0, stayed in negative range, but has still lowered.
                     # We should take even lower value
