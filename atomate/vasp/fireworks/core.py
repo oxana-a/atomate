@@ -72,6 +72,11 @@ class OptimizeFW(Firework):
             vasptodb_kwargs["additional_fields"] = {}
         vasptodb_kwargs["additional_fields"]["task_label"] = name
 
+        if vasp_input_set.incar["ISIF"] in (0, 1, 2, 7) and job_type == "double_relaxation":
+            warnings.warn(
+                "A double relaxation run might not be appropriate with ISIF {}".format(
+                    vasp_input_set.incar["ISIF"]))
+        
         t = []
         t.append(WriteVaspFromIOSet(structure=structure,
                                     vasp_input_set=vasp_input_set))
@@ -135,10 +140,9 @@ class StaticFW(Firework):
                                          contcar_to_poscar=contcar_to_poscar))
             t.append(WriteVaspStaticFromPrev(other_params=vasp_input_set_params))
         elif structure:
-            vasp_input_set = vasp_input_set or MPStaticSet(structure)
+            vasp_input_set = vasp_input_set or MPStaticSet(structure, **vasp_input_set_params)
             t.append(WriteVaspFromIOSet(structure=structure,
-                                        vasp_input_set=vasp_input_set,
-                                        vasp_input_params=vasp_input_set_params))
+                                        vasp_input_set=vasp_input_set))
         else:
             raise ValueError("Must specify structure or previous calculation")
 

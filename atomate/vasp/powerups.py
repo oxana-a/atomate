@@ -254,8 +254,10 @@ def modify_to_soc(original_wf, nbands, structure=None, modify_incar_params=None,
     if structure is None:
         try:
             sid = get_fws_and_tasks(original_wf, fw_name_constraint="structure optimization",
-                                    task_name_constraint="RunVasp")[0][0]
-            structure = Structure.from_dict(original_wf.fws[sid].tasks[1]["vasp_input_set"]["structure"])
+                                    task_name_constraint="WriteVasp")
+            fw_id = sid[0][0]
+            task_id = sid[0][1]
+            structure = original_wf.fws[fw_id].tasks[task_id]["vasp_input_set"].structure
         except:
             raise ValueError("modify_to_soc powerup requires the structure in vasp_input_set")
 
@@ -268,9 +270,8 @@ def modify_to_soc(original_wf, nbands, structure=None, modify_incar_params=None,
 
     for idx_fw, idx_t in get_fws_and_tasks(original_wf, fw_name_constraint=fw_name_constraint,
                                            task_name_constraint="RunVasp"):
-        if "structure" not in original_wf.fws[idx_fw].name and "static" not in original_wf.fws[idx_fw].name:
-            original_wf.fws[idx_fw].tasks[idx_t]["vasp_cmd"] = ">>vasp_ncl<<"
-            original_wf.fws[idx_fw].tasks.insert(idx_t, ModifyIncar(**modify_incar_params))
+        original_wf.fws[idx_fw].tasks[idx_t]["vasp_cmd"] = ">>vasp_ncl<<"
+        original_wf.fws[idx_fw].tasks.insert(idx_t, ModifyIncar(**modify_incar_params))
 
         original_wf.fws[idx_fw].name += " soc"
 
@@ -296,6 +297,49 @@ def clear_modify(original_wf, fw_name_constraint=None):
         original_wf.fws[idx_fw].tasks.pop(idx_t)
     return original_wf
 
+
+def set_queue_options(original_wf, walltime=None, time_min=None, qos=None,
+                      fw_name_constraint=None, task_name_constraint=None):
+    """
+    Modify queue submission parameters of Fireworks in a Workflow.
+
+    This powerup overrides paramters in the qadapter file by setting values in
+    the 'queueadapter' key of a Firework spec. For example, the walltime
+    requested from a queue can be modified on a per-workflow basis.
+
+    Args:
+        original_wf (Workflow):
+            walltime (str): Total walltime to request for the job in HH:MM:SS
+            format e.g., "00:10:00" for 10 minutes.
+        time_min (str): Minimum walltime to request in HH:MM:SS format.
+            Specifying both `walltime` and `time_min` can improve throughput on
+            some queues.
+        qos (str): QoS level to request. Typical examples include "regular",
+            "flex", and "scavenger". For Cori KNL "flex" QoS, it is necessary
+            to specify a `time_min` of no more than 2 hours.
+        fw_name_constraint (str): name of the Fireworks to be tagged (all if
+            None is passed)
+        task_name_constraint (str): name of the Firetasks to be tagged (e.g.
+            None or 'RunVasp')
+
+    Returns:
+        Workflow: workflow with modified queue options
+    """
+    qsettings = {}
+    if walltime:
+        qsettings.update({"walltime": walltime})
+    if time_min:
+        qsettings.update({"time_min": time_min})
+    if qos:
+        qsettings.update({"qos": qos})
+
+    for idx_fw, idx_t in get_fws_and_tasks(original_wf,
+                                           fw_name_constraint=fw_name_constraint,
+                                           task_name_constraint=task_name_constraint):
+
+        original_wf.fws[idx_fw].spec.update({"_queueadapter": qsettings})
+
+    return original_wf
 
 def set_execution_options(original_wf, fworker_name=None, category=None,
                           fw_name_constraint=None, task_name_constraint=None):
