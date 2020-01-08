@@ -731,12 +731,12 @@ class SlabAdsAdditionTask(FiretaskBase):
                         slab_dir, file_pattern="POTCAR")["standard"]
                     ba = BaderAnalysis(chgcar_file, potcar_file)
                     bader_charges = {"surface": {}}
+
                     # Bader for Surface
-                    for surf_idx, surf_prop in enumerate(
-                            surface_sites.items()):
-                        idx = surf_prop["index"]
+                    for surf_idx, site in enumerate(
+                            surface_sites):
                         bader_charges["surface"][surf_idx] = \
-                            ba.get_charge(idx)
+                            ba.get_charge(surf_idx)
                     slab_data["bader"] = bader_charges
 
                     # DDEC6 Analysis
@@ -749,10 +749,9 @@ class SlabAdsAdditionTask(FiretaskBase):
                         chgcar_file, potcar_file, aeccar_files, gzipped=True)
                     ddec6_charges = {"surface": {}}
                     # DDEC for Surface
-                    for surf_idx, surf_prop in surface_sites.items():
-                        idx = surf_prop["index"]
+                    for surf_idx, site in enumerate(surface_sites):
                         ddec6_charges["surface"][surf_idx] = \
-                            ddec.get_charge(index=idx)
+                            ddec.get_charge(index=surf_idx)
                     slab_data["ddec6"].update({
                         "charges": ddec6_charges})
 
@@ -1181,6 +1180,7 @@ class AnalysisAdditionTask(FiretaskBase):
                     ba = BaderAnalysis(chgcar_file,potcar_file)
                     bader_charges = {"surface":{},
                                      "adsorbate":{}}
+
                     #Bader for Surface
                     for surf_idx, surf_prop in surface_sites.items():
                         idx = surf_prop["index"]
