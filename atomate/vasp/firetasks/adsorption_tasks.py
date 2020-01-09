@@ -39,6 +39,7 @@ from pymatgen.io.vasp.sets import MPSurfaceSet
 from pymatgen.util.coord import get_angle
 from pymatgen.command_line.ddec6_caller import DDEC6Analysis
 from pymatgen.command_line.bader_caller import BaderAnalysis
+from copy import deepcopy
 
 logger = get_logger(__name__)
 ref_elem_energy = {'H': -3.379, 'O': -7.459, 'C': -7.329}
@@ -1066,7 +1067,7 @@ class AnalysisAdditionTask(FiretaskBase):
                             d_band_center_slab_ads = dos_d.energies[k]
                             break
 
-                    #Get adsorbate sites:
+                    # Get adsorbate sites:
                     ads_sites = []
                     if surface_properties and id_map and output_slab_ads:
                         ordered_surf_prop = [prop for new_id, prop in
@@ -1083,16 +1084,27 @@ class AnalysisAdditionTask(FiretaskBase):
                     ads_ids = [output_slab_ads.sites.index(site) for site in
                                ads_sites]
 
-                    #Get Surface Sites:
+                    # Get Surface ads sites Sites:
                     nn_surface_list = get_nn_surface(output_slab_ads, ads_ids)
                     ads_adsorp_id, surf_adsorp_id = min(nn_surface_list,
                                                         key=lambda x: x[2])[:2]
-                    out_site_type, surface_sites, distances = get_site_type(
+                    out_site_type, surface_ads_sites, distances = get_site_type(
                         output_slab_ads, ads_adsorp_id, ads_ids, mvec)
+
+                    # Get surface sites
+                    # TODO: Replace with get_surface_sites
+                    # first remove ads atom to find slab regions
+                    slab_w_o_ads = deepcopy(output_slab_ads)
+                    slab_w_o_ads.remove_sites(ads_ids)
+                    z = max(max(get_slab_regions(slab_w_o_ads)))
+                    surface_sites = []
+                    for site in output_slab_ads.sites:
+                        if abs(site.frac_coords[2] - z) < .05:
+                            surface_sites.append(site)
 
                     # Densities by Orbital Type for Surface Site
                     orbital_densities_by_type = {}
-                    for site_idx, surf_prop in surface_sites.items():
+                    for site_idx, surf_prop in surface_ads_sites.items():
                         dos_spd_site = complete_dos.get_site_spd_dos(
                             complete_dos.structure.sites[surf_prop["index"]])
                         orbital_densities_for_site = {}
@@ -1104,9 +1116,10 @@ class AnalysisAdditionTask(FiretaskBase):
                         orbital_densities_by_type[site_idx] = \
                             orbital_densities_for_site
 
-                    #Quantify Total PDOS overlap between adsorbate and surface
+                    # Quantify Total PDOS overlap between adsorbate and
+                    # surface ads sites
                     total_surf_ads_pdos_overlap = {}
-                    for surf_ids, surf_prop in surface_sites.items():
+                    for surf_ids, surf_prop in surface_ads_sites.items():
                         if not total_surf_ads_pdos_overlap.get(
                                 surf_ids, False):
                             total_surf_ads_pdos_overlap[surf_ids] = {}
@@ -1179,21 +1192,26 @@ class AnalysisAdditionTask(FiretaskBase):
                         slab_ads_dir, file_pattern="POTCAR")["standard"]
                     ba = BaderAnalysis(chgcar_file,potcar_file)
                     bader_charges = {"surface":{},
+                                     "surface_ads":{},
                                      "adsorbate":{}}
 
-                    #Bader for Surface
-                    for surf_idx, surf_prop in surface_sites.items():
+                    # Bader for Surface Ads Sites
+                    for surf_ads_idx, surf_prop in surface_ads_sites.items():
                         idx = surf_prop["index"]
-                        bader_charges["surface"][surf_idx] = \
+                        bader_charges["surface_ads"][surf_ads_idx] = \
                             ba.get_charge(idx)
-                    #Bader for Adsorbate
-                    for id in ads_ids:
-                        bader_charges["adsorbate"][surf_idx] = \
-                            ba.get_charge(id)
+                    # Bader for Surface Sites:
+                    for surf_idx, site in enumerate(surface_sites):
+                        bader_charges["surface"][surf_idx] = \
+                            ba.get_charge(surf_idx)
+                    # Bader for Adsorbate
+                    for ads_id in ads_ids:
+                        bader_charges["adsorbate"][ads_id] = \
+                            ba.get_charge(ads_id)
                     slab_ads_data["bader"] = bader_charges
 
 
-                    #DDEC6 Analysis
+                    # DDEC6 Analysis
                     aeccar_files = [vd.filter_files(
                         slab_ads_dir,
                         file_pattern="AECCAR{}".format(n))['standard']
@@ -1202,16 +1220,21 @@ class AnalysisAdditionTask(FiretaskBase):
                     ddec = DDEC6Analysis(
                         chgcar_file,potcar_file,aeccar_files,gzipped=True)
                     ddec6_charges = {"surface": {},
+                                     "surface_ads":{},
                                      "adsorbate": {}}
-                    # DDEC for Surface
-                    for surf_idx, surf_prop in surface_sites.items():
+                    # DDEC for Surface Ads Sites
+                    for surf_ads_idx, surf_prop in surface_ads_sites.items():
                         idx = surf_prop["index"]
-                        ddec6_charges["surface"][surf_idx] = \
+                        ddec6_charges["surface_ads"][surf_ads_idx] = \
                             ddec.get_charge(index=idx)
+                    # DDEC for Surface Site
+                    for surf_idx, site in enumerate(surface_sites):
+                        ddec6_charges["surface"][surf_idx] = \
+                            ddec.get_charge(index=surf_idx)
                     # DDEC for Adsorbate
-                    for id in ads_ids:
-                        ddec6_charges["adsorbate"][surf_idx] = \
-                            ddec.get_charge(index=id)
+                    for ads_id in ads_ids:
+                        ddec6_charges["adsorbate"][ads_id] = \
+                            ddec.get_charge(index=ads_id)
                     slab_ads_data["ddec6"] = ddec6_charges
 
                     slab_ads_data.update({
