@@ -129,8 +129,11 @@ class EnergyLandscapeFW(Firework):
                 vasp_input_set_params = vasp_input_set_params or {}
                 vasptodb_kwargs = vasptodb_kwargs or {}
                 runvaspcustodian_kwargs = runvaspcustodian_kwargs or {}
-
-                static_user_incar_settings = static_user_incar_settings or {
+                # bulk_fw_params passed as kwargs could contain user_incar_settings,
+                # this should supersede the default settings but not if
+                # user_incar_settings is passed itself as a parameter
+                static_user_incar_settings = (static_user_incar_settings or
+                                              kwargs.get("user_incar_settings")) or {
                     "ALGO": "All",
                     "ISMEAR": -5,
                     "ADDGRID": True,
