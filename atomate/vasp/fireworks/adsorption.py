@@ -129,8 +129,11 @@ class EnergyLandscapeFW(Firework):
                 vasp_input_set_params = vasp_input_set_params or {}
                 vasptodb_kwargs = vasptodb_kwargs or {}
                 runvaspcustodian_kwargs = runvaspcustodian_kwargs or {}
-
-                static_user_incar_settings = static_user_incar_settings or {
+                # bulk_fw_params passed as kwargs could contain user_incar_settings,
+                # this should supersede the default settings but not if
+                # user_incar_settings is passed itself as a parameter
+                static_user_incar_settings = (static_user_incar_settings or
+                                              kwargs.get("user_incar_settings")) or {
                     "ALGO": "All",
                     "ISMEAR": -5,
                     "ADDGRID": True,
@@ -237,9 +240,14 @@ class BulkFW(Firework):
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
 
-        user_incar_settings = (user_incar_settings
+        # bulk_fw_params passed as kwargs could contain user_incar_settings,
+        # this should supersede the default settings but not if
+        # user_incar_settings is passed itself as a parameter
+        user_incar_settings = ((user_incar_settings or
+                                kwargs.get("user_incar_settings"))
                                or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200,
                                    "IVDW": 11, "GGA": "RP"})
+
         vis = vasp_input_set or MPSurfaceSet(
             bulk_structure, bulk=True, user_incar_settings=user_incar_settings)
 
@@ -334,7 +342,11 @@ class SlabFW(Firework):
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
 
-        user_incar_settings = (user_incar_settings
+        # slab_fw_params passed as kwargs could contain user_incar_settings,
+        # this should supersede the default settings but not if
+        # user_incar_settings is passed itself as a parameter
+        user_incar_settings = ((user_incar_settings or
+                                kwargs.get("user_incar_settings"))
                                or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 300,
                                    "IMIX": 4, "ALGO": "Fast", "LREAL": True,
                                    "GGA": "RP","IVDW":11})
@@ -432,7 +444,11 @@ class SlabAdsFW(Firework):
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
 
-        user_incar_settings = (user_incar_settings
+        # slab_ads_fw_params passed as kwargs could contain user_
+        # incar_settings, this should supersede the default settings but
+        # not if user_incar_settings is passed itself as a parameter
+        user_incar_settings = ((user_incar_settings or
+                                kwargs.get("user_incar_settings"))
                                or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 300,
                                    "IMIX":4, "ALGO":"Fast", "LREAL":True,
                                    "IVDW": 11, "GGA": "RP"})
