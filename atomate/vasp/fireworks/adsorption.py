@@ -244,7 +244,7 @@ class BulkFW(Firework):
         # user_incar_settings is passed itself as a parameter
         user_incar_settings = user_incar_settings \
                               or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200,
-                                  "IVDW": 11, "GGA": "RP"}
+                                  "IVDW": 11, "GGA": "RP", "EDIFFG":-.005}
 
         vis = vasp_input_set or MPSurfaceSet(
             bulk_structure, bulk=True, user_incar_settings=user_incar_settings)
@@ -346,7 +346,7 @@ class SlabFW(Firework):
         user_incar_settings = user_incar_settings or \
                               {'IBRION': 2, 'POTIM': 0.5, 'NSW': 300,"IMIX": 4,
                                "ALGO": "Fast", "LREAL": True,"GGA": "RP",
-                               "IVDW":11}
+                               "IVDW":11, "EDIFFG":-.005}
 
         vis = vasp_input_set or MPSurfaceSet(
             slab_structure, bulk=False,
