@@ -157,6 +157,12 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
                                          vasp_cmd=vasp_cmd,
                                          db_file=db_file,
                                          parents=slab_ads_fws[-1],
+                                         vasptodb_kwargs={
+                                             "task_fields_to_push": {
+                                                 "slab_structure":
+                                                     "output.structure",
+                                                 "slab_energy":
+                                                     "output.energy"}},
                                          spec={"_category": _category}))
             #non-scf uniform
             nscf_calc = NonSCFFW(parents=slab_ads_fws[-1],
