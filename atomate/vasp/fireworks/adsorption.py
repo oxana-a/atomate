@@ -10,172 +10,11 @@ Adsorption workflow fireworks.
 __author__ = "Oxana Andriuc, Martin Siron"
 __email__ = "ioandriuc@lbl.gov, msiron@lbl.gov"
 
-from atomate.common.firetasks.glue_tasks import PassCalcLocs
 from atomate.vasp.config import VASP_CMD, DB_FILE
-from atomate.vasp.firetasks.parse_outputs import VaspToDb
-from atomate.vasp.firetasks.run_calc import RunVaspCustodian
-from atomate.vasp.firetasks.write_inputs import WriteVaspFromIOSet
 from atomate.vasp.fireworks import OptimizeFW
 from fireworks import Firework
 from pymatgen.core import Molecule, Structure
-from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
-
-
-class DistanceOptimizationFW(Firework):
-    def __init__(self, adsorbate, slab_structure=None, coord=None,
-                 static_distances=None, name=None, vasp_cmd=VASP_CMD,
-                 db_file=DB_FILE, min_lw=None, ads_site_finder_params=None,
-                 ads_structures_params=None, slab_ads_fw_params=None,
-                 bulk_data=None, slab_data=None, slab_ads_data=None,
-                 dos_calculate = None, parents=None, **kwargs):
-
-        """
-        Firework (FW) that analyzes many similar static calculations where
-        an adsorbate was put along at difference distances normal to the
-        surface of a slab. FW analyzes the VASP calculated energies for these
-        distances and decides an optimal distance to launch an Optimize FW
-        at or whether to quit that site specific FW because the energy
-        landscape is not favorable.
-
-        Args:
-                adsorbate (Molecule): molecule to be appended to original_slab
-                 at proper optimal distance
-                slab_structure (Structure): original surface slab without the
-                 molecule attached
-                static_distances (list): array of distances that had static
-                 calculations done
-                name (str): name of FW
-                vasp_input_set: something like MPSurfaceSet or another vasp
-                 set that contains basic parameters for the calculations to
-                 be performed
-                override_default_vasp_params: input set parameters to be
-                 passed on to OptimizeFW if no input set is defined
-                parents: FWs of Static distance calculations
-                vastodb_kwargs (dict): Passed on to VaspToDB Firetask
-                optimize_kwargs (dict): Passed on to OptimizeFW launched
-                 FW once optimal distance is found.
-        """
-        import atomate.vasp.firetasks.adsorption_tasks as at
-
-        t = []
-        # t.append(at.GetPassedJobInformation(distances=static_distances))
-        t.append(at.AnalyzeStaticOptimumDistance(slab_structure=slab_structure,
-                                                 distances=static_distances,
-                                                 adsorbate=adsorbate))
-        t.append(at.LaunchVaspFromOptimumDistance(
-            adsorbate=adsorbate, slab_structure=slab_structure,
-            coord=coord, vasp_cmd=vasp_cmd, db_file=db_file, min_lw=min_lw,
-            ads_site_finder_params=ads_site_finder_params,
-            ads_structures_params=ads_structures_params,
-            slab_ads_fw_params=slab_ads_fw_params,
-            static_distances=static_distances, bulk_data=bulk_data,
-            slab_data=slab_data, slab_ads_data=slab_ads_data,
-            dos_calculate=dos_calculate))
-
-        super(DistanceOptimizationFW, self).__init__(
-            t, parents=parents, name="{}-{}".format(
-                slab_structure.composition.reduced_formula, name), **kwargs)
-
-
-class EnergyLandscapeFW(Firework):
-
-        def __init__(self, structure=None, name="static", vasp_input_set=None,
-                     static_user_incar_settings= None,
-                     static_user_kpoints_settings = None,
-                     vasp_input_set_params=None,vasp_cmd=VASP_CMD,
-                     db_file=DB_FILE, vasptodb_kwargs=None,parents=None,
-                     runvaspcustodian_kwargs = None, **kwargs):
-                """
-                Copied from StaticFW - modified to not overwrite passed
-                information when supplying a parent. Only looks at structure
-                passed, and not parent structure. Also added argument for
-                passing kwards to  RunVaspCustodian Firetask Standard static
-                calculation Firework - either from a previous location or
-                from a structure.
-
-                Args:
-                        structure (Structure): Input structure. Note that for
-                            prev_calc_loc jobs, the structure is only used
-                            to set the name of the FW and any structure with
-                            the same composition can be used.
-                        name (str): Name for the Firework.
-                        vasp_input_set (VaspInputSet): input set to use
-                            (for jobs w/no parents) Defaults to MPStaticSet()\
-                            if None.
-                        vasp_input_set_params (dict): Dict of vasp_input_set
-                            kwargs.
-                        vasp_cmd (str): Command to run vasp.
-                        prev_calc_loc (bool or str): If true (default), copies
-                            outputs from previous calc. If
-                            a str value, retrieves a previous calculation
-                            output by name. If False/None, will create
-                            new static calculation using the provided structure
-                        prev_calc_dir (str): Path to a previous calculation to
-                            copy from
-                        db_file (str): Path to file specifying db credentials.
-                        parents (Firework): Parents of this particular Firework
-                            FW or list of FWS.
-                        vasptodb_kwargs (dict): kwargs to pass to VaspToDb
-                            Firetask
-                        runvaspcustodian_kwargs: kwargs to pass to
-                            RunVaspCustodian Firetask
-                        \*\*kwargs: Other kwargs that are passed to
-                            Firework.__init__.
-                """
-
-
-                t = []
-
-                vasp_input_set_params = vasp_input_set_params or {}
-                vasptodb_kwargs = vasptodb_kwargs or {}
-                runvaspcustodian_kwargs = runvaspcustodian_kwargs or {}
-                # bulk_fw_params passed as kwargs could contain user_incar_settings,
-                # this should supersede the default settings but not if
-                # user_incar_settings is passed itself as a parameter
-                static_user_incar_settings = static_user_incar_settings or\
-                                             {"ALGO": "All",
-                                              "ISMEAR": -5,
-                                              "ADDGRID": True,
-                                              "LREAL": False,
-                                              "LASPH": True,
-                                              "LORBIT": 11,
-                                              "LELF": True,
-                                              "IVDW": 11,
-                                              "GGA": "RP",
-                                              }
-
-                if "additional_fields" not in vasptodb_kwargs:
-                        vasptodb_kwargs["additional_fields"] = {}
-                vasptodb_kwargs["additional_fields"]["task_label"] = name
-
-                fw_name = "{}-{}".format(
-                    structure.composition.reduced_formula if structure
-                    else "unknown", name)
-
-                if structure:
-                    vasp_input_set = (
-                            vasp_input_set
-                            or MPStaticSet(structure,
-                                           user_kpoints_settings=
-                                           static_user_kpoints_settings,
-                                           user_incar_settings=
-                                           static_user_incar_settings))
-                    t.append(WriteVaspFromIOSet(structure=structure,
-                                                vasp_input_set=vasp_input_set,
-                                                vasp_input_params=
-                                                vasp_input_set_params))
-                else:
-                    raise ValueError(
-                        "Must specify structure or previous calculation")
-
-                t.append(RunVaspCustodian(vasp_cmd=vasp_cmd,
-                                          auto_npar=">>auto_npar<<",
-                                          **runvaspcustodian_kwargs))
-                t.append(PassCalcLocs(name=name))
-                t.append(
-                        VaspToDb(db_file=db_file, **vasptodb_kwargs))
-                super(EnergyLandscapeFW, self).__init__(t, parents=parents,
-                                                        name=fw_name, **kwargs)
+from pymatgen.io.vasp.sets import MPSurfaceSet
 
 
 class BulkFW(Firework):
@@ -186,9 +25,7 @@ class BulkFW(Firework):
                  vasp_input_set=None, user_incar_settings=None,
                  slab_gen_params=None, min_lw=None, slab_fw_params=None,
                  ads_site_finder_params=None, ads_structures_params=None,
-                 slab_ads_fw_params=None, optimize_distance=True,
-                 static_distances=None, static_fws_params=None,
-                 dos_calculate=None,parents=None,**kwargs):
+                 slab_ads_fw_params=None, parents=None,**kwargs):
         """
         Optimize bulk structure and add a slab generator firework as
         addition.
@@ -242,9 +79,9 @@ class BulkFW(Firework):
         # bulk_fw_params passed as kwargs could contain user_incar_settings,
         # this should supersede the default settings but not if
         # user_incar_settings is passed itself as a parameter
-        user_incar_settings = user_incar_settings \
-                              or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200,
-                                  "IVDW": 11, "GGA": "RP", "EDIFFG":-.005}
+        user_incar_settings = user_incar_settings or {
+            'IBRION': 2, 'POTIM': 0.5, 'NSW': 200, "IVDW": 11, "GGA": "RP",
+            "EDIFFG": -.005}
 
         vis = vasp_input_set or MPSurfaceSet(
             bulk_structure, bulk=True, user_incar_settings=user_incar_settings)
@@ -267,11 +104,7 @@ class BulkFW(Firework):
             slab_fw_params=slab_fw_params,
             ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params,
-            slab_ads_fw_params=slab_ads_fw_params, add_fw_name=add_fw_name,
-            optimize_distance=optimize_distance,
-            static_distances=static_distances,
-            dos_calculate=dos_calculate,
-            static_fws_params=static_fws_params))
+            slab_ads_fw_params=slab_ads_fw_params, add_fw_name=add_fw_name))
 
         super(BulkFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
@@ -283,9 +116,7 @@ class SlabFW(Firework):
                  db_file=DB_FILE, job_type="normal",
                  handler_group="md", min_lw=None, ads_site_finder_params=None,
                  ads_structures_params=None, slab_ads_fw_params=None,
-                 user_incar_settings=None, optimize_distance=True,
-                 static_distances=None,static_fws_params=None,
-                 dos_calculate=True, bulk_data=None,
+                 user_incar_settings=None, bulk_data=None,
                  slab_data=None, parents=None, **kwargs):
         """
         Optimize slab structure and add a slab + adsorbate generator
@@ -376,11 +207,8 @@ class SlabFW(Firework):
             adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
             min_lw=min_lw, ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params,
-            slab_ads_fw_params=slab_ads_fw_params,
-            optimize_distance=optimize_distance,
-            static_distances=static_distances,
-            static_fws_params=static_fws_params, bulk_data=bulk_data,
-            slab_data=slab_data, dos_calculate=dos_calculate))
+            slab_ads_fw_params=slab_ads_fw_params, bulk_data=bulk_data,
+            slab_data=slab_data))
         super(SlabFW, self).__init__(t, parents=parents, name=name, **kwargs)
 
 
@@ -445,10 +273,9 @@ class SlabAdsFW(Firework):
         # slab_ads_fw_params passed as kwargs could contain user_
         # incar_settings, this should supersede the default settings but
         # not if user_incar_settings is passed itself as a parameter
-        user_incar_settings = user_incar_settings or \
-                              {'IBRION': 2, 'POTIM': 0.5, 'NSW': 300,"IMIX":4,
-                               "ALGO":"Fast", "LREAL":True,"IVDW": 11,
-                               "GGA": "RP"}
+        user_incar_settings = user_incar_settings or  {
+            'IBRION': 2, 'POTIM': 0.5, 'NSW': 300, "IMIX": 4, "ALGO": "Fast",
+            "LREAL": True, "IVDW": 11, "GGA": "RP"}
 
         vis = vasp_input_set or MPSurfaceSet(
             slab_ads_structure, bulk=False,
@@ -490,7 +317,7 @@ class AdsorptionAnalysisFW(Firework):
 
     def __init__(self, adsorbate=None, db_file=DB_FILE, job_type=None,
                  name="adsorption analysis", bulk_data=None, slab_data=None,
-                 slab_ads_data=None, parents=None):
+                 slab_ads_data=None, parents=None, **kwargs):
         """
         Analyze data from Adsorption workflow for a slab + adsorbate
         structure and save it to database.
@@ -543,4 +370,4 @@ class AdsorptionAnalysisFW(Firework):
         tasks.append(ads_an_t)
 
         super(AdsorptionAnalysisFW, self).__init__(tasks, parents=parents,
-                                                   name=name)
+                                                   name=name, **kwargs)
