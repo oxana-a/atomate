@@ -10,8 +10,7 @@ from copy import deepcopy
 
 from fireworks import Workflow
 
-from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW, StaticFW
-from atomate.vasp.fireworks.adsorption import DistanceOptimizationFW, EnergyLandscapeFW
+from atomate.vasp.fireworks.core import OptimizeFW, TransmuterFW
 from atomate.utils.utils import get_meta_from_structure
 from atomate.vasp.fireworks.adsorption import BulkFW
 from atomate.vasp.config import VASP_CMD, DB_FILE
@@ -19,11 +18,9 @@ from pymatgen.analysis.adsorption import AdsorbateSiteFinder
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.transformations.advanced_transformations import SlabTransformation
 from pymatgen.transformations.standard_transformations import SupercellTransformation
-from pymatgen.io.vasp.sets import MVLSlabSet, MPStaticSet
-from pymatgen.io.vasp.inputs import Kpoints
 from pymatgen.io.vasp.sets import MPSurfaceSet
 
-from pymatgen.core import Molecule, Structure
+from pymatgen.core import Structure
 
 __author__ = 'Joseph Montoya, Richard Tran'
 __email__ = 'montoyjh@lbl.gov'
