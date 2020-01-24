@@ -288,7 +288,7 @@ class SlabFW(Firework):
                  user_incar_settings=None, optimize_distance=True,
                  static_distances=None,static_fws_params=None,
                  dos_calculate=True, bulk_data=None,
-                 slab_data=None, parents=None, **kwargs):
+                 slab_data=None, parents=None, calc_locs=None, **kwargs):
         """
         Optimize slab structure and add a slab + adsorbate generator
         firework as addition.
