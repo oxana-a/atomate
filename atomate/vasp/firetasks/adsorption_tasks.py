@@ -514,11 +514,12 @@ class SlabAdditionTask(FiretaskBase):
                 slab_fws.append(nscf_calc)
             else:
                 slab_fws.append(slab_fw)
-        if dos_calculate:
-            wf = Workflow(slab_fws)
-            return FWAction(additions=wf)
-        else:
-            return FWAction(additions=slab_fws)
+        wf = Workflow(slab_fws)
+        if slab_fw_params.get("calc_locs"):
+            from atomate.vasp.powerups import use_fake_vasp as fv
+            wf = fv(wf,{slab_fw.name:slab_fw_params.get("calc_locs")})
+
+        return FWAction(additions=wf)
 
 
 @explicit_serialize

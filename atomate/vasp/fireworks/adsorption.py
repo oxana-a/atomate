@@ -16,7 +16,6 @@ from atomate.vasp.firetasks.parse_outputs import VaspToDb
 from atomate.vasp.firetasks.run_calc import RunVaspCustodian
 from atomate.vasp.firetasks.write_inputs import WriteVaspFromIOSet
 from atomate.vasp.fireworks import OptimizeFW
-from atomate.vasp.powerups import use_fake_vasp
 from fireworks import Firework
 from pymatgen.core import Molecule, Structure
 from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
@@ -189,7 +188,7 @@ class BulkFW(Firework):
                  ads_site_finder_params=None, ads_structures_params=None,
                  slab_ads_fw_params=None, optimize_distance=True,
                  static_distances=None, static_fws_params=None,
-                 dos_calculate=None,parents=None,**kwargs):
+                 dos_calculate=None,parents=None,calc_loc=None,**kwargs):
         """
         Optimize bulk structure and add a slab generator firework as
         addition.
@@ -259,9 +258,6 @@ class BulkFW(Firework):
                              db_file=db_file, job_type=job_type,
                              handler_group=handler_group,
                              vasptodb_kwargs=vasptodb_kwargs)
-
-        if kwargs.get("calc_loc"):
-            bulk_fw = use_fake_vasp(bulk_fw,{bulk_fw.name:kwargs.get("calc_loc")})
 
         t = bulk_fw.tasks
 
