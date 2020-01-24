@@ -517,7 +517,7 @@ class SlabAdditionTask(FiretaskBase):
         wf = Workflow(slab_fws)
         if slab_fw_params.get("calc_locs"):
             from atomate.vasp.powerups import use_fake_vasp as fv
-            wf = fv(wf,{slab_fw.name:slab_fw_params.get("calc_locs")})
+            wf = fv(wf,slab_fw_params.get("calc_locs"))
 
         return FWAction(additions=wf)
 
