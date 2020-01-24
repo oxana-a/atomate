@@ -188,7 +188,7 @@ class BulkFW(Firework):
                  ads_site_finder_params=None, ads_structures_params=None,
                  slab_ads_fw_params=None, optimize_distance=True,
                  static_distances=None, static_fws_params=None,
-                 dos_calculate=None,parents=None,calc_loc=None,**kwargs):
+                 dos_calculate=None,parents=None,**kwargs):
         """
         Optimize bulk structure and add a slab generator firework as
         addition.
@@ -288,7 +288,7 @@ class SlabFW(Firework):
                  user_incar_settings=None, optimize_distance=True,
                  static_distances=None,static_fws_params=None,
                  dos_calculate=True, bulk_data=None,
-                 slab_data=None, parents=None, calc_locs=None, **kwargs):
+                 slab_data=None, parents=None, **kwargs):
         """
         Optimize slab structure and add a slab + adsorbate generator
         firework as addition.

@@ -429,8 +429,9 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
         name += " {}".format(ads_name)
     name += " adsorption wf"
     wf = Workflow(fws, name=name)
-    if bulk_fw_params.get("calc_loc"):
-        wf = use_fake_vasp(wf,{wf.fws[0].name: bulk_fw_params.get("calc_loc")})
+    if bulk_fw_params.get("vasp_calc"):
+        vasp_calc = bulk_fw_params.pop("vasp_calc")
+        wf = use_fake_vasp(wf,{wf.fws[0].name: vasp_calc})
     # TODO: add_molecules_in_box
 
     return wf

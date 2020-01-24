@@ -375,6 +375,10 @@ class SlabAdditionTask(FiretaskBase):
         if calc_locs:
             bulk_dir = calc_locs[-1].get("path")
 
+        vasp_calcs = slab_fw_params.get("vasp_calcs")
+        if vasp_calcs:
+            slab_fw_params.pop("vasp_calcs")
+
         optimize_distance = self.get("optimize_distance")
         static_distances = self.get("static_distances")
         static_fws_params = self.get("static_fws_params")
@@ -515,9 +519,9 @@ class SlabAdditionTask(FiretaskBase):
             else:
                 slab_fws.append(slab_fw)
         wf = Workflow(slab_fws)
-        if slab_fw_params.get("calc_locs"):
+        if vasp_calcs:
             from atomate.vasp.powerups import use_fake_vasp as fv
-            wf = fv(wf,slab_fw_params.get("calc_locs"))
+            wf = fv(wf,vasp_calcs)
 
         return FWAction(additions=wf)
 
