@@ -16,6 +16,7 @@ from atomate.vasp.firetasks.parse_outputs import VaspToDb
 from atomate.vasp.firetasks.run_calc import RunVaspCustodian
 from atomate.vasp.firetasks.write_inputs import WriteVaspFromIOSet
 from atomate.vasp.fireworks import OptimizeFW
+from atomate.vasp.powerups import use_fake_vasp
 from fireworks import Firework
 from pymatgen.core import Molecule, Structure
 from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
@@ -246,6 +247,7 @@ class BulkFW(Firework):
                               or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200,
                                   "IVDW": 11, "GGA": "RP", "EDIFFG":-.005}
 
+
         vis = vasp_input_set or MPSurfaceSet(
             bulk_structure, bulk=True, user_incar_settings=user_incar_settings)
 
@@ -257,6 +259,10 @@ class BulkFW(Firework):
                              db_file=db_file, job_type=job_type,
                              handler_group=handler_group,
                              vasptodb_kwargs=vasptodb_kwargs)
+
+        if kwargs.get("calc_loc"):
+            bulk_fw = use_fake_vasp(bulk_fw,{bulk_fw.name:kwargs.get("calc_loc")})
+
         t = bulk_fw.tasks
 
         add_fw_name = (bulk_structure.composition.reduced_formula
