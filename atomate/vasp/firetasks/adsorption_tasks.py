@@ -457,7 +457,7 @@ class SlabAdditionTask(FiretaskBase):
             if getattr(slab, "miller_index", None):
                 name += "_{}".format(slab.miller_index)
             if getattr(slab, "shift", None):
-                name += "_{:.3f}".format(slab.shift)
+                name += "_{:.3f}".format(slab.shift).replace(".",",")
             name += " slab optimization"
 
             slab_data = {'miller_index': slab.miller_index,
