@@ -159,7 +159,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
                                          parents=slab_ads_fws[-1],
                                          vasptodb_kwargs={
                                              "task_fields_to_push": {
-                                                 "slab_structure":
+                                                 "slab_ads_structure":
                                                      "output.structure",
                                                  "slab_energy":
                                                      "output.energy"}},
@@ -1003,7 +1003,7 @@ class AnalysisAdditionTask(FiretaskBase):
         import atomate.vasp.fireworks.adsorption as af
 
         try:
-            output_slab_ads = Structure.from_dict(fw_spec["slab_ads_structure"])
+            output_slab_ads = Structure.from_dict(fw_spec[""])
         except TypeError:
             output_slab_ads = fw_spec["slab_ads_structure"]
         slab_ads_energy = fw_spec["slab_ads_energy"]
