@@ -159,7 +159,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
                                          parents=slab_ads_fws[-1],
                                          vasptodb_kwargs={
                                              "task_fields_to_push": {
-                                                 "slab_structure":
+                                                 "slab_ads_structure":
                                                      "output.structure",
                                                  "slab_energy":
                                                      "output.energy"}},
@@ -375,6 +375,10 @@ class SlabAdditionTask(FiretaskBase):
         if calc_locs:
             bulk_dir = calc_locs[-1].get("path")
 
+        vasp_calcs = slab_fw_params.get("vasp_calcs")
+        if vasp_calcs:
+            slab_fw_params.pop("vasp_calcs")
+
         optimize_distance = self.get("optimize_distance")
         static_distances = self.get("static_distances")
         static_fws_params = self.get("static_fws_params")
@@ -457,7 +461,7 @@ class SlabAdditionTask(FiretaskBase):
             if getattr(slab, "miller_index", None):
                 name += "_{}".format(slab.miller_index)
             if getattr(slab, "shift", None):
-                name += "_{:.3f}".format(slab.shift)
+                name += "_{:.3f}".format(slab.shift).replace(".",",")
             name += " slab optimization"
 
             slab_data = {'miller_index': slab.miller_index,
@@ -514,11 +518,12 @@ class SlabAdditionTask(FiretaskBase):
                 slab_fws.append(nscf_calc)
             else:
                 slab_fws.append(slab_fw)
-        if dos_calculate:
-            wf = Workflow(slab_fws)
-            return FWAction(additions=wf)
-        else:
-            return FWAction(additions=slab_fws)
+        wf = Workflow(slab_fws)
+        if vasp_calcs:
+            from atomate.vasp.powerups import use_fake_vasp as fv
+            wf = fv(wf,vasp_calcs)
+
+        return FWAction(additions=wf)
 
 
 @explicit_serialize
@@ -998,7 +1003,7 @@ class AnalysisAdditionTask(FiretaskBase):
         import atomate.vasp.fireworks.adsorption as af
 
         try:
-            output_slab_ads = Structure.from_dict(fw_spec["slab_ads_structure"])
+            output_slab_ads = Structure.from_dict(fw_spec[""])
         except TypeError:
             output_slab_ads = fw_spec["slab_ads_structure"]
         slab_ads_energy = fw_spec["slab_ads_energy"]

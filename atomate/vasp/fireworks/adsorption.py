@@ -246,6 +246,7 @@ class BulkFW(Firework):
                               or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200,
                                   "IVDW": 11, "GGA": "RP", "EDIFFG":-.005}
 
+
         vis = vasp_input_set or MPSurfaceSet(
             bulk_structure, bulk=True, user_incar_settings=user_incar_settings)
 
@@ -257,6 +258,7 @@ class BulkFW(Firework):
                              db_file=db_file, job_type=job_type,
                              handler_group=handler_group,
                              vasptodb_kwargs=vasptodb_kwargs)
+
         t = bulk_fw.tasks
 
         add_fw_name = (bulk_structure.composition.reduced_formula

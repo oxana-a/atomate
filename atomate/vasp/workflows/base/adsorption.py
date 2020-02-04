@@ -19,6 +19,7 @@ from pymatgen.analysis.adsorption import AdsorbateSiteFinder
 from pymatgen.core.surface import generate_all_slabs, Slab
 from pymatgen.transformations.advanced_transformations import SlabTransformation
 from pymatgen.transformations.standard_transformations import SupercellTransformation
+from atomate.vasp.powerups import use_fake_vasp
 from pymatgen.io.vasp.sets import MVLSlabSet, MPStaticSet
 from pymatgen.io.vasp.inputs import Kpoints
 from pymatgen.io.vasp.sets import MPSurfaceSet
@@ -428,6 +429,9 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
         name += " {}".format(ads_name)
     name += " adsorption wf"
     wf = Workflow(fws, name=name)
+    if bulk_fw_params.get("vasp_calc"):
+        vasp_calc = bulk_fw_params.pop("vasp_calc")
+        wf = use_fake_vasp(wf,{wf.fws[0].name: vasp_calc})
     # TODO: add_molecules_in_box
 
     return wf
