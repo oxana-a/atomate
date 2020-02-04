@@ -1003,7 +1003,7 @@ class AnalysisAdditionTask(FiretaskBase):
         import atomate.vasp.fireworks.adsorption as af
 
         try:
-            output_slab_ads = Structure.from_dict(fw_spec[""])
+            output_slab_ads = Structure.from_dict(fw_spec["slab_ads_structure"])
         except TypeError:
             output_slab_ads = fw_spec["slab_ads_structure"]
         slab_ads_energy = fw_spec["slab_ads_energy"]
