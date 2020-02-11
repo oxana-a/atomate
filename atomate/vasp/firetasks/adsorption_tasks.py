@@ -20,7 +20,7 @@ from atomate.utils.utils import get_logger, env_chk
 from atomate.vasp.config import DB_FILE
 from atomate.vasp.database import VaspCalcDb
 from atomate.vasp.drones import VaspDrone
-from atomate.vasp.fireworks.core import StaticFW, NonSCFFW
+from atomate.vasp.fireworks.core import NonSCFFW
 from datetime import datetime
 from fireworks.core.firework import FiretaskBase, FWAction, Workflow
 from fireworks.utilities.fw_serializers import DATETIME_HANDLER
@@ -152,8 +152,9 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
             analysis_step = relax_calc.tasks[-1]
             relax_calc.tasks.remove(analysis_step)
             slab_ads_fws.append(relax_calc)
-            #static
-            slab_ads_fws.append(StaticFW(name=fw_name+" static",
+            #non-scf uniform
+            slab_ads_fws.append(NonSCFFW(name=fw_name+" static",
+                                         mode="uniform",
                                          vasp_cmd=vasp_cmd,
                                          db_file=db_file,
                                          parents=slab_ads_fws[-1],
@@ -161,12 +162,12 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
                                              "task_fields_to_push": {
                                                  "slab_ads_structure":
                                                      "output.structure",
-                                                 "slab_energy":
+                                                 "slab_ads_energy":
                                                      "output.energy"}},
                                          spec={"_category": _category}))
-            #non-scf uniform
+            #non-scf line
             nscf_calc = NonSCFFW(parents=slab_ads_fws[-1],
-                                 name=fw_name+" nscf", mode="uniform",
+                                 name=fw_name+" nscf", mode="line",
                                  vasp_cmd=vasp_cmd, db_file=db_file,
                                  spec={"_category": _category})
             nscf_calc.tasks.append(analysis_step)
@@ -498,9 +499,10 @@ class SlabAdditionTask(FiretaskBase):
                 slab_fw.tasks.remove(analysis_task)
                 slab_fws.append(slab_fw)
                 #static
-                slab_fws.append(StaticFW(name=name+" static",
+                slab_fws.append(NonSCFFW(name=name+" static",
                                          vasp_cmd=vasp_cmd,
                                          db_file=db_file,
+                                         mode="uniform",
                                          vasptodb_kwargs={
                                              "task_fields_to_push": {
                                                  "slab_structure":
@@ -511,7 +513,7 @@ class SlabAdditionTask(FiretaskBase):
                                          spec={"_category": _category}))
                 #nscf
                 nscf_calc = NonSCFFW(parents=slab_fws[-1],
-                                     name=name+" nscf", mode="uniform",
+                                     name=name+" nscf", mode="line",
                                      vasp_cmd=vasp_cmd, db_file=db_file,
                                      spec={"_category": _category})
                 nscf_calc.tasks.append(analysis_task)
@@ -935,7 +937,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                         slab_ads_fw.tasks.remove(analysis_task)
                         fws.append(slab_ads_fw)
                         #static
-                        fws.append(StaticFW(name=fw_name+" static",
+                        fws.append(NonSCFFW(name=fw_name+" static",
+                                            mode="uniform"
                                             vasp_cmd=vasp_cmd,
                                             db_file=db_file,
                                             parents=fws[-1],
@@ -943,7 +946,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                         #nscf
                         nscf_calc = NonSCFFW(parents=fws[-1],
                                              name=fw_name+ " nscf",
-                                             mode="uniform",
+                                             mode="line",
                                              vasp_cmd=vasp_cmd,
                                              db_file=db_file,
                                              spec={"_category": _category})
