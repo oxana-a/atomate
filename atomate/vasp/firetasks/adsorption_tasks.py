@@ -938,7 +938,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                         fws.append(slab_ads_fw)
                         #static
                         fws.append(NonSCFFW(name=fw_name+" static",
-                                            mode="uniform"
+                                            mode="uniform",
                                             vasp_cmd=vasp_cmd,
                                             db_file=db_file,
                                             parents=fws[-1],
