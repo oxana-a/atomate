@@ -158,17 +158,17 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
                                          vasp_cmd=vasp_cmd,
                                          db_file=db_file,
                                          parents=slab_ads_fws[-1],
-                                         vasptodb_kwargs={
-                                             "task_fields_to_push": {
-                                                 "slab_ads_structure":
-                                                     "output.structure",
-                                                 "slab_ads_energy":
-                                                     "output.energy"}},
                                          spec={"_category": _category}))
             #non-scf line
             nscf_calc = NonSCFFW(parents=slab_ads_fws[-1],
                                  name=fw_name+" nscf", mode="line",
                                  vasp_cmd=vasp_cmd, db_file=db_file,
+                                 vasptodb_kwargs={
+                                     "task_fields_to_push": {
+                                         "slab_ads_structure":
+                                             "output.structure",
+                                         "slab_ads_energy":
+                                             "output.energy"}},
                                  spec={"_category": _category})
             nscf_calc.tasks.append(analysis_step)
             slab_ads_fws.append(nscf_calc)
@@ -640,6 +640,14 @@ class SlabAdsAdditionTask(FiretaskBase):
 
                     if not output_slab:
                         output_slab = vrun_o.final_structure
+
+                    if "surface_properties" not in output_slab.site_properties:
+                        height = ads_site_finder_params.get("height", 0.9)
+                        surf_props = get_slab_surf_props(output_slab,
+                                                         height=height)
+                        output_slab.add_site_property("surface_properties",
+                                                      surf_props)
+
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
                     input_slab = vrun_i.initial_structure
 
@@ -669,10 +677,12 @@ class SlabAdsAdditionTask(FiretaskBase):
 
                     # Get Surface Sites:
                     # TODO: Replace with get_surface_sites
-                    z = max(max(get_slab_regions(output_slab)))
                     surface_sites = []
-                    for site in output_slab.sites:
-                        if abs(site.frac_coords[2]-z)<.05:
+                    for site, surface_property in \
+                            zip(output_slab,
+                                output_slab.site_properties[
+                                    'surface_properties']):
+                        if surface_property is 'surface':
                             surface_sites.append(site)
 
                     # Densities by Orbital Type for Surface Site
@@ -784,11 +794,6 @@ class SlabAdsAdditionTask(FiretaskBase):
                     pass
             except FileNotFoundError:
                 warnings.warn("Slab directory not found: {}".format(slab_dir))
-
-        if "surface_properties" not in output_slab.site_properties:
-            height = ads_site_finder_params.get("height", 0.9)
-            surf_props = get_slab_surf_props(output_slab, height=height)
-            output_slab.add_site_property("surface_properties", surf_props)
 
         slab_data.update({'output_structure': output_slab,
                           'final_energy': slab_energy})
