@@ -423,6 +423,7 @@ class VaspDrone(AbstractDrone):
 
         # parse axially averaged locpot
         if "locpot" in d["output_file_paths"] and self.parse_locpot:
+            logger.info("locpot parsing")
             locpot = Locpot.from_file(os.path.join(dir_name, d["output_file_paths"]["locpot"]))
             d["output"]["locpot"] = {i: locpot.get_average_along_axis(i) for i in range(3)}
 
@@ -430,6 +431,7 @@ class VaspDrone(AbstractDrone):
             for file in self.store_volumetric_data:
                 if file in d["output_file_paths"]:
                     try:
+                        logger.info("store vol data file {}".format(file))
                         # assume volumetric data is all in CHGCAR format
                         data = Chgcar.from_file(os.path.join(dir_name, d["output_file_paths"][file]))
                         d[file] = data
