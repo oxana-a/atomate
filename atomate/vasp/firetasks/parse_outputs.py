@@ -79,7 +79,7 @@ class VaspToDb(FiretaskBase):
     optional_params = ["calc_dir", "calc_loc", "parse_dos", "bandstructure_mode",
                        "additional_fields", "db_file", "fw_spec_field", "defuse_unsuccessful",
                        "task_fields_to_push", "parse_chgcar", "parse_aeccar",
-                       "parse_potcar_file","parse_bader",
+                       "parse_potcar_file","parse_bader","parse_locpot",
                        "store_volumetric_data"]
 
     def run_task(self, fw_spec):
@@ -95,6 +95,7 @@ class VaspToDb(FiretaskBase):
 
         drone = VaspDrone(additional_fields=self.get("additional_fields"),
                           parse_dos=self.get("parse_dos", False),
+                          parse_locpot=self.get("parse_locpot",False),
                           parse_potcar_file=self.get("parse_potcar_file", True),
                           bandstructure_mode=self.get("bandstructure_mode", False),
                           parse_chgcar=self.get("parse_chgcar", False),  # deprecated
