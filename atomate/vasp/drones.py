@@ -157,7 +157,9 @@ class VaspDrone(AbstractDrone):
         vasprun_files = self.filter_files(path, file_pattern="vasprun.xml")
         outcar_files = self.filter_files(path, file_pattern="OUTCAR")
         if len(vasprun_files) > 0 and len(outcar_files) > 0:
+            logger.info("Generating Doc")
             d = self.generate_doc(path, vasprun_files, outcar_files)
+            logger.info("Generated Doc")
             self.post_process(path, d)
         else:
             raise ValueError("No VASP files found!")
@@ -207,6 +209,7 @@ class VaspDrone(AbstractDrone):
         """
         try:
             # basic properties, incl. calcs_reversed and run_stats
+            logger.info("doc pt 1")
             fullpath = os.path.abspath(dir_name)
             d = jsanitize(self.additional_fields, strict=True)
             d["schema"] = {"code": "atomate", "version": VaspDrone.__version__}
@@ -236,6 +239,7 @@ class VaspDrone(AbstractDrone):
             d["calcs_reversed"].reverse()
 
             # set root formula/composition keys based on initial and final calcs
+            logger.info("doc pt 2")
             d_calc_init = d["calcs_reversed"][-1]
             d_calc_final = d["calcs_reversed"][0]
             d["chemsys"] = "-".join(sorted(d_calc_final["elements"]))
@@ -277,6 +281,7 @@ class VaspDrone(AbstractDrone):
                 "stress": d_calc_final["output"]["ionic_steps"][-1].get("stress")}
 
             # patch calculated magnetic moments into final structure
+            logger.info("doct pt 3")
             if len(d_calc_final["output"]["outcar"]["magnetization"]) != 0:
                 magmoms = [m["tot"] for m in d_calc_final["output"]["outcar"]["magnetization"]]
                 s = Structure.from_dict(d["output"]["structure"])
@@ -286,6 +291,7 @@ class VaspDrone(AbstractDrone):
             calc = d["calcs_reversed"][0]
 
             # copy band gap and properties into output
+            logger.info("doc pt 4")
             d["output"].update({"bandgap": calc["output"]["bandgap"],
                                 "cbm": calc["output"]["cbm"],
                                 "vbm": calc["output"]["vbm"],
@@ -304,6 +310,7 @@ class VaspDrone(AbstractDrone):
                     raise
 
             # Store symmetry information
+            logger.info("doc pt 5")
             sg = SpacegroupAnalyzer(Structure.from_dict(d_calc_final["output"]["structure"]), 0.1)
             if not sg.get_symmetry_dataset():
                 sg = SpacegroupAnalyzer(Structure.from_dict(d_calc_final["output"]["structure"]),
@@ -317,6 +324,7 @@ class VaspDrone(AbstractDrone):
                 "hall": sg.get_hall()}
 
             # store dieelctric and piezo information
+            logger.info("doc pt 6")
             if d["input"]["parameters"].get("LEPSILON"):
                 for k in ['epsilon_static', 'epsilon_static_wolfe', 'epsilon_ionic']:
                     d["output"][k] = d_calc_final["output"][k]
@@ -342,6 +350,7 @@ class VaspDrone(AbstractDrone):
 
         Process a vasprun.xml file.
         """
+        logger.info("process_vasprun")
         vasprun_file = os.path.join(dir_name, filename)
 
         vrun = Vasprun(vasprun_file, parse_potcar_file=self.parse_potcar_file)
@@ -443,6 +452,7 @@ class VaspDrone(AbstractDrone):
         return d
 
     def process_bandstructure(self, vrun):
+        logger.info("process bandstructure")
 
         vasprun_file = vrun.filename
         # Band structure parsing logic
@@ -474,6 +484,7 @@ class VaspDrone(AbstractDrone):
         return None
 
     def process_dos(self, vrun):
+        logger.info("process dos")
         # parse dos if forced to or auto mode set and  0 ionic steps were performed -> static calculation and not DFPT
         if self.parse_dos == True or (str(self.parse_dos).lower() == "auto" and vrun.incar.get("NSW", 0) < 1):
             try:
@@ -490,6 +501,7 @@ class VaspDrone(AbstractDrone):
         :param taskname: taskname, e.g. "relax1"
         :return: dict of files present
         """
+        logger.info("process raw")
         d = {}
         possible_files = ('CHGCAR', 'LOCPOT', 'AECCAR0', 'AECCAR1', 'AECCAR2',
                           'ELFCAR', 'WAVECAR', 'PROCAR', 'OPTIC')
@@ -506,6 +518,7 @@ class VaspDrone(AbstractDrone):
 
         set the 'analysis' key
         """
+        logger.info("set analysis")
         initial_vol = d["input"]["structure"]["lattice"]["volume"]
         final_vol = d["output"]["structure"]["lattice"]["volume"]
         delta_vol = final_vol - initial_vol
@@ -650,6 +663,7 @@ class VaspDrone(AbstractDrone):
         Sanity check.
         Make sure all the important keys are set
         """
+        logger.info("validate")
         # TODO: @matk86 - I like the validation but I think no one will notice a failed
         # validation tests which removes the usefulness of this. Any ideas to make people
         # notice if the validation fails? -computron
