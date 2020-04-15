@@ -62,8 +62,8 @@ def remove_everything_but_slab(structure):
 
 
 def get_slab_fw(slab, transmuter=False, db_file=None, vasp_input_set=None,
-                parents=None, vasp_cmd="vasp", handler_group="md", name="",
-                add_slab_metadata=True):
+                parents=None, vasp_cmd="vasp", name="", handler_group="md",
+                add_slab_metadata=True, user_incar_settings=None):
     """
     Function to generate a a slab firework.  Returns a TransmuterFW if
     bulk_structure is specified, constructing the necessary transformations
@@ -88,7 +88,7 @@ def get_slab_fw(slab, transmuter=False, db_file=None, vasp_input_set=None,
     Returns:
         Firework corresponding to slab calculation
     """
-    vasp_input_set = vasp_input_set or MPSurfaceSet(slab)
+    vasp_input_set = vasp_input_set or MPSurfaceSet(slab,user_incar_settings=user_incar_settings)
 
     # If a bulk_structure is specified, generate the set of transformations,
     # else just create an optimize FW with the slab
@@ -195,9 +195,9 @@ def get_slab_trans_params(slab):
 
 
 def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
-                ads_site_finder_params=None,
-                ads_structures_params=None, vasp_cmd="vasp",
-                handler_group="md", db_file=None, add_molecules_in_box=False):
+                ads_structures_params=None, ads_site_finder_params=None,vasp_cmd="vasp",
+                handler_group="md",db_file=None, add_molecules_in_box=False,
+                user_incar_settings=None):
     """
     Gets a workflow corresponding to a slab calculation along with optional
     adsorbate calcs and precursor oriented unit cell optimization
@@ -259,7 +259,8 @@ def get_wf_slab(slab, include_bulk_opt=False, adsorbates=None,
                 adsorbate.composition.formula, name, n)
             adsorbate_fw = get_slab_fw(
                 ads_slab, include_bulk_opt, db_file=db_file, vasp_cmd=vasp_cmd,
-                handler_group=handler_group, parents=parents, name=ads_name)
+                handler_group=handler_group, parents=parents, name=ads_name,
+                user_incar_settings=user_incar_settings)
             fws.append(adsorbate_fw)
 
     if isinstance(slab, Slab):
@@ -310,10 +311,10 @@ def get_wf_molecules(molecules, vasp_input_set=None, db_file=None,
 #       the same miller index, but different shift
 def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
                       adsorbates=None, max_index=1, slab_gen_params=None,
-                      ads_site_finder_params=None,
-                      ads_structures_params=None, vasp_cmd="vasp",
+                      ads_structures_params=None,
+                      ads_site_finder_params=None,vasp_cmd="vasp",
                       handler_group="md", db_file=None,
-                      add_molecules_in_box=False):
+                      add_molecules_in_box=False, user_incar_settings=None):
     """
     Convenience constructor that allows a user to construct a workflow
     that finds all adsorption configurations (or slabs) for a given
@@ -345,8 +346,8 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     wfs = []
     for slab in slabs:
         slab_wf = get_wf_slab(slab, include_bulk_opt, adsorbates,
-                              ads_site_finder_params, ads_structures_params,
-                              vasp_cmd, handler_group, db_file)
+                              ads_structures_params, ads_site_finder_params,vasp_cmd,handler_group,
+                              db_file,user_incar_settings=user_incar_settings)
         wfs.append(slab_wf)
 
     if add_molecules_in_box:
@@ -433,5 +434,37 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
         vasp_calc = bulk_fw_params.pop("vasp_calc")
         wf = use_fake_vasp(wf,{wf.fws[0].name: vasp_calc})
     # TODO: add_molecules_in_box
+
+    def __init__(self, structure, bulk=False, auto_dipole=None, **kwargs):
+
+        # If not a bulk calc, turn get_locpot/auto_dipole on by default
+        auto_dipole = auto_dipole or not bulk
+        super(MPSurfaceSet, self).__init__(
+            structure, bulk=bulk, auto_dipole=False, **kwargs)
+        # This is a hack, but should be fixed when this is ported over to
+        # pymatgen to account for vasp native dipole fix
+        if auto_dipole:
+            self._config_dict['INCAR'].update({"LDIPOL": True, "IDIPOL": 3})
+            self.auto_dipole = True
+
+    @property
+    def incar(self):
+        incar = super(MPSurfaceSet, self).incar
+
+        # Determine LDAU based on slab chemistry without adsorbates
+        ldau_elts = {'O', 'F'}
+        if self.structure.site_properties.get("surface_properties"):
+            non_adsorbate_elts = {
+                s.specie.symbol for s in self.structure
+                if not s.properties['surface_properties'] == 'adsorbate'}
+        else:
+            non_adsorbate_elts = {s.specie.symbol for s in self.structure}
+        ldau = bool(non_adsorbate_elts & ldau_elts)
+
+        # Should give better forces for optimization
+        incar_config = {"EDIFFG": -0.05, "ENAUG": 4000, "IBRION": 2, "LDAU": ldau, "EDIFF": 1e-5, "ISYM": 0}
+        incar.update(incar_config)
+        incar.update(self.user_incar_settings)
+        return incar
 
     return wf
