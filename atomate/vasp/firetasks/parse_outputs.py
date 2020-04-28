@@ -1,6 +1,5 @@
 # coding: utf-8
 
-from __future__ import division, print_function, unicode_literals, absolute_import
 
 import json
 import os
@@ -34,6 +33,7 @@ from atomate.utils.utils import env_chk, get_meta_from_structure
 from atomate.utils.utils import get_logger
 from atomate.vasp.database import VaspCalcDb
 from atomate.vasp.drones import VaspDrone
+from atomate.vasp.config import STORE_VOLUMETRIC_DATA
 
 __author__ = 'Anubhav Jain, Kiran Mathew, Shyam Dwaraknath'
 __email__ = 'ajain@lbl.gov, kmathew@lbl.gov, shyamd@lbl.gov'
@@ -54,6 +54,8 @@ class VaspToDb(FiretaskBase):
             search for the most recent calc_loc with the matching name
         parse_dos (bool): whether to parse the DOS and store in GridFS.
             Defaults to False.
+        parse_potcar_file (bool): Whether to parse the potcar file. Defaults to
+            True.
         bandstructure_mode (str): Set to "uniform" for uniform band structure.
             Set to "line" for line mode. If not set, band structure will not
             be parsed.
@@ -76,7 +78,9 @@ class VaspToDb(FiretaskBase):
     """
     optional_params = ["calc_dir", "calc_loc", "parse_dos", "bandstructure_mode",
                        "additional_fields", "db_file", "fw_spec_field", "defuse_unsuccessful",
-                       "task_fields_to_push", "parse_chgcar", "parse_aeccar"]
+                       "task_fields_to_push", "parse_chgcar", "parse_aeccar",
+                       "parse_potcar_file",
+                       "store_volumetric_data"]
 
     def run_task(self, fw_spec):
         # get the directory that contains the VASP dir to parse
@@ -91,9 +95,11 @@ class VaspToDb(FiretaskBase):
 
         drone = VaspDrone(additional_fields=self.get("additional_fields"),
                           parse_dos=self.get("parse_dos", False),
+                          parse_potcar_file=self.get("parse_potcar_file", True),
                           bandstructure_mode=self.get("bandstructure_mode", False),
-                          parse_chgcar=self.get("parse_chgcar", False),
-                          parse_aeccar=self.get("parse_aeccar", False))
+                          parse_chgcar=self.get("parse_chgcar", False),  # deprecated
+                          parse_aeccar=self.get("parse_aeccar", False),  # deprecated
+                          store_volumetric_data=self.get("store_volumetric_data", STORE_VOLUMETRIC_DATA))
 
         # assimilate (i.e., parse)
         task_doc = drone.assimilate(calc_dir)
@@ -114,8 +120,9 @@ class VaspToDb(FiretaskBase):
             t_id = mmdb.insert_task(
                 task_doc, use_gridfs=self.get("parse_dos", False)
                 or bool(self.get("bandstructure_mode", False))
-                or self.get("parse_chgcar", False)
-                or self.get("parse_aeccar", False))
+                or self.get("parse_chgcar", False)  # deprecated
+                or self.get("parse_aeccar", False)  # deprecated
+                or bool(self.get("store_volumetric_data", STORE_VOLUMETRIC_DATA)))
             logger.info("Finished parsing with task_id: {}".format(t_id))
 
         defuse_children = False
@@ -266,7 +273,7 @@ class ElasticTensorToDb(FiretaskBase):
     """
     Analyzes the stress/strain data of an elastic workflow to produce
     an elastic tensor and various other quantities.
-    
+
     Required params:
         structure (Structure): structure to use for symmetrization,
             input structure.  If an optimization was used, will
@@ -388,7 +395,7 @@ class ElasticTensorToDb(FiretaskBase):
             db.collection = db.db["elasticity"]
             db.collection.insert_one(d)
             logger.info("Elastic analysis complete.")
-        
+
         return FWAction()
 
 
@@ -756,28 +763,43 @@ class ThermalExpansionCoeffToDb(FiretaskBase):
 
 
 @explicit_serialize
-class MagneticOrderingsToDB(FiretaskBase):
+class MagneticOrderingsToDb(FiretaskBase):
     """
     Used to aggregate tasks docs from magnetic ordering workflow.
     For large-scale/high-throughput use, would recommend a specific
     builder, this is intended for easy, automated use for calculating
     magnetic orderings directly from the get_wf_magnetic_orderings
     workflow. It's unlikely you will want to call this directly.
+    
     Required parameters:
         db_file (str): path to the db file that holds your tasks
-        collection and that you want to hold the magnetic_orderings
-        collection
+            collection and that you want to hold the magnetic_orderings
+            collection
         wf_uuid (str): auto-generated from get_wf_magnetic_orderings,
-        used to make it easier to retrieve task docs
-        parent_structure: Structure of parent crystal (not magnetically
-        ordered)
+            used to make it easier to retrieve task docs
+        parent_structure (Structure): Structure of parent crystal (not
+            magnetically ordered)
+        perform_bader (bool): Perform Bader charge analysis.
+        scan (bool): Do static calcs with SCAN functional.
+
+    Optional parameters:
+        origins (list): str indicating transformations that generated
+            orderings.
+        input_index (int): index of input structure to enumerator.
+        to_db (bool): if True, the data will be inserted into
+            dedicated collection in database, otherwise, will be dumped
+            to a .json file.
+        additional_fields (dict): fields added to the document such as
+            user-defined tags or name, ids, etc
+
     """
 
     required_params = ["db_file", "wf_uuid", "parent_structure",
                        "perform_bader", "scan"]
-    optional_params = ["origins", "input_index"]
+    optional_params = ["origins", "input_index", "to_db", "additional_fields"]
 
     def run_task(self, fw_spec):
+        additional_fields = self.get("additional_fields", {})
 
         uuid = self["wf_uuid"]
         db_file = env_chk(self.get("db_file"), fw_spec)
@@ -812,11 +834,22 @@ class MagneticOrderingsToDB(FiretaskBase):
 
         for d in docs:
 
-            optimize_task_label = d["task_label"].replace("static", "optimize")
-            optimize_task = dict(mmdb.collection.find_one({
-                "wf_meta.wf_uuid": uuid,
-                "task_label": optimize_task_label
-            }))
+            # Check if optimizations were done
+            if additional_fields.get("relax", True):
+                optimize_task_label = d["task_label"].replace("static", "optimize")
+                optimize_task = dict(mmdb.collection.find_one({
+                            "wf_meta.wf_uuid": uuid,
+                            "task_label": optimize_task_label
+                        }))
+                # used to determine if ordering changed during relaxation
+                original_task = optimize_task
+                # stored for checking suitable convergence is reached
+                energy_diff_relax_static = optimize_task["output"]["energy_per_atom"] \
+                                                       - d["output"]["energy_per_atom"]
+            else:
+                original_task = d
+                energy_diff_relax_static = None
+
             input_structure = Structure.from_dict(optimize_task['input']['structure'])
             input_magmoms = optimize_task['input']['incar']['MAGMOM']
             input_structure.add_site_property('magmom', input_magmoms)
@@ -837,8 +870,6 @@ class MagneticOrderingsToDB(FiretaskBase):
                 decomposes_to = ground_state_task_id
             energy_above_ground_state_per_atom = d["output"]["energy_per_atom"] \
                                                  - ground_state_energy
-            energy_diff_relax_static = optimize_task["output"]["energy_per_atom"] \
-                                       - d["output"]["energy_per_atom"]
 
             # tells us the order in which structure was guessed
             # 1 is FM, then AFM..., -1 means it was entered manually
@@ -921,6 +952,8 @@ class MagneticOrderingsToDB(FiretaskBase):
             if fw_spec.get("tags", None):
                 summary["tags"] = fw_spec["tags"]
 
+            summary["additional_fields"] = additional_fields
+
             summaries.append(summary)
 
         mmdb.collection = mmdb.db["magnetic_orderings"]
@@ -930,21 +963,24 @@ class MagneticOrderingsToDB(FiretaskBase):
 
 
 @explicit_serialize
-class MagneticDeformationToDB(FiretaskBase):
+class MagneticDeformationToDb(FiretaskBase):
     """
     Used to calculate magnetic deformation from
     get_wf_magnetic_deformation workflow. See docstring
     for that workflow for more information.
+
     Required parameters:
         db_file (str): path to the db file that holds your tasks
-        collection and that you want to hold the magnetic_orderings
-        collection
+            collection and that you want to hold the magnetic_orderings
+            collection
         wf_uuid (str): auto-generated from get_wf_magnetic_orderings,
-        used to make it easier to retrieve task docs
+            used to make it easier to retrieve task docs
+
     Optional parameters:
         to_db (bool): if True, the data will be inserted into
-        dedicated collection in database, otherwise, will be dumped
-        to a .json file.
+            dedicated collection in database, otherwise, will be dumped
+            to a .json file.
+
     """
 
     required_params = ["db_file", "wf_uuid"]
