@@ -110,8 +110,10 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         if ads_site_finder_params["selective_dynamics"]:
             sel_dyn_params = ads_site_finder_params.copy()
             sel_dyn_params['height'] = 2.0
+            slab_copy = slab_structure.copy()
+            slab_copy.remove_site_property("surface_properties")
             sel_dyn = AdsorbateSiteFinder(
-                slab_structure, **sel_dyn_params).add_adsorbate(
+                slab_copy, **sel_dyn_params).add_adsorbate(
                 adsorbate, new_coord, **add_ads_params).site_properties[
                 'selective_dynamics']
             slab_ads.add_site_property('selective_dynamics', sel_dyn)
