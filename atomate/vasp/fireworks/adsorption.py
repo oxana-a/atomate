@@ -136,7 +136,6 @@ class EnergyLandscapeFW(Firework):
                                              {"ALGO": "All",
                                               "ISMEAR": -5,
                                               "ADDGRID": True,
-                                              "LREAL": False,
                                               "LASPH": True,
                                               "LORBIT": 11,
                                               "LELF": True,
@@ -346,8 +345,8 @@ class SlabFW(Firework):
         # this should supersede the default settings but not if
         # user_incar_settings is passed itself as a parameter
         user_incar_settings = user_incar_settings or \
-                              {'IBRION': 2, 'POTIM': 0.5, 'NSW': 300,"IMIX": 4,
-                               "ALGO": "Fast", "LREAL": True,"GGA": "RP",
+                              {'IBRION': 2, 'POTIM': 0.5, 'NSW': 300,
+                               "ALGO": "Fast", "GGA": "RP",
                                "IVDW":11, "EDIFFG":-.005}
 
         vis = vasp_input_set or MPSurfaceSet(
@@ -448,8 +447,8 @@ class SlabAdsFW(Firework):
         # incar_settings, this should supersede the default settings but
         # not if user_incar_settings is passed itself as a parameter
         user_incar_settings = user_incar_settings or \
-                              {'IBRION': 2, 'POTIM': 0.5, 'NSW': 300,"IMIX":4,
-                               "ALGO":"Fast", "LREAL":True,"IVDW": 11,
+                              {'IBRION': 2, 'POTIM': 0.5, 'NSW': 300,
+                               "ALGO":"Fast","IVDW": 11,
                                "GGA": "RP"}
 
         vis = vasp_input_set or MPSurfaceSet(
