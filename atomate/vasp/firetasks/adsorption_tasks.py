@@ -754,16 +754,16 @@ class SlabAdsAdditionTask(FiretaskBase):
                     potcar_file = vd.filter_files(
                         slab_dir, file_pattern="POTCAR")["standard"]
                     ba = BaderAnalysis(chgcar_file, potcar_file)
-                    bader_charges = {"surface": {}}
 
-                    # Bader for Surface
-                    for surf_idx, site in enumerate(
-                            surface_sites):
-                        bader_charges["surface"][surf_idx] = \
-                            ba.get_charge(surf_idx)
-                    slab_data["bader"] = bader_charges
+                    bader_charges_slab = 0
 
-                    # DDEC6 Analysis
+                    # Bader for Slab
+                    for surf_idx, site in enumerate(output_slab):
+                        bader_charges_slab += ba.get_charge(surf_idx)
+
+                    slab_data["bader"] = bader_charges_slab
+
+                    # DDEC6 Analysis for Slab
                     aeccar_files = [vd.filter_files(
                         slab_dir,
                         file_pattern="AECCAR{}".format(n))['standard']
@@ -771,13 +771,12 @@ class SlabAdsAdditionTask(FiretaskBase):
 
                     ddec = DDEC6Analysis(
                         chgcar_file, potcar_file, aeccar_files, gzipped=True)
-                    ddec6_charges = {"surface": {}}
-                    # DDEC for Surface
-                    for surf_idx, site in enumerate(surface_sites):
-                        ddec6_charges["surface"][surf_idx] = \
-                            ddec.get_charge(index=surf_idx)
-                    slab_data["ddec6"].update({
-                        "charges": ddec6_charges})
+                    ddec6_charges_slab = 0
+
+                    # DDEC for Slab
+                    for surf_idx, site in enumerate(output_slab):
+                        ddec6_charges_slab  += ddec.get_charge(index=surf_idx)
+                    slab_data["ddec6"] = ddec6_charges_slab
 
                     slab_data.update({
                         'input_structure': input_slab,
