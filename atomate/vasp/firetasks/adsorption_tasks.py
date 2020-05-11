@@ -1108,46 +1108,66 @@ class AnalysisAdditionTask(FiretaskBase):
                                ads_sites]
 
                     # Get Surface ads sites Sites:
-                    nn_surface_list = get_nn_surface(output_slab_ads, ads_ids)
-                    ads_adsorp_id, surf_adsorp_id = min(nn_surface_list,
-                                                        key=lambda x: x[2])[:2]
-                    out_site_type, surface_ads_sites, distances = get_site_type(
-                        output_slab_ads, ads_adsorp_id, ads_ids, mvec)
+                    ## NOT NEEDED?
+                    # nn_surface_list = get_nn_surface(output_slab_ads, ads_ids)
+                    # ads_adsorp_id, surf_adsorp_id = min(nn_surface_list,
+                    #                                     key=lambda x: x[2])[:2]
+                    # out_site_type, surface_ads_sites, distances = get_site_type(
+                    #     output_slab_ads, ads_adsorp_id, ads_ids, mvec)
 
                     # Densities by Orbital Type for Surface Ads Site
                     orbital_densities_by_type = {}
-                    for site_idx, surf_prop in surface_ads_sites.items():
-                        dos_spd_site = complete_dos.get_site_spd_dos(
-                            complete_dos.structure.sites[surf_prop["index"]])
-                        orbital_densities_for_site = {}
-                        for orbital_type, elec_dos in dos_spd_site.items():
-                            orbital_densities_for_site.update(
-                                {orbital_type: np.trapz(
-                                    elec_dos.get_densities(),
-                                    x=elec_dos.energies)})
-                        orbital_densities_by_type[site_idx] = \
-                            orbital_densities_for_site
+
+                    for site_idx, site in enumerate(output_slab_ads):
+                        if site.properties["surface_property"] == "surface":
+                            dos_spd_site = complete_dos.get_site_spd_dos(
+                                complete_dos.structure.sites[site_idx])
+                            orbital_densities_for_site = {}
+                            for orbital_type, elec_dos in dos_spd_site.items():
+                                orbital_densities_for_site.update(
+                                    {orbital_type: np.trapz(
+                                        elec_dos.get_densities(),
+                                        x=elec_dos.energies)})
+                            orbital_densities_by_type[site_idx] = \
+                                orbital_densities_for_site
 
                     # Quantify Total PDOS overlap between adsorbate and
                     # surface ads sites
                     total_surf_ads_pdos_overlap = {}
-                    for surf_ids, surf_prop in surface_ads_sites.items():
-                        if not total_surf_ads_pdos_overlap.get(
-                                surf_ids, False):
-                            total_surf_ads_pdos_overlap[surf_ids] = {}
-                        for ads_idx in ads_ids:
-                            surf_idx = surf_prop['index']
-                            surf_dos = complete_dos.get_site_dos(
-                                complete_dos.structure.sites[surf_idx]
-                            ).get_densities()
-                            ads_dos = complete_dos.get_site_dos(
-                                complete_dos.structure.sites[ads_idx]
-                            ).get_densities()
-                            c_overlap = np.trapz(get_overlap(surf_dos,
-                                                             ads_dos),
-                                                 x=complete_dos.energies)
-                            total_surf_ads_pdos_overlap[surf_ids][ads_idx] = \
-                                c_overlap
+                    for surf_idx, site in enumerate(output_slab_ads):
+                        if site.properties["surface_property"] == "surface":
+                            total_surf_ads_pdos_overlap[surf_idx] = {}
+                            for ads_idx, ads_site in enumerate(output_slab_ads)
+                                if ads_site.properties["surface_property"] == "adsorbate":
+                                    surf_dos = complete_dos.get_site_dos(
+                                        complete_dos.structure.sites[surf_idx]
+                                    ).get_densities()
+                                    ads_dos = complete_dos.get_site_dos(
+                                        complete_dos.structure.sites[ads_idx]
+                                    ).get_densities()
+                                    c_overlap = np.trapz(get_overlap(surf_dos,
+                                                                     ads_dos),
+                                                         x=complete_dos.energies)
+                                    total_surf_ads_pdos_overlap[surf_idx][ads_idx] = \
+                                        c_overlap
+
+                    # for surf_ids, surf_prop in surface_ads_sites.items():
+                    #     if not total_surf_ads_pdos_overlap.get(
+                    #             surf_ids, False):
+                    #         total_surf_ads_pdos_overlap[surf_ids] = {}
+                    #     for ads_idx in ads_ids:
+                    #         surf_idx = surf_prop['index']
+                    #         surf_dos = complete_dos.get_site_dos(
+                    #             complete_dos.structure.sites[surf_idx]
+                    #         ).get_densities()
+                    #         ads_dos = complete_dos.get_site_dos(
+                    #             complete_dos.structure.sites[ads_idx]
+                    #         ).get_densities()
+                    #         c_overlap = np.trapz(get_overlap(surf_dos,
+                    #                                          ads_dos),
+                    #                              x=complete_dos.energies)
+                    #         total_surf_ads_pdos_overlap[surf_ids][ads_idx] = \
+                    #             c_overlap
 
                     # Quantify overlap by orbital type
 
