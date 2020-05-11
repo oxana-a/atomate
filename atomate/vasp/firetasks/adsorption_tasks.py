@@ -684,22 +684,14 @@ class SlabAdsAdditionTask(FiretaskBase):
                             p_band_center_slab = dos_p.energies[k]
                             break
 
-                    # Get Surface Sites:
-                    surface_sites = []
-                    for site, surface_property in \
-                            zip(output_slab,
-                                output_slab.site_properties[
-                                    'surface_properties']):
-                        if surface_property is 'surface':
-                            surface_sites.append(site)
-
                     # Densities by Orbital Type for Surface Site
-                    print("orbital type surface")
                     orbital_densities_by_type = {}
-                    for site_idx,site in enumerate(surface_sites):
-                        dos_spd_site = complete_dos.get_site_spd_dos(
-                            complete_dos.structure.sites[site_idx])
-                        orbital_densities_for_site = {}
+                    for site_idx, site in enumerate(output_slab):
+                        if "surface" in site.site_properties[
+                            "surface_properties"]:
+                            dos_spd_site = complete_dos.get_site_spd_dos(
+                                complete_dos.structure.sites[site_idx])
+                            orbital_densities_for_site = {}
                         for orbital_type, elec_dos in dos_spd_site.items():
                             orbital_densities_for_site.update(
                                 {orbital_type: np.trapz(
