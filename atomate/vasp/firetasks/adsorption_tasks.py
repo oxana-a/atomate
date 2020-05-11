@@ -1470,7 +1470,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'vbm': evalue_band_props_slab[2],
                 'is_band_gap_direct': evalue_band_props_slab[3]}})
         stored_data['slab'].update({
-            'd_band_center': slab_data.get("d_band_center", False),
+            'p_band_center': slab_data.get("p_band_center", False),
             "orbital_densities_by_type":slab_data.get(
                 "orbital_densities_by_type", False),
             'work_function':slab_data.get('work_function', False),
@@ -1478,6 +1478,10 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'cbm_elemental_makeup', False),
             'vbm_elemental_makeup':slab_data.get(
                 'vbm_elemental_makeup', False)
+        })
+        stored_data['slab'].update({
+            "ddec6": slab_data.get("ddec6", False),
+            "bader": slab_data.get("bader", False)
         })
 
         stored_data['slab_adsorbate'] = {
@@ -1495,8 +1499,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     'vbm': evalue_band_props_slab_ads[2],
                     'is_band_gap_direct': evalue_band_props_slab_ads[3]}})
         stored_data['slab_adsorbate'].update({
-            'd_band_center': slab_ads_data.get(
-                "d_band_center", False),
+            'p_band_center': slab_ads_data.get(
+                "p_band_center", False),
             'orbital_densities_by_type':slab_ads_data.get(
                 "orbital_densities_by_type", False),
             'total_surf_ads_pdos_overlap':slab_ads_data.get(
@@ -1506,6 +1510,10 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'cbm_elemental_makeup', False),
             'vbm_elemental_makeup': slab_ads_data.get(
                 'vbm_elemental_makeup', False),
+        })
+        stored_data['slab_adsorbate'].update({
+            "ddec6":slab_ads_data.get("ddec6",False),
+            "bader":slab_ads_data.get("bader", False)
         })
 
         # cleavage energy
@@ -1657,8 +1665,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
         ## TODO: get differences between key electronic variables
         stored_data["electronic_descriptors"] = {
-            "d_band_center_shift":
-                (slab_ads_data["d_band_center"]-slab_data["d_band_center"]),
+            "p_band_center_shift":
+                (slab_ads_data["p_band_center"]-slab_data["p_band_center"]),
             "cbm_shift":
                 (slab_ads_data["eigenvalue_band_properties"]["cbm"]-
                  slab_data["eigenvalue_band_properties"]["cbm"]),
@@ -1682,6 +1690,12 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                  for key2, value2 in
                                  slab_ads_data["orbital_densities_by_type"].items()
                                  if key1 == key2},
+        }
+        stored_data["charge_analysis"] = {
+            "bader_charge_transfer":slab_ads_data["bader"]["slab"]-
+                                    slab_data["bader"],
+            "ddec5_charge_transfer":slab_ads_data["dded6"]["slab"]-
+                                    slab_data["ddec6"],
         }
 
 
