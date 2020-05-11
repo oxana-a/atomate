@@ -796,8 +796,8 @@ class SlabAdsAdditionTask(FiretaskBase):
 
         slab_data.update({'output_structure': output_slab,
                           'final_energy': slab_energy})
-
-        output_slab.remove_site_property('magmom')
+        if 'magmom' in list(output_slab.site_properties):
+            output_slab.remove_site_property('magmom')
         for ads_idx, adsorbate in enumerate(adsorbates):
             # adsorbate.add_site_property('magmom', [0.0]*adsorbate.num_sites)
 
