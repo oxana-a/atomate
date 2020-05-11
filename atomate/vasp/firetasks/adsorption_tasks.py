@@ -1124,12 +1124,6 @@ class AnalysisAdditionTask(FiretaskBase):
                     out_site_type, surface_ads_sites, distances = get_site_type(
                         output_slab_ads, ads_adsorp_id, ads_ids, mvec)
 
-                    # Get surface sites
-                    surface_sites = [site for site in
-                                     output_slab_ads.sites if
-                                     site.properties["surface_properties"]
-                                     == "surface"]
-
                     # Densities by Orbital Type for Surface Ads Site
                     orbital_densities_by_type = {}
                     for site_idx, surf_prop in surface_ads_sites.items():
@@ -1256,7 +1250,7 @@ class AnalysisAdditionTask(FiretaskBase):
                         'input_structure': input_slab_ads,
                         'converged': slab_ads_converged,
                         'eigenvalue_band_properties': eigenvalue_band_props,
-                        'd_band_center': d_band_center_slab_ads,
+                        'p_band_center': p_band_center_slab_ads,
                         'orbital_densities_by_type':orbital_densities_by_type,
                         'total_surf_ads_pdos_overlap':
                             total_surf_ads_pdos_overlap,
