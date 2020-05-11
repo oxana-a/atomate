@@ -1080,7 +1080,7 @@ class AnalysisAdditionTask(FiretaskBase):
 
                     # p-Band Center analysis:
                     complete_dos = vrun_o.complete_dos
-                    dos_p = complete_dos.get_spd_dos().get(OrbitalType.p) # Get 'd' band dos
+                    dos_p = complete_dos.get_spd_dos().get(OrbitalType.p)
 
                     # add spin up and spin down densities
                     total_p_densities = dos_p.get_densities()
