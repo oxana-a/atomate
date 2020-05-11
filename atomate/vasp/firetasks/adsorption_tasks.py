@@ -1694,7 +1694,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         stored_data["charge_analysis"] = {
             "bader_charge_transfer":slab_ads_data["bader"]["slab"]-
                                     slab_data["bader"],
-            "ddec5_charge_transfer":slab_ads_data["dded6"]["slab"]-
+            "ddec6_charge_transfer":slab_ads_data["dded6"]["slab"]-
                                     slab_data["ddec6"],
         }
 
