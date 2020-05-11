@@ -663,26 +663,25 @@ class SlabAdsAdditionTask(FiretaskBase):
 
                     #Electronic Analysis
 
-                    # d-Band Center analysis:
-                    print("dband")
+                    # p-Band Center analysis:
                     complete_dos = vrun_o.complete_dos
-                    dos_spd = complete_dos.get_spd_dos()  # get SPD DOS
-                    dos_d = list(dos_spd.items())[2][1]  # Get 'd' band dos
+                    dos_p = complete_dos.get_spd_dos().get(OrbitalType.p)
+
                     # add spin up and spin down densities
-                    total_d_densities = dos_d.get_densities()
+                    total_p_densities = dos_p.get_densities()
                     # Get integrated density for d
-                    total_integrated_density = np.trapz(total_d_densities,
-                                                        x=dos_d.energies,
+                    total_integrated_density = np.trapz(total_p_densities,
+                                                        x=dos_p.energies,
                                                         dx=.01)
                     # Find E which splits integrated d DOS into 2
                     # (d-band center):
-                    d_band_center_slab = 0
-                    for k in range(len(total_d_densities)):
-                        c_int = np.trapz(total_d_densities[:k],
-                                         x=dos_d.energies[:k],
+                    p_band_center_slab = 0
+                    for k in range(len(total_p_densities)):
+                        c_int = np.trapz(total_p_densities[:k],
+                                         x=dos_p.energies[:k],
                                          dx=.01)
                         if c_int > (total_integrated_density / 2):
-                            d_band_center_slab = dos_d.energies[k]
+                            p_band_center_slab = dos_p.energies[k]
                             break
 
                     # Get Surface Sites:
@@ -792,7 +791,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                         'input_structure': input_slab,
                         'converged': slab_converged,
                         'eigenvalue_band_properties': eigenvalue_band_props,
-                        'd_band_center': d_band_center_slab,
+                        'p_band_center': p_band_center_slab,
                         'orbital_densities_by_type':orbital_densities_by_type,
                         'work_function':work_function,
                         'cbm_elemental_makeup':cbm_elemental_makeup,
