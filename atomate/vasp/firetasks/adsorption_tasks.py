@@ -40,6 +40,7 @@ from pymatgen.io.vasp.sets import MPSurfaceSet
 from pymatgen.util.coord import get_angle
 from pymatgen.command_line.ddec6_caller import DDEC6Analysis
 from pymatgen.command_line.bader_caller import BaderAnalysis
+from pymatgen.electronic_structure.core import OrbitalType
 from copy import deepcopy
 
 logger = get_logger(__name__)
@@ -685,7 +686,6 @@ class SlabAdsAdditionTask(FiretaskBase):
                             break
 
                     # Get Surface Sites:
-                    # TODO: Replace with get_surface_sites
                     surface_sites = []
                     for site, surface_property in \
                             zip(output_slab,
@@ -1078,26 +1078,26 @@ class AnalysisAdditionTask(FiretaskBase):
                     input_slab_ads = vrun_i.initial_structure
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
 
-                    # d-Band Center analysis:
+                    # p-Band Center analysis:
                     complete_dos = vrun_o.complete_dos
-                    dos_spd = complete_dos.get_spd_dos()  # get SPD DOS
-                    dos_d = list(dos_spd.items())[2][1]  # Get 'd' band dos
+                    dos_p = complete_dos.get_spd_dos().get(OrbitalType.p) # Get 'd' band dos
+
                     # add spin up and spin down densities
-                    total_d_densities = dos_d.get_densities()
+                    total_p_densities = dos_p.get_densities()
 
                     # Get integrated density for d
-                    total_integrated_density = np.trapz(total_d_densities,
-                                                        x=dos_d.energies,
+                    total_integrated_density = np.trapz(total_p_densities,
+                                                        x=dos_p.energies,
                                                         dx=.01)
                     # Find E which splits integrated d DOS into 2
-                    # (d-band center):
-                    d_band_center_slab_ads = 0
-                    for k in range(len(total_d_densities)):
-                        c_int = np.trapz(total_d_densities[:k],
-                                         x=dos_d.energies[:k],
+                    # (p-band center):
+                    p_band_center_slab_ads = 0
+                    for k in range(len(total_p_densities)):
+                        c_int = np.trapz(total_p_densities[:k],
+                                         x=dos_p.energies[:k],
                                          dx=.01)
                         if c_int > (total_integrated_density / 2):
-                            d_band_center_slab_ads = dos_d.energies[k]
+                            p_band_center_slab_ads = dos_p.energies[k]
                             break
 
                     # Get adsorbate sites:
@@ -1125,15 +1125,10 @@ class AnalysisAdditionTask(FiretaskBase):
                         output_slab_ads, ads_adsorp_id, ads_ids, mvec)
 
                     # Get surface sites
-                    # TODO: Replace with get_surface_sites
-                    # first remove ads atom to find slab regions
-                    slab_w_o_ads = deepcopy(output_slab_ads)
-                    slab_w_o_ads.remove_sites(ads_ids)
-                    z = max(max(get_slab_regions(slab_w_o_ads)))
-                    surface_sites = []
-                    for site in output_slab_ads.sites:
-                        if abs(site.frac_coords[2] - z) < .05:
-                            surface_sites.append(site)
+                    surface_sites = [site for site in
+                                     output_slab_ads.sites if
+                                     site.properties["surface_properties"]
+                                     == "surface"]
 
                     # Densities by Orbital Type for Surface Site
                     orbital_densities_by_type = {}
