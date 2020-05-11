@@ -1130,7 +1130,7 @@ class AnalysisAdditionTask(FiretaskBase):
                                      site.properties["surface_properties"]
                                      == "surface"]
 
-                    # Densities by Orbital Type for Surface Site
+                    # Densities by Orbital Type for Surface Ads Site
                     orbital_densities_by_type = {}
                     for site_idx, surf_prop in surface_ads_sites.items():
                         dos_spd_site = complete_dos.get_site_spd_dos(
@@ -1219,25 +1219,17 @@ class AnalysisAdditionTask(FiretaskBase):
                     potcar_file = vd.filter_files(
                         slab_ads_dir, file_pattern="POTCAR")["standard"]
                     ba = BaderAnalysis(chgcar_file,potcar_file)
-                    bader_charges = {"surface":{},
-                                     "surface_ads":{},
-                                     "adsorbate":{}}
 
-                    # Bader for Surface Ads Sites
-                    for surf_ads_idx, surf_prop in surface_ads_sites.items():
-                        idx = surf_prop["index"]
-                        bader_charges["surface_ads"][surf_ads_idx] = \
-                            ba.get_charge(idx)
-                    # Bader for Surface Sites:
-                    for surf_idx, site in enumerate(surface_sites):
-                        bader_charges["surface"][surf_idx] = \
-                            ba.get_charge(surf_idx)
-                    # Bader for Adsorbate
-                    for ads_id in ads_ids:
-                        bader_charges["adsorbate"][ads_id] = \
-                            ba.get_charge(ads_id)
+                    bader_charges = {"slab": 0,
+                                     "adsorbate": 0}
+                    # Bader for Slab Sites:
+                    for idx, site in enumerate(output_slab_ads):
+                        if site.properties['surface_properties'] == "adsorbate":
+                            bader_charges["adsorbate"] += ba.get_charge(idx)
+                        else:
+                            bader_charges["slab"] += ba.get_charge(idx)
+
                     slab_ads_data["bader"] = bader_charges
-
 
                     # DDEC6 Analysis
                     aeccar_files = [vd.filter_files(
@@ -1247,22 +1239,17 @@ class AnalysisAdditionTask(FiretaskBase):
 
                     ddec = DDEC6Analysis(
                         chgcar_file,potcar_file,aeccar_files,gzipped=True)
-                    ddec6_charges = {"surface": {},
-                                     "surface_ads":{},
-                                     "adsorbate": {}}
+
+                    ddec6_charges = {"slab": 0,
+                                     "adsorbate": 0}
                     # DDEC for Surface Ads Sites
-                    for surf_ads_idx, surf_prop in surface_ads_sites.items():
-                        idx = surf_prop["index"]
-                        ddec6_charges["surface_ads"][surf_ads_idx] = \
-                            ddec.get_charge(index=idx)
-                    # DDEC for Surface Site
-                    for surf_idx, site in enumerate(surface_sites):
-                        ddec6_charges["surface"][surf_idx] = \
-                            ddec.get_charge(index=surf_idx)
-                    # DDEC for Adsorbate
-                    for ads_id in ads_ids:
-                        ddec6_charges["adsorbate"][ads_id] = \
-                            ddec.get_charge(index=ads_id)
+                    for idx, site in enumerate(output_slab_ads):
+                        if site.properties['surface_properties'] == "adsorbate":
+                            ddec6_charges["adsorbate"] += ddec.get_charge(index=idx)
+                        else:
+                            ddec6_charges["slab"] += ddec.get_charge(index=idx)
+
+
                     slab_ads_data["ddec6"] = ddec6_charges
 
                     slab_ads_data.update({
