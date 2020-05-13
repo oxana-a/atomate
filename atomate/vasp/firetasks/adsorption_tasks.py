@@ -41,6 +41,7 @@ from pymatgen.util.coord import get_angle
 from pymatgen.command_line.ddec6_caller import DDEC6Analysis
 from pymatgen.command_line.bader_caller import BaderAnalysis
 from pymatgen.electronic_structure.core import OrbitalType
+from pymatgen.analysis.dimensionality import get_dimensionality_gorai
 from copy import deepcopy
 
 logger = get_logger(__name__)
@@ -428,6 +429,41 @@ class SlabAdditionTask(FiretaskBase):
                           'final_energy': bulk_energy})
 
         slabs = generate_all_slabs(output_bulk, **sgp)
+
+        from pymatgen.analysis.dimensionality import get_dimensionality_gorai
+        # check if layered structure:
+        ## TODO: can be written more clean probably, works for now.
+        if get_dimensionality_gorai(output_bulk) == 2:
+            # only use slabs with (0,0,1) miller index
+            slabs_2d = []
+            for s in slabs:
+                if s.miller_index == (0, 0, 1):
+                    slabs_2d.append(s)
+
+            slabs = []
+            # Find max and min sites for the original cell (along c axis)
+            max_coord_c = max(
+                np.array([site.frac_coords for site in output_bulk.sites])[:, 2])
+            min_coord_c = min(
+                np.array([site.frac_coords for site in output_bulk.sites])[:, 2])
+            max_site = {site.specie for site in output_bulk if
+                        site.frac_coords[2] == max_coord_c}
+            min_site = {site.specie for site in output_bulk if
+                        site.frac_coords[2] == min_coord_c}
+
+            # only use slabs that have their max and min site (along c axis) match the species of the original cell.
+            for slab in slabs_2d:
+                max_coord_slab = max(
+                    np.array([site.frac_coords for site in slab.sites])[:, 2])
+                min_coord_slab = min(
+                    np.array([site.frac_coords for site in slab.sites])[:, 2])
+                max_site_slab = {site.specie for site in slab if
+                                 site.frac_coords[2] == max_coord_slab}
+                min_site_slab = {site.specie for site in slab if
+                                 site.frac_coords[2] == min_coord_slab}
+                if max_site_slab == max_site and min_site_slab == min_site:
+                    slabs.append(slab)
+
         all_slabs = slabs.copy()
 
         for slab in slabs:
