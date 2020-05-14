@@ -21,6 +21,7 @@ from atomate.vasp.config import DB_FILE
 from atomate.vasp.database import VaspCalcDb
 from atomate.vasp.drones import VaspDrone
 from atomate.vasp.fireworks.core import NonSCFFW
+from atomate.vasp.powerups import ModifyIncar
 from datetime import datetime
 from fireworks.core.firework import FiretaskBase, FWAction, Workflow
 from fireworks.utilities.fw_serializers import DATETIME_HANDLER
@@ -39,6 +40,8 @@ from pymatgen.io.vasp.sets import MPSurfaceSet
 from pymatgen.util.coord import get_angle
 from pymatgen.command_line.ddec6_caller import DDEC6Analysis
 from pymatgen.command_line.bader_caller import BaderAnalysis
+from pymatgen.electronic_structure.core import OrbitalType
+from pymatgen.analysis.dimensionality import get_dimensionality_gorai
 from copy import deepcopy
 
 logger = get_logger(__name__)
@@ -155,12 +158,14 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
             relax_calc.tasks.remove(analysis_step)
             slab_ads_fws.append(relax_calc)
             #non-scf uniform
-            slab_ads_fws.append(NonSCFFW(name=fw_name+" static",
+            nonscf = NonSCFFW(name=fw_name+" static",
                                          mode="uniform",
                                          vasp_cmd=vasp_cmd,
                                          db_file=db_file,
                                          parents=slab_ads_fws[-1],
-                                         spec={"_category": _category}))
+                                         spec={"_category": _category})
+            nonscf.tasks.insert(2,ModifyIncar(incar_update={"IVDW":11}))
+            slab_ads_fws.append(nonscf)
             #non-scf line
             nscf_calc = NonSCFFW(parents=slab_ads_fws[-1],
                                  name=fw_name+" nscf", mode="line",
@@ -172,6 +177,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
                                          "slab_ads_energy":
                                              "output.energy"}},
                                  spec={"_category": _category})
+            nscf_calc.tasks.insert(2,ModifyIncar(incar_update={"IVDW":11}))
             nscf_calc.tasks.append(analysis_step)
             slab_ads_fws.append(nscf_calc)
         else:
@@ -423,6 +429,41 @@ class SlabAdditionTask(FiretaskBase):
                           'final_energy': bulk_energy})
 
         slabs = generate_all_slabs(output_bulk, **sgp)
+
+        from pymatgen.analysis.dimensionality import get_dimensionality_gorai
+        # check if layered structure:
+        ## TODO: can be written more clean probably, works for now.
+        if get_dimensionality_gorai(output_bulk) == 2:
+            # only use slabs with (0,0,1) miller index
+            slabs_2d = []
+            for s in slabs:
+                if s.miller_index == (0, 0, 1):
+                    slabs_2d.append(s)
+
+            slabs = []
+            # Find max and min sites for the original cell (along c axis)
+            max_coord_c = max(
+                np.array([site.frac_coords for site in output_bulk.sites])[:, 2])
+            min_coord_c = min(
+                np.array([site.frac_coords for site in output_bulk.sites])[:, 2])
+            max_site = {site.specie for site in output_bulk if
+                        site.frac_coords[2] == max_coord_c}
+            min_site = {site.specie for site in output_bulk if
+                        site.frac_coords[2] == min_coord_c}
+
+            # only use slabs that have their max and min site (along c axis) match the species of the original cell.
+            for slab in slabs_2d:
+                max_coord_slab = max(
+                    np.array([site.frac_coords for site in slab.sites])[:, 2])
+                min_coord_slab = min(
+                    np.array([site.frac_coords for site in slab.sites])[:, 2])
+                max_site_slab = {site.specie for site in slab if
+                                 site.frac_coords[2] == max_coord_slab}
+                min_site_slab = {site.specie for site in slab if
+                                 site.frac_coords[2] == min_coord_slab}
+                if max_site_slab == max_site and min_site_slab == min_site:
+                    slabs.append(slab)
+
         all_slabs = slabs.copy()
 
         for slab in slabs:
@@ -501,7 +542,7 @@ class SlabAdditionTask(FiretaskBase):
                 slab_fw.tasks.remove(analysis_task)
                 slab_fws.append(slab_fw)
                 #static
-                slab_fws.append(NonSCFFW(name=name+" static",
+                nonscf = NonSCFFW(name=name+" static",
                                          vasp_cmd=vasp_cmd,
                                          db_file=db_file,
                                          mode="uniform",
@@ -512,12 +553,15 @@ class SlabAdditionTask(FiretaskBase):
                                                  "slab_energy":
                                                      "output.energy"}},
                                          parents=slab_fws[-1],
-                                         spec={"_category": _category}))
+                                         spec={"_category": _category})
+                nonscf.tasks.insert(2, ModifyIncar(incar_update={"IVDW": 11}))
+                slab_fws.append(nonscf)
                 #nscf
                 nscf_calc = NonSCFFW(parents=slab_fws[-1],
                                      name=name+" nscf", mode="line",
                                      vasp_cmd=vasp_cmd, db_file=db_file,
                                      spec={"_category": _category})
+                nscf_calc.tasks.insert(2, ModifyIncar(incar_update={"IVDW": 11}))
                 nscf_calc.tasks.append(analysis_task)
                 slab_fws.append(nscf_calc)
             else:
@@ -655,45 +699,35 @@ class SlabAdsAdditionTask(FiretaskBase):
 
                     #Electronic Analysis
 
-                    # d-Band Center analysis:
-                    print("dband")
+                    # p-Band Center analysis:
                     complete_dos = vrun_o.complete_dos
-                    dos_spd = complete_dos.get_spd_dos()  # get SPD DOS
-                    dos_d = list(dos_spd.items())[2][1]  # Get 'd' band dos
+                    dos_p = complete_dos.get_spd_dos().get(OrbitalType.p)
+
                     # add spin up and spin down densities
-                    total_d_densities = dos_d.get_densities()
+                    total_p_densities = dos_p.get_densities()
                     # Get integrated density for d
-                    total_integrated_density = np.trapz(total_d_densities,
-                                                        x=dos_d.energies,
+                    total_integrated_density = np.trapz(total_p_densities,
+                                                        x=dos_p.energies,
                                                         dx=.01)
                     # Find E which splits integrated d DOS into 2
                     # (d-band center):
-                    d_band_center_slab = 0
-                    for k in range(len(total_d_densities)):
-                        c_int = np.trapz(total_d_densities[:k],
-                                         x=dos_d.energies[:k],
+                    p_band_center_slab = 0
+                    for k in range(len(total_p_densities)):
+                        c_int = np.trapz(total_p_densities[:k],
+                                         x=dos_p.energies[:k],
                                          dx=.01)
                         if c_int > (total_integrated_density / 2):
-                            d_band_center_slab = dos_d.energies[k]
+                            p_band_center_slab = dos_p.energies[k]
                             break
 
-                    # Get Surface Sites:
-                    # TODO: Replace with get_surface_sites
-                    surface_sites = []
-                    for site, surface_property in \
-                            zip(output_slab,
-                                output_slab.site_properties[
-                                    'surface_properties']):
-                        if surface_property is 'surface':
-                            surface_sites.append(site)
-
                     # Densities by Orbital Type for Surface Site
-                    print("orbital type surface")
                     orbital_densities_by_type = {}
-                    for site_idx,site in enumerate(surface_sites):
-                        dos_spd_site = complete_dos.get_site_spd_dos(
-                            complete_dos.structure.sites[site_idx])
-                        orbital_densities_for_site = {}
+                    for site_idx, site in enumerate(output_slab):
+                        if "surface" in site.site_properties[
+                            "surface_properties"]:
+                            dos_spd_site = complete_dos.get_site_spd_dos(
+                                complete_dos.structure.sites[site_idx])
+                            orbital_densities_for_site = {}
                         for orbital_type, elec_dos in dos_spd_site.items():
                             orbital_densities_for_site.update(
                                 {orbital_type: np.trapz(
@@ -741,11 +775,11 @@ class SlabAdsAdditionTask(FiretaskBase):
                     print("wfa")
                     vd = VaspDrone()
                     poscar_file = vd.filter_files(
-                        slab_dir, file_pattern="POSCAR").get("relax2")
+                        slab_dir, file_pattern="POSCAR").get("standard")
                     locpot_file = vd.filter_files(
                         slab_dir,"LOCPOT")["standard"]
                     outcar_file = vd.filter_files(
-                        slab_dir, "OUTCAR").get("relax2")
+                        slab_dir, "OUTCAR").get("standard")
                     wfa = WorkFunctionAnalyzer.from_files(
                         poscar_file,locpot_file,outcar_file)
                     work_function = wfa.work_function
@@ -756,16 +790,16 @@ class SlabAdsAdditionTask(FiretaskBase):
                     potcar_file = vd.filter_files(
                         slab_dir, file_pattern="POTCAR")["standard"]
                     ba = BaderAnalysis(chgcar_file, potcar_file)
-                    bader_charges = {"surface": {}}
 
-                    # Bader for Surface
-                    for surf_idx, site in enumerate(
-                            surface_sites):
-                        bader_charges["surface"][surf_idx] = \
-                            ba.get_charge(surf_idx)
-                    slab_data["bader"] = bader_charges
+                    bader_charges_slab = 0
 
-                    # DDEC6 Analysis
+                    # Bader for Slab
+                    for surf_idx, site in enumerate(output_slab):
+                        bader_charges_slab += ba.get_charge(surf_idx)
+
+                    slab_data["bader"] = bader_charges_slab
+
+                    # DDEC6 Analysis for Slab
                     aeccar_files = [vd.filter_files(
                         slab_dir,
                         file_pattern="AECCAR{}".format(n))['standard']
@@ -773,19 +807,18 @@ class SlabAdsAdditionTask(FiretaskBase):
 
                     ddec = DDEC6Analysis(
                         chgcar_file, potcar_file, aeccar_files, gzipped=True)
-                    ddec6_charges = {"surface": {}}
-                    # DDEC for Surface
-                    for surf_idx, site in enumerate(surface_sites):
-                        ddec6_charges["surface"][surf_idx] = \
-                            ddec.get_charge(index=surf_idx)
-                    slab_data["ddec6"].update({
-                        "charges": ddec6_charges})
+                    ddec6_charges_slab = 0
+
+                    # DDEC for Slab
+                    for surf_idx, site in enumerate(output_slab):
+                        ddec6_charges_slab  += ddec.get_charge(index=surf_idx)
+                    slab_data["ddec6"] = ddec6_charges_slab
 
                     slab_data.update({
                         'input_structure': input_slab,
                         'converged': slab_converged,
                         'eigenvalue_band_properties': eigenvalue_band_props,
-                        'd_band_center': d_band_center_slab,
+                        'p_band_center': p_band_center_slab,
                         'orbital_densities_by_type':orbital_densities_by_type,
                         'work_function':work_function,
                         'cbm_elemental_makeup':cbm_elemental_makeup,
@@ -944,12 +977,15 @@ class SlabAdsAdditionTask(FiretaskBase):
                         slab_ads_fw.tasks.remove(analysis_task)
                         fws.append(slab_ads_fw)
                         #static
-                        fws.append(NonSCFFW(name=fw_name+" static",
+                        nonscf = NonSCFFW(name=fw_name+" static",
                                             mode="uniform",
                                             vasp_cmd=vasp_cmd,
                                             db_file=db_file,
                                             parents=fws[-1],
-                                            spec={"_category": _category}))
+                                            spec={"_category": _category})
+                        nonscf.insert(2,
+                                      ModifyIncar(incar_update={"IVDW": 11}))
+                        fws.append(nonscf)
                         #nscf
                         nscf_calc = NonSCFFW(parents=fws[-1],
                                              name=fw_name+ " nscf",
@@ -957,6 +993,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                                              vasp_cmd=vasp_cmd,
                                              db_file=db_file,
                                              spec={"_category": _category})
+                        nscf_calc.tasks.insert(2,
+                                      ModifyIncar(incar_update={"IVDW": 11}))
                         nscf_calc.tasks.append(analysis_task)
                     else:
                         fws.append(slab_ads_fw)
@@ -1066,26 +1104,26 @@ class AnalysisAdditionTask(FiretaskBase):
                     input_slab_ads = vrun_i.initial_structure
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
 
-                    # d-Band Center analysis:
+                    # p-Band Center analysis:
                     complete_dos = vrun_o.complete_dos
-                    dos_spd = complete_dos.get_spd_dos()  # get SPD DOS
-                    dos_d = list(dos_spd.items())[2][1]  # Get 'd' band dos
+                    dos_p = complete_dos.get_spd_dos().get(OrbitalType.p)
+
                     # add spin up and spin down densities
-                    total_d_densities = dos_d.get_densities()
+                    total_p_densities = dos_p.get_densities()
 
                     # Get integrated density for d
-                    total_integrated_density = np.trapz(total_d_densities,
-                                                        x=dos_d.energies,
+                    total_integrated_density = np.trapz(total_p_densities,
+                                                        x=dos_p.energies,
                                                         dx=.01)
                     # Find E which splits integrated d DOS into 2
-                    # (d-band center):
-                    d_band_center_slab_ads = 0
-                    for k in range(len(total_d_densities)):
-                        c_int = np.trapz(total_d_densities[:k],
-                                         x=dos_d.energies[:k],
+                    # (p-band center):
+                    p_band_center_slab_ads = 0
+                    for k in range(len(total_p_densities)):
+                        c_int = np.trapz(total_p_densities[:k],
+                                         x=dos_p.energies[:k],
                                          dx=.01)
                         if c_int > (total_integrated_density / 2):
-                            d_band_center_slab_ads = dos_d.energies[k]
+                            p_band_center_slab_ads = dos_p.energies[k]
                             break
 
                     # Get adsorbate sites:
@@ -1106,57 +1144,66 @@ class AnalysisAdditionTask(FiretaskBase):
                                ads_sites]
 
                     # Get Surface ads sites Sites:
-                    nn_surface_list = get_nn_surface(output_slab_ads, ads_ids)
-                    ads_adsorp_id, surf_adsorp_id = min(nn_surface_list,
-                                                        key=lambda x: x[2])[:2]
-                    out_site_type, surface_ads_sites, distances = get_site_type(
-                        output_slab_ads, ads_adsorp_id, ads_ids, mvec)
+                    ## NOT NEEDED?
+                    # nn_surface_list = get_nn_surface(output_slab_ads, ads_ids)
+                    # ads_adsorp_id, surf_adsorp_id = min(nn_surface_list,
+                    #                                     key=lambda x: x[2])[:2]
+                    # out_site_type, surface_ads_sites, distances = get_site_type(
+                    #     output_slab_ads, ads_adsorp_id, ads_ids, mvec)
 
-                    # Get surface sites
-                    # TODO: Replace with get_surface_sites
-                    # first remove ads atom to find slab regions
-                    slab_w_o_ads = deepcopy(output_slab_ads)
-                    slab_w_o_ads.remove_sites(ads_ids)
-                    z = max(max(get_slab_regions(slab_w_o_ads)))
-                    surface_sites = []
-                    for site in output_slab_ads.sites:
-                        if abs(site.frac_coords[2] - z) < .05:
-                            surface_sites.append(site)
-
-                    # Densities by Orbital Type for Surface Site
+                    # Densities by Orbital Type for Surface Ads Site
                     orbital_densities_by_type = {}
-                    for site_idx, surf_prop in surface_ads_sites.items():
-                        dos_spd_site = complete_dos.get_site_spd_dos(
-                            complete_dos.structure.sites[surf_prop["index"]])
-                        orbital_densities_for_site = {}
-                        for orbital_type, elec_dos in dos_spd_site.items():
-                            orbital_densities_for_site.update(
-                                {orbital_type: np.trapz(
-                                    elec_dos.get_densities(),
-                                    x=elec_dos.energies)})
-                        orbital_densities_by_type[site_idx] = \
-                            orbital_densities_for_site
+
+                    for site_idx, site in enumerate(output_slab_ads):
+                        if site.properties["surface_property"] == "surface":
+                            dos_spd_site = complete_dos.get_site_spd_dos(
+                                complete_dos.structure.sites[site_idx])
+                            orbital_densities_for_site = {}
+                            for orbital_type, elec_dos in dos_spd_site.items():
+                                orbital_densities_for_site.update(
+                                    {orbital_type: np.trapz(
+                                        elec_dos.get_densities(),
+                                        x=elec_dos.energies)})
+                            orbital_densities_by_type[site_idx] = \
+                                orbital_densities_for_site
 
                     # Quantify Total PDOS overlap between adsorbate and
                     # surface ads sites
                     total_surf_ads_pdos_overlap = {}
-                    for surf_ids, surf_prop in surface_ads_sites.items():
-                        if not total_surf_ads_pdos_overlap.get(
-                                surf_ids, False):
-                            total_surf_ads_pdos_overlap[surf_ids] = {}
-                        for ads_idx in ads_ids:
-                            surf_idx = surf_prop['index']
-                            surf_dos = complete_dos.get_site_dos(
-                                complete_dos.structure.sites[surf_idx]
-                            ).get_densities()
-                            ads_dos = complete_dos.get_site_dos(
-                                complete_dos.structure.sites[ads_idx]
-                            ).get_densities()
-                            c_overlap = np.trapz(get_overlap(surf_dos,
-                                                             ads_dos),
-                                                 x=complete_dos.energies)
-                            total_surf_ads_pdos_overlap[surf_ids][ads_idx] = \
-                                c_overlap
+                    for surf_idx, site in enumerate(output_slab_ads):
+                        if site.properties["surface_property"] == "surface":
+                            total_surf_ads_pdos_overlap[surf_idx] = {}
+                            for ads_idx, ads_site in enumerate(output_slab_ads):
+                                if ads_site.properties["surface_property"] == "adsorbate":
+                                    surf_dos = complete_dos.get_site_dos(
+                                        complete_dos.structure.sites[surf_idx]
+                                    ).get_densities()
+                                    ads_dos = complete_dos.get_site_dos(
+                                        complete_dos.structure.sites[ads_idx]
+                                    ).get_densities()
+                                    c_overlap = np.trapz(get_overlap(surf_dos,
+                                                                     ads_dos),
+                                                         x=complete_dos.energies)
+                                    total_surf_ads_pdos_overlap[surf_idx][ads_idx] = \
+                                        c_overlap
+
+                    # for surf_ids, surf_prop in surface_ads_sites.items():
+                    #     if not total_surf_ads_pdos_overlap.get(
+                    #             surf_ids, False):
+                    #         total_surf_ads_pdos_overlap[surf_ids] = {}
+                    #     for ads_idx in ads_ids:
+                    #         surf_idx = surf_prop['index']
+                    #         surf_dos = complete_dos.get_site_dos(
+                    #             complete_dos.structure.sites[surf_idx]
+                    #         ).get_densities()
+                    #         ads_dos = complete_dos.get_site_dos(
+                    #             complete_dos.structure.sites[ads_idx]
+                    #         ).get_densities()
+                    #         c_overlap = np.trapz(get_overlap(surf_dos,
+                    #                                          ads_dos),
+                    #                              x=complete_dos.energies)
+                    #         total_surf_ads_pdos_overlap[surf_ids][ads_idx] = \
+                    #             c_overlap
 
                     # Quantify overlap by orbital type
 
@@ -1212,25 +1259,17 @@ class AnalysisAdditionTask(FiretaskBase):
                     potcar_file = vd.filter_files(
                         slab_ads_dir, file_pattern="POTCAR")["standard"]
                     ba = BaderAnalysis(chgcar_file,potcar_file)
-                    bader_charges = {"surface":{},
-                                     "surface_ads":{},
-                                     "adsorbate":{}}
 
-                    # Bader for Surface Ads Sites
-                    for surf_ads_idx, surf_prop in surface_ads_sites.items():
-                        idx = surf_prop["index"]
-                        bader_charges["surface_ads"][surf_ads_idx] = \
-                            ba.get_charge(idx)
-                    # Bader for Surface Sites:
-                    for surf_idx, site in enumerate(surface_sites):
-                        bader_charges["surface"][surf_idx] = \
-                            ba.get_charge(surf_idx)
-                    # Bader for Adsorbate
-                    for ads_id in ads_ids:
-                        bader_charges["adsorbate"][ads_id] = \
-                            ba.get_charge(ads_id)
+                    bader_charges = {"slab": 0,
+                                     "adsorbate": 0}
+                    # Bader for Slab Sites:
+                    for idx, site in enumerate(output_slab_ads):
+                        if site.properties['surface_properties'] == "adsorbate":
+                            bader_charges["adsorbate"] += ba.get_charge(idx)
+                        else:
+                            bader_charges["slab"] += ba.get_charge(idx)
+
                     slab_ads_data["bader"] = bader_charges
-
 
                     # DDEC6 Analysis
                     aeccar_files = [vd.filter_files(
@@ -1240,29 +1279,24 @@ class AnalysisAdditionTask(FiretaskBase):
 
                     ddec = DDEC6Analysis(
                         chgcar_file,potcar_file,aeccar_files,gzipped=True)
-                    ddec6_charges = {"surface": {},
-                                     "surface_ads":{},
-                                     "adsorbate": {}}
+
+                    ddec6_charges = {"slab": 0,
+                                     "adsorbate": 0}
                     # DDEC for Surface Ads Sites
-                    for surf_ads_idx, surf_prop in surface_ads_sites.items():
-                        idx = surf_prop["index"]
-                        ddec6_charges["surface_ads"][surf_ads_idx] = \
-                            ddec.get_charge(index=idx)
-                    # DDEC for Surface Site
-                    for surf_idx, site in enumerate(surface_sites):
-                        ddec6_charges["surface"][surf_idx] = \
-                            ddec.get_charge(index=surf_idx)
-                    # DDEC for Adsorbate
-                    for ads_id in ads_ids:
-                        ddec6_charges["adsorbate"][ads_id] = \
-                            ddec.get_charge(index=ads_id)
+                    for idx, site in enumerate(output_slab_ads):
+                        if site.properties['surface_properties'] == "adsorbate":
+                            ddec6_charges["adsorbate"] += ddec.get_charge(index=idx)
+                        else:
+                            ddec6_charges["slab"] += ddec.get_charge(index=idx)
+
+
                     slab_ads_data["ddec6"] = ddec6_charges
 
                     slab_ads_data.update({
                         'input_structure': input_slab_ads,
                         'converged': slab_ads_converged,
                         'eigenvalue_band_properties': eigenvalue_band_props,
-                        'd_band_center': d_band_center_slab_ads,
+                        'p_band_center': p_band_center_slab_ads,
                         'orbital_densities_by_type':orbital_densities_by_type,
                         'total_surf_ads_pdos_overlap':
                             total_surf_ads_pdos_overlap,
@@ -1472,7 +1506,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'vbm': evalue_band_props_slab[2],
                 'is_band_gap_direct': evalue_band_props_slab[3]}})
         stored_data['slab'].update({
-            'd_band_center': slab_data.get("d_band_center", False),
+            'p_band_center': slab_data.get("p_band_center", False),
             "orbital_densities_by_type":slab_data.get(
                 "orbital_densities_by_type", False),
             'work_function':slab_data.get('work_function', False),
@@ -1480,6 +1514,10 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'cbm_elemental_makeup', False),
             'vbm_elemental_makeup':slab_data.get(
                 'vbm_elemental_makeup', False)
+        })
+        stored_data['slab'].update({
+            "ddec6": slab_data.get("ddec6", False),
+            "bader": slab_data.get("bader", False)
         })
 
         stored_data['slab_adsorbate'] = {
@@ -1497,8 +1535,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     'vbm': evalue_band_props_slab_ads[2],
                     'is_band_gap_direct': evalue_band_props_slab_ads[3]}})
         stored_data['slab_adsorbate'].update({
-            'd_band_center': slab_ads_data.get(
-                "d_band_center", False),
+            'p_band_center': slab_ads_data.get(
+                "p_band_center", False),
             'orbital_densities_by_type':slab_ads_data.get(
                 "orbital_densities_by_type", False),
             'total_surf_ads_pdos_overlap':slab_ads_data.get(
@@ -1508,6 +1546,10 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'cbm_elemental_makeup', False),
             'vbm_elemental_makeup': slab_ads_data.get(
                 'vbm_elemental_makeup', False),
+        })
+        stored_data['slab_adsorbate'].update({
+            "ddec6":slab_ads_data.get("ddec6",False),
+            "bader":slab_ads_data.get("bader", False)
         })
 
         # cleavage energy
@@ -1659,8 +1701,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
 
         ## TODO: get differences between key electronic variables
         stored_data["electronic_descriptors"] = {
-            "d_band_center_shift":
-                (slab_ads_data["d_band_center"]-slab_data["d_band_center"]),
+            "p_band_center_shift":
+                (slab_ads_data["p_band_center"]-slab_data["p_band_center"]),
             "cbm_shift":
                 (slab_ads_data["eigenvalue_band_properties"]["cbm"]-
                  slab_data["eigenvalue_band_properties"]["cbm"]),
@@ -1684,6 +1726,12 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                  for key2, value2 in
                                  slab_ads_data["orbital_densities_by_type"].items()
                                  if key1 == key2},
+        }
+        stored_data["charge_analysis"] = {
+            "bader_charge_transfer":slab_ads_data["bader"]["slab"]-
+                                    slab_data["bader"],
+            "ddec6_charge_transfer":slab_ads_data["dded6"]["slab"]-
+                                    slab_data["ddec6"],
         }
 
 
