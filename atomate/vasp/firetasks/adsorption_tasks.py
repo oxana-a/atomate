@@ -21,7 +21,7 @@ from atomate.vasp.config import DB_FILE
 from atomate.vasp.database import VaspCalcDb
 from atomate.vasp.drones import VaspDrone
 from atomate.vasp.fireworks.core import NonSCFFW
-from atomate.vasp.powerups import ModifyIncar
+from atomate.vasp.firetasks.write_inputs import ModifyIncar
 from datetime import datetime
 from fireworks.core.firework import FiretaskBase, FWAction, Workflow
 from fireworks.utilities.fw_serializers import DATETIME_HANDLER
