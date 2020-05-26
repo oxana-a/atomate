@@ -996,8 +996,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                         nscf_calc.tasks.insert(2,
                                       ModifyIncar(incar_update={"IVDW": 11}))
                         nscf_calc.tasks.append(analysis_task)
-                    else:
-                        fws.append(slab_ads_fw)
+                        fws.append(nscf_calc)
                     fws.append(slab_ads_fw)
 
         return FWAction(additions=Workflow(fws))
