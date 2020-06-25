@@ -238,6 +238,7 @@ class BulkFW(Firework):
         """
         import atomate.vasp.firetasks.adsorption_tasks as at
 
+
         # bulk_fw_params passed as kwargs could contain user_incar_settings,
         # this should supersede the default settings but not if
         # user_incar_settings is passed itself as a parameter
