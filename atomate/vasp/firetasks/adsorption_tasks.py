@@ -557,7 +557,7 @@ class SlabAdditionTask(FiretaskBase):
                 nonscf.tasks.insert(2, ModifyIncar(incar_update={"IVDW": 11}))
                 slab_fws.append(nonscf)
                 #nscf
-                nscf_calc = NonSCFFW(parents=slab_fws[-1],
+                nscf_calc = NonSCFFW(parents=slab_fws[-2],
                                      name=name+" nscf", mode="line",
                                      vasp_cmd=vasp_cmd, db_file=db_file,
                                      spec={"_category": _category})
@@ -987,7 +987,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                                       ModifyIncar(incar_update={"IVDW": 11}))
                         fws.append(nonscf)
                         #nscf
-                        nscf_calc = NonSCFFW(parents=fws[-1],
+                        nscf_calc = NonSCFFW(parents=fws[-2],
                                              name=fw_name+ " nscf",
                                              mode="line",
                                              vasp_cmd=vasp_cmd,
