@@ -20,7 +20,7 @@ from atomate.utils.utils import get_logger, env_chk
 from atomate.vasp.config import DB_FILE
 from atomate.vasp.database import VaspCalcDb
 from atomate.vasp.drones import VaspDrone
-from atomate.vasp.fireworks.core import NonSCFFW
+from atomate.vasp.fireworks.core import NonSCFFW, StaticFW
 from atomate.vasp.firetasks.write_inputs import ModifyIncar
 from datetime import datetime
 from fireworks.core.firework import FiretaskBase, FWAction, Workflow
@@ -158,17 +158,16 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
             relax_calc.tasks.remove(analysis_step)
             slab_ads_fws.append(relax_calc)
             #non-scf uniform
-            nonscf = NonSCFFW(name=fw_name+" static",
-                                         mode="uniform",
+            static = NonSCFFW(name=fw_name+" static",
                                          vasp_cmd=vasp_cmd,
                                          db_file=db_file,
                                          parents=slab_ads_fws[-1],
                                          spec={"_category": _category})
-            nonscf.tasks.insert(2,ModifyIncar(incar_update={"IVDW":11}))
-            slab_ads_fws.append(nonscf)
+            static.tasks.insert(2,ModifyIncar(incar_update={"IVDW":11}))
+            slab_ads_fws.append(static)
             #non-scf line
             nscf_calc = NonSCFFW(parents=slab_ads_fws[-1],
-                                 name=fw_name+" nscf", mode="line",
+                                 name=fw_name+" nscf", mode="uniform",
                                  vasp_cmd=vasp_cmd, db_file=db_file,
                                  vasptodb_kwargs={
                                      "task_fields_to_push": {
@@ -542,10 +541,9 @@ class SlabAdditionTask(FiretaskBase):
                 slab_fw.tasks.remove(analysis_task)
                 slab_fws.append(slab_fw)
                 #static
-                nonscf = NonSCFFW(name=name+" static",
+                static = StaticFW(name=name+" static",
                                          vasp_cmd=vasp_cmd,
                                          db_file=db_file,
-                                         mode="uniform",
                                          vasptodb_kwargs={
                                              "task_fields_to_push": {
                                                  "slab_structure":
@@ -554,11 +552,11 @@ class SlabAdditionTask(FiretaskBase):
                                                      "output.energy"}},
                                          parents=slab_fws[-1],
                                          spec={"_category": _category})
-                nonscf.tasks.insert(2, ModifyIncar(incar_update={"IVDW": 11}))
-                slab_fws.append(nonscf)
+                static.tasks.insert(2, ModifyIncar(incar_update={"IVDW": 11}))
+                slab_fws.append(static)
                 #nscf
                 nscf_calc = NonSCFFW(parents=slab_fws[-2],
-                                     name=name+" nscf", mode="line",
+                                     name=name+" nscf", mode="uniform",
                                      vasp_cmd=vasp_cmd, db_file=db_file,
                                      spec={"_category": _category})
                 nscf_calc.tasks.insert(2, ModifyIncar(incar_update={"IVDW": 11}))
@@ -977,19 +975,18 @@ class SlabAdsAdditionTask(FiretaskBase):
                         slab_ads_fw.tasks.remove(analysis_task)
                         fws.append(slab_ads_fw)
                         #static
-                        nonscf = NonSCFFW(name=fw_name+" static",
-                                            mode="uniform",
+                        static = StaticFW(name=fw_name+" static",
                                             vasp_cmd=vasp_cmd,
                                             db_file=db_file,
                                             parents=fws[-1],
                                             spec={"_category": _category})
-                        nonscf.insert(2,
+                        static.insert(2,
                                       ModifyIncar(incar_update={"IVDW": 11}))
-                        fws.append(nonscf)
+                        fws.append(static)
                         #nscf
                         nscf_calc = NonSCFFW(parents=fws[-2],
                                              name=fw_name+ " nscf",
-                                             mode="line",
+                                             mode="uniform",
                                              vasp_cmd=vasp_cmd,
                                              db_file=db_file,
                                              spec={"_category": _category})
