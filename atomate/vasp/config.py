@@ -35,7 +35,9 @@ DEFUSE_UNSUCCESSFUL = "fizzle"
 CUSTODIAN_MAX_ERRORS = 5
 
 # store data from these files in database if present
-STORE_VOLUMETRIC_DATA = ("chgcar", "aeccar0", "aeccar2", "elfcar", "locpot")
+# turn off - this is too much data for a high throughput environment to store
+# in DB by default
+STORE_VOLUMETRIC_DATA = ()
 
 # ingest any additional JSON data present into database when parsing VASP directories
 # useful for storing duplicate of FW.json
