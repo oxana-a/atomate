@@ -20,7 +20,7 @@ from atomate.utils.utils import get_logger, env_chk
 from atomate.vasp.config import DB_FILE
 from atomate.vasp.database import VaspCalcDb
 from atomate.vasp.drones import VaspDrone
-from atomate.vasp.fireworks.core import NonSCFFW
+from atomate.vasp.fireworks.core import NonSCFFW, StaticFW
 from atomate.vasp.firetasks.write_inputs import ModifyIncar
 from datetime import datetime
 from fireworks.core.firework import FiretaskBase, FWAction, Workflow
@@ -158,14 +158,11 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
             relax_calc.tasks.remove(analysis_step)
             slab_ads_fws.append(relax_calc)
             #non-scf uniform
-            nonscf = NonSCFFW(name=fw_name+" static",
-                                         mode="uniform",
-                                         vasp_cmd=vasp_cmd,
-                                         db_file=db_file,
-                                         parents=slab_ads_fws[-1],
-                                         spec={"_category": _category})
-            nonscf.tasks.insert(2,ModifyIncar(incar_update={"IVDW":11}))
-            slab_ads_fws.append(nonscf)
+            static = StaticFW(name=fw_name+" static", vasp_cmd=vasp_cmd,
+                              db_file=db_file, parents=slab_ads_fws[-1],
+                              spec={"_category": _category})
+            static.tasks.insert(2, ModifyIncar(incar_update={"IVDW": 11}))
+            slab_ads_fws.append(static)
             #non-scf line
             nscf_calc = NonSCFFW(parents=slab_ads_fws[-1],
                                  name=fw_name+" nscf", mode="line",
@@ -542,23 +539,20 @@ class SlabAdditionTask(FiretaskBase):
                 slab_fw.tasks.remove(analysis_task)
                 slab_fws.append(slab_fw)
                 #static
-                nonscf = NonSCFFW(name=name+" static",
-                                         vasp_cmd=vasp_cmd,
-                                         db_file=db_file,
-                                         mode="uniform",
-                                         vasptodb_kwargs={
-                                             "task_fields_to_push": {
-                                                 "slab_structure":
-                                                     "output.structure",
-                                                 "slab_energy":
-                                                     "output.energy"}},
-                                         parents=slab_fws[-1],
-                                         spec={"_category": _category})
-                nonscf.tasks.insert(2, ModifyIncar(incar_update={"IVDW": 11}))
-                slab_fws.append(nonscf)
+                static = StaticFW(name=name+" static", vasp_cmd=vasp_cmd,
+                                  db_file=db_file, parents=slab_fws[-1],
+                                  spec={"_category": _category})
+                static.tasks.insert(2, ModifyIncar(incar_update={"IVDW": 11}))
+                slab_fws.append(static)
                 #nscf
                 nscf_calc = NonSCFFW(parents=slab_fws[-1],
                                      name=name+" nscf", mode="line",
+                                     vasptodb_kwargs={
+                                         "task_fields_to_push": {
+                                             "slab_structure":
+                                                 "output.structure",
+                                             "slab_energy":
+                                                 "output.energy"}},
                                      vasp_cmd=vasp_cmd, db_file=db_file,
                                      spec={"_category": _category})
                 nscf_calc.tasks.insert(2, ModifyIncar(incar_update={"IVDW": 11}))
@@ -977,19 +971,23 @@ class SlabAdsAdditionTask(FiretaskBase):
                         slab_ads_fw.tasks.remove(analysis_task)
                         fws.append(slab_ads_fw)
                         #static
-                        nonscf = NonSCFFW(name=fw_name+" static",
-                                            mode="uniform",
-                                            vasp_cmd=vasp_cmd,
-                                            db_file=db_file,
-                                            parents=fws[-1],
-                                            spec={"_category": _category})
-                        nonscf.insert(2,
+                        static = StaticFW(name=fw_name+" static",
+                                          vasp_cmd=vasp_cmd, db_file=db_file,
+                                          parents=fws[-1],
+                                          spec={"_category": _category})
+                        static.insert(2,
                                       ModifyIncar(incar_update={"IVDW": 11}))
-                        fws.append(nonscf)
+                        fws.append(static)
                         #nscf
                         nscf_calc = NonSCFFW(parents=fws[-1],
                                              name=fw_name+ " nscf",
                                              mode="line",
+                                             vasptodb_kwargs={
+                                                 "task_fields_to_push": {
+                                                     "slab_ads_structure":
+                                                         "output.structure",
+                                                     "slab_ads_energy":
+                                                         "output.energy"}},
                                              vasp_cmd=vasp_cmd,
                                              db_file=db_file,
                                              spec={"_category": _category})
@@ -1054,7 +1052,8 @@ class AnalysisAdditionTask(FiretaskBase):
         except TypeError:
             output_slab_ads = fw_spec["slab_ads_structure"]
         slab_ads_energy = fw_spec["slab_ads_energy"]
-        slab_ads_task_id = fw_spec["slab_ads_task_id"]
+        # TODO: figure out what's up with this slab_ads_task_id
+        # slab_ads_task_id = fw_spec["slab_ads_task_id"]
         calc_locs = fw_spec["calc_locs"]
         slab_ads_dir = None
         if calc_locs:
@@ -1077,7 +1076,8 @@ class AnalysisAdditionTask(FiretaskBase):
         surface_properties = slab_ads_data.get("surface_properties")
         _category = fw_spec.get("_category")
 
-        slab_ads_data.update({'task_id': slab_ads_task_id})
+        # TODO: figure out what's up with this slab_ads_task_id
+        # slab_ads_data.update({'task_id': slab_ads_task_id})
 
         # extract data from vasprun to pass it on
         if slab_ads_dir:
@@ -1405,7 +1405,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         output_slab_ads = slab_ads_data.get("output_structure")
         slab_ads_energy = slab_ads_data.get("final_energy")
         slab_ads_name = slab_ads_data.get("name")
-        slab_ads_task_id = slab_ads_data.get("task_id")
+        # TODO: figure out what's up with this slab_ads_task_id
+        # slab_ads_task_id = slab_ads_data.get("task_id")
         slab_ads_dir = slab_ads_data.get("directory")
         id_map = slab_ads_data.get("id_map")
         surface_properties = slab_ads_data.get("surface_properties")
@@ -1696,7 +1697,9 @@ class AdsorptionAnalysisTask(FiretaskBase):
             [ads_comp.get(element, 0) * ref_elem_energy.get(str(element)) for
              element in ads_comp])
         stored_data['adsorption_energy'] = adsorption_en
-        stored_data['slab_ads_task_id'] = slab_ads_task_id
+
+        # TODO: figure out what's up with this slab_ads_task_id
+        # stored_data['slab_ads_task_id'] = slab_ads_task_id
 
         ## TODO: get differences between key electronic variables
         stored_data["electronic_descriptors"] = {
