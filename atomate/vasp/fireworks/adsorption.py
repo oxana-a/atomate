@@ -141,6 +141,7 @@ class EnergyLandscapeFW(Firework):
                                               "LELF": True,
                                               "IVDW": 11,
                                               "GGA": "RP",
+                                              "ICHARG": 0
                                               }
 
                 if "additional_fields" not in vasptodb_kwargs:
