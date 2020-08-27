@@ -351,7 +351,7 @@ class SlabFW(Firework):
                               {'IBRION': 2, 'POTIM': 0.5, 'NSW': 300,
                                "ALGO": "Fast", "GGA": "RP",
                                "IVDW":11, "EDIFFG":-.05,
-                               "ALGO":"All"}
+                               "ALGO": "All", "LAECHG": True}
 
         vis = vasp_input_set or MPSurfaceSet(
             slab_structure, bulk=False,
@@ -453,7 +453,7 @@ class SlabAdsFW(Firework):
         user_incar_settings = user_incar_settings or \
                               {'IBRION': 2, 'POTIM': 0.5, 'NSW': 300,
                                "ALGO":"All","IVDW": 11,
-                               "GGA": "RP"}
+                               "GGA": "RP", "LAECHG": True}
 
         vis = vasp_input_set or MPSurfaceSet(
             slab_ads_structure, bulk=False,

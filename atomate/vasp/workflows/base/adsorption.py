@@ -434,37 +434,37 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
         vasp_calc = bulk_fw_params.pop("vasp_calc")
         wf = use_fake_vasp(wf,{wf.fws[0].name: vasp_calc})
     # TODO: add_molecules_in_box
-
-    def __init__(self, structure, bulk=False, auto_dipole=None, **kwargs):
-
-        # If not a bulk calc, turn get_locpot/auto_dipole on by default
-        auto_dipole = auto_dipole or not bulk
-        super(MPSurfaceSet, self).__init__(
-            structure, bulk=bulk, auto_dipole=False, **kwargs)
-        # This is a hack, but should be fixed when this is ported over to
-        # pymatgen to account for vasp native dipole fix
-        if auto_dipole:
-            self._config_dict['INCAR'].update({"LDIPOL": True, "IDIPOL": 3})
-            self.auto_dipole = True
-
-    @property
-    def incar(self):
-        incar = super(MPSurfaceSet, self).incar
-
-        # Determine LDAU based on slab chemistry without adsorbates
-        ldau_elts = {'O', 'F'}
-        if self.structure.site_properties.get("surface_properties"):
-            non_adsorbate_elts = {
-                s.specie.symbol for s in self.structure
-                if not s.properties['surface_properties'] == 'adsorbate'}
-        else:
-            non_adsorbate_elts = {s.specie.symbol for s in self.structure}
-        ldau = bool(non_adsorbate_elts & ldau_elts)
-
-        # Should give better forces for optimization
-        incar_config = {"EDIFFG": -0.05, "ENAUG": 4000, "IBRION": 2, "LDAU": ldau, "EDIFF": 1e-5, "ISYM": 0}
-        incar.update(incar_config)
-        incar.update(self.user_incar_settings)
-        return incar
+    #
+    # def __init__(self, structure, bulk=False, auto_dipole=None, **kwargs):
+    #
+    #     # If not a bulk calc, turn get_locpot/auto_dipole on by default
+    #     auto_dipole = auto_dipole or not bulk
+    #     super(MPSurfaceSet, self).__init__(
+    #         structure, bulk=bulk, auto_dipole=False, **kwargs)
+    #     # This is a hack, but should be fixed when this is ported over to
+    #     # pymatgen to account for vasp native dipole fix
+    #     if auto_dipole:
+    #         self._config_dict['INCAR'].update({"LDIPOL": True, "IDIPOL": 3})
+    #         self.auto_dipole = True
+    #
+    # @property
+    # def incar(self):
+    #     incar = super(MPSurfaceSet, self).incar
+    #
+    #     # Determine LDAU based on slab chemistry without adsorbates
+    #     ldau_elts = {'O', 'F'}
+    #     if self.structure.site_properties.get("surface_properties"):
+    #         non_adsorbate_elts = {
+    #             s.specie.symbol for s in self.structure
+    #             if not s.properties['surface_properties'] == 'adsorbate'}
+    #     else:
+    #         non_adsorbate_elts = {s.specie.symbol for s in self.structure}
+    #     ldau = bool(non_adsorbate_elts & ldau_elts)
+    #
+    #     # Should give better forces for optimization
+    #     incar_config = {"EDIFFG": -0.05, "ENAUG": 4000, "IBRION": 2, "LDAU": ldau, "EDIFF": 1e-5, "ISYM": 0}
+    #     incar.update(incar_config)
+    #     incar.update(self.user_incar_settings)
+    #     return incar
 
     return wf

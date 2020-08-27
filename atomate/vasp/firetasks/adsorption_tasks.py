@@ -544,8 +544,8 @@ class SlabAdditionTask(FiretaskBase):
                 static = StaticFW(name=name+" static", vasp_cmd=vasp_cmd,
                                   db_file=db_file, parents=slab_fws[-1],
                                   spec={"_category": _category})
-                static.tasks.insert(2, ModifyIncar(incar_update={"IVDW": 11,
-                                                                 "GG": "RP"}))
+                static.tasks.insert(2, ModifyIncar(incar_update={
+                    "IVDW": 11, "GG": "RP", "LAECHG": True}))
                 slab_fws.append(static)
                 #nscf
                 nscf_calc = NonSCFFW(parents=slab_fws[-2],
@@ -558,8 +558,8 @@ class SlabAdditionTask(FiretaskBase):
                                                  "output.energy"}},
                                      vasp_cmd=vasp_cmd, db_file=db_file,
                                      spec={"_category": _category})
-                nscf_calc.tasks.insert(2, ModifyIncar(incar_update={"IVDW": 11,
-                                                                    "GG": "RP"}))
+                nscf_calc.tasks.insert(2, ModifyIncar(incar_update={
+                    "IVDW": 11, "GG": "RP", "LAECHG": True}))
                 nscf_calc.tasks.append(analysis_task)
                 slab_fws.append(nscf_calc)
             else:
@@ -799,9 +799,10 @@ class SlabAdsAdditionTask(FiretaskBase):
                     # DDEC6 Analysis for Slab
                     aeccar_files = [vd.filter_files(
                         slab_dir,
-                        file_pattern="AECCAR{}".format(n))['standard']
+                        file_pattern="AECCAR{}".format(n)).get('standard')
                                     for n in range(0, 3)]
-
+                    if aeccar_files == [None, None, None]:
+                        aeccar_files = None
                     ddec = DDEC6Analysis(
                         chgcar_file, potcar_file, aeccar_files, gzipped=True)
                     ddec6_charges_slab = 0
@@ -978,9 +979,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                                           vasp_cmd=vasp_cmd, db_file=db_file,
                                           parents=fws[-1],
                                           spec={"_category": _category})
-                        static.insert(2,
-                                      ModifyIncar(incar_update={"IVDW": 11,
-                                                                "GG": "RP"}))
+                        static.insert(2, ModifyIncar(incar_update={
+                            "IVDW": 11, "GG": "RP", "LAECHG": True}))
                         fws.append(static)
                         #nscf
                         nscf_calc = NonSCFFW(parents=fws[-2],
@@ -995,9 +995,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                                              vasp_cmd=vasp_cmd,
                                              db_file=db_file,
                                              spec={"_category": _category})
-                        nscf_calc.tasks.insert(2,
-                                      ModifyIncar(incar_update={"IVDW": 11,
-                                                                "GG": "RP"}))
+                        nscf_calc.tasks.insert(2, ModifyIncar(incar_update={
+                            "IVDW": 11, "GG": "RP", "LAECHG": True}))
                         nscf_calc.tasks.append(analysis_task)
                         fws.append(nscf_calc)
                     fws.append(slab_ads_fw)

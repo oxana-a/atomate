@@ -399,8 +399,7 @@ class StaticFW(Firework):
             \*\*kwargs: Other kwargs that are passed to Firework.__init__.
         """
         t = []
-        if additional_files is None:
-            additional_files = []
+
         vasp_input_set_params = vasp_input_set_params or {}
         vasptodb_kwargs = vasptodb_kwargs or {}
         if "additional_fields" not in vasptodb_kwargs:
