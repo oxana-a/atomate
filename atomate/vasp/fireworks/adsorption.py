@@ -349,8 +349,7 @@ class SlabFW(Firework):
         # user_incar_settings is passed itself as a parameter
         user_incar_settings = user_incar_settings or \
                               {'IBRION': 2, 'POTIM': 0.5, 'NSW': 300,
-                               "ALGO": "Fast", "GGA": "RP",
-                               "IVDW":11, "EDIFFG":-.05,
+                               "GGA": "RP", "IVDW":11, "EDIFFG":-.05,
                                "ALGO": "All", "LAECHG": True}
 
         vis = vasp_input_set or MPSurfaceSet(
