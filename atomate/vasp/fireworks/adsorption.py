@@ -134,7 +134,7 @@ class EnergyLandscapeFW(Firework):
                 # user_incar_settings is passed itself as a parameter
                 static_user_incar_settings = static_user_incar_settings or\
                                              {"ALGO": "All",
-                                              "ISMEAR": -5,
+                                              "ISMEAR": 0,
                                               "ADDGRID": True,
                                               "LASPH": True,
                                               "LORBIT": 11,
