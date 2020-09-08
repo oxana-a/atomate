@@ -548,7 +548,7 @@ class SlabAdditionTask(FiretaskBase):
                     "IVDW": 11, "GG": "RP", "LAECHG": True}))
                 slab_fws.append(static)
                 #nscf
-                nscf_calc = NonSCFFW(parents=slab_fws[-2],
+                nscf_calc = NonSCFFW(parents=slab_fws[-1],
                                      name=name+" nscf", mode="uniform",
                                      vasptodb_kwargs={
                                          "task_fields_to_push": {
@@ -809,7 +809,7 @@ class SlabAdsAdditionTask(FiretaskBase):
 
                     # DDEC for Slab
                     for surf_idx, site in enumerate(output_slab):
-                        ddec6_charges_slab  += ddec.get_charge(index=surf_idx)
+                        ddec6_charges_slab  += ddec.get_charge(surf_idx)
                     slab_data["ddec6"] = ddec6_charges_slab
 
                     slab_data.update({
