@@ -685,6 +685,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                     if not output_slab:
                         output_slab = vrun_o.final_structure
 
+                    print(output_slab.site_properties)
                     if "surface_properties" not in output_slab.site_properties:
                         height = ads_site_finder_params.get("height", 0.9)
                         surf_props = get_slab_surf_props(output_slab,
@@ -692,7 +693,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                         print(surf_props)
                         output_slab.add_site_property("surface_properties",
                                                       surf_props)
-
+                    print(output_slab.site_properties)
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
                     input_slab = vrun_i.initial_structure
 
