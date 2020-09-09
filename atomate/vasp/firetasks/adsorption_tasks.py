@@ -689,6 +689,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                         height = ads_site_finder_params.get("height", 0.9)
                         surf_props = get_slab_surf_props(output_slab,
                                                          height=height)
+                        print(surf_props)
                         output_slab.add_site_property("surface_properties",
                                                       surf_props)
 
@@ -737,6 +738,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         # Densities by Orbital Type for Surface Site
         orbital_densities_by_type = {}
         for site_idx, site in enumerate(output_slab):
+            print(site.)
             if "surface" in site.properties["surface_properties"]:
                 dos_spd_site = complete_dos.get_site_spd_dos(
                     complete_dos.structure.sites[site_idx])
