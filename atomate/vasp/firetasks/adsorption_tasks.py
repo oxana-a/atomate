@@ -988,7 +988,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                             "IVDW": 11, "GG": "RP", "LAECHG": True}))
                         fws.append(static)
                         #nscf
-                        nscf_calc = NonSCFFW(parents=fws[-2],
+                        nscf_calc = NonSCFFW(parents=fws[-1],
                                              name=fw_name+ " nscf",
                                              mode="uniform",
                                              vasptodb_kwargs={
