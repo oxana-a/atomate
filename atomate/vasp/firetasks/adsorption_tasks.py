@@ -695,132 +695,12 @@ class SlabAdsAdditionTask(FiretaskBase):
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
                     input_slab = vrun_i.initial_structure
 
-                    #Electronic Analysis
 
-                    # p-Band Center analysis:
-                    complete_dos = vrun_o.complete_dos
-                    dos_p = complete_dos.get_spd_dos().get(OrbitalType.p)
-
-                    # add spin up and spin down densities
-                    total_p_densities = dos_p.get_densities()
-                    # Get integrated density for d
-                    total_integrated_density = np.trapz(total_p_densities,
-                                                        x=dos_p.energies,
-                                                        dx=.01)
-                    # Find E which splits integrated d DOS into 2
-                    # (d-band center):
-                    p_band_center_slab = 0
-                    for k in range(len(total_p_densities)):
-                        c_int = np.trapz(total_p_densities[:k],
-                                         x=dos_p.energies[:k],
-                                         dx=.01)
-                        if c_int > (total_integrated_density / 2):
-                            p_band_center_slab = dos_p.energies[k]
-                            break
-
-                    # Densities by Orbital Type for Surface Site
-                    orbital_densities_by_type = {}
-                    for site_idx, site in enumerate(output_slab):
-                        if "surface" in site.properties["surface_properties"]:
-                            dos_spd_site = complete_dos.get_site_spd_dos(
-                                complete_dos.structure.sites[site_idx])
-                            orbital_densities_for_site = {}
-                        for orbital_type, elec_dos in dos_spd_site.items():
-                            orbital_densities_for_site.update(
-                                {orbital_type: np.trapz(
-                                    elec_dos.get_densities(),
-                                    x=elec_dos.energies)})
-                        orbital_densities_by_type[site_idx] = \
-                            orbital_densities_for_site
-
-                    # Quantify overlap by orbital type
-
-                    # Elemental make-up of CBM and VBM
-                    print("elemental makeup")
-                    cbm_elemental_makeup = {}
-                    vbm_elemental_makeup = {}
-                    (cbm, vbm) = complete_dos.get_cbm_vbm()
-                    for element in output_slab.composition:
-                        elem_dos = complete_dos.get_element_dos()[element]
-                        cbm_densities = []
-                        cbm_energies = []
-                        vbm_densities = []
-                        vbm_energies = []
-                        for energy, density in zip(
-                                elem_dos.energies,elem_dos.get_densities()):
-                            if energy > cbm:
-                                if density ==0:
-                                    break
-                                cbm_densities.append(density)
-                                cbm_energies.append(energy)
-                        for energy, density in zip(
-                                reversed(elem_dos.energies),
-                                reversed(elem_dos.get_densities())):
-                            if energy < vbm:
-                                if density ==0:
-                                    break
-                                vbm_densities.append(density)
-                                vbm_energies.append(energy)
-                        vbm_integrated = np.trapz(vbm_densities,
-                                                  x=vbm_energies)
-                        cbm_integrated = np.trapz(cbm_densities,
-                                                  x=cbm_energies)
-                        cbm_elemental_makeup[element] = cbm_integrated
-                        vbm_elemental_makeup[element] = vbm_integrated
-
-                    # Work Function Analyzer
-                    print("wfa")
-                    vd = VaspDrone()
-                    poscar_file = vd.filter_files(
-                        slab_dir, file_pattern="POSCAR").get("standard")
-                    locpot_file = vd.filter_files(
-                        slab_dir,"LOCPOT")["standard"]
-                    outcar_file = vd.filter_files(
-                        slab_dir, "OUTCAR").get("standard")
-                    wfa = WorkFunctionAnalyzer.from_files(
-                        poscar_file,locpot_file,outcar_file)
-                    work_function = wfa.work_function
-
-                    # Bader Analysis
-                    chgcar_file = vd.filter_files(
-                        slab_dir, file_pattern="CHGCAR")['standard']
-                    potcar_file = vd.filter_files(
-                        slab_dir, file_pattern="POTCAR")["standard"]
-                    ba = BaderAnalysis(chgcar_file, potcar_file)
-
-                    bader_charges_slab = 0
-
-                    # Bader for Slab
-                    for surf_idx, site in enumerate(output_slab):
-                        bader_charges_slab += ba.get_charge(surf_idx)
-
-                    slab_data["bader"] = bader_charges_slab
-
-                    # DDEC6 Analysis for Slab
-                    aeccar_files = [vd.filter_files(
-                        slab_dir,
-                        file_pattern="AECCAR{}".format(n)).get('standard')
-                                    for n in range(0, 3)]
-                    if aeccar_files == [None, None, None]:
-                        aeccar_files = None
-                    ddec = DDEC6Analysis(
-                        chgcar_file, potcar_file, aeccar_files, gzipped=True)
-                    ddec6_charges_slab = 0
-
-                    # DDEC for Slab
-                    for surf_idx, site in enumerate(output_slab):
-                        ddec6_charges_slab  += ddec.get_charge(surf_idx)
-                    slab_data["ddec6"] = ddec6_charges_slab
 
                     slab_data.update({
                         'input_structure': input_slab,
                         'converged': slab_converged,
                         'eigenvalue_band_properties': eigenvalue_band_props,
-                        'p_band_center': p_band_center_slab,
-                        'orbital_densities_by_type':orbital_densities_by_type,
-                        'work_function':work_function,
-                        'cbm_elemental_makeup':cbm_elemental_makeup,
-                        'vbm_elemental_makeup':vbm_elemental_makeup,
                     })
 
                 except (ParseError, AssertionError):
@@ -830,6 +710,131 @@ class SlabAdsAdditionTask(FiretaskBase):
 
         slab_data.update({'output_structure': output_slab,
                           'final_energy': slab_energy})
+
+        # Electronic Analysis
+
+        # p-Band Center analysis:
+        complete_dos = vrun_o.complete_dos
+        dos_p = complete_dos.get_spd_dos().get(OrbitalType.p)
+
+        # add spin up and spin down densities
+        total_p_densities = dos_p.get_densities()
+        # Get integrated density for d
+        total_integrated_density = np.trapz(total_p_densities,
+                                            x=dos_p.energies,
+                                            dx=.01)
+        # Find E which splits integrated d DOS into 2
+        # (d-band center):
+        p_band_center_slab = 0
+        for k in range(len(total_p_densities)):
+            c_int = np.trapz(total_p_densities[:k],
+                             x=dos_p.energies[:k],
+                             dx=.01)
+            if c_int > (total_integrated_density / 2):
+                p_band_center_slab = dos_p.energies[k]
+                break
+
+        # Densities by Orbital Type for Surface Site
+        orbital_densities_by_type = {}
+        for site_idx, site in enumerate(output_slab):
+            if "surface" in site.properties["surface_properties"]:
+                dos_spd_site = complete_dos.get_site_spd_dos(
+                    complete_dos.structure.sites[site_idx])
+                orbital_densities_for_site = {}
+            for orbital_type, elec_dos in dos_spd_site.items():
+                orbital_densities_for_site.update(
+                    {orbital_type: np.trapz(
+                        elec_dos.get_densities(),
+                        x=elec_dos.energies)})
+            orbital_densities_by_type[site_idx] = \
+                orbital_densities_for_site
+
+        # Quantify overlap by orbital type
+
+        # Elemental make-up of CBM and VBM
+        print("elemental makeup")
+        cbm_elemental_makeup = {}
+        vbm_elemental_makeup = {}
+        (cbm, vbm) = complete_dos.get_cbm_vbm()
+        for element in output_slab.composition:
+            elem_dos = complete_dos.get_element_dos()[element]
+            cbm_densities = []
+            cbm_energies = []
+            vbm_densities = []
+            vbm_energies = []
+            for energy, density in zip(
+                    elem_dos.energies, elem_dos.get_densities()):
+                if energy > cbm:
+                    if density == 0:
+                        break
+                    cbm_densities.append(density)
+                    cbm_energies.append(energy)
+            for energy, density in zip(
+                    reversed(elem_dos.energies),
+                    reversed(elem_dos.get_densities())):
+                if energy < vbm:
+                    if density == 0:
+                        break
+                    vbm_densities.append(density)
+                    vbm_energies.append(energy)
+            vbm_integrated = np.trapz(vbm_densities,
+                                      x=vbm_energies)
+            cbm_integrated = np.trapz(cbm_densities,
+                                      x=cbm_energies)
+            cbm_elemental_makeup[element] = cbm_integrated
+            vbm_elemental_makeup[element] = vbm_integrated
+
+        # Work Function Analyzer
+        print("wfa")
+        vd = VaspDrone()
+        poscar_file = vd.filter_files(
+            slab_dir, file_pattern="POSCAR").get("standard")
+        locpot_file = vd.filter_files(
+            slab_dir, "LOCPOT")["standard"]
+        outcar_file = vd.filter_files(
+            slab_dir, "OUTCAR").get("standard")
+        wfa = WorkFunctionAnalyzer.from_files(
+            poscar_file, locpot_file, outcar_file)
+        work_function = wfa.work_function
+
+        # Bader Analysis
+        chgcar_file = vd.filter_files(
+            slab_dir, file_pattern="CHGCAR")['standard']
+        potcar_file = vd.filter_files(
+            slab_dir, file_pattern="POTCAR")["standard"]
+        ba = BaderAnalysis(chgcar_file, potcar_file)
+
+        bader_charges_slab = 0
+
+        # Bader for Slab
+        for surf_idx, site in enumerate(output_slab):
+            bader_charges_slab += ba.get_charge(surf_idx)
+
+        slab_data["bader"] = bader_charges_slab
+
+        # DDEC6 Analysis for Slab
+        aeccar_files = [vd.filter_files(
+            slab_dir,
+            file_pattern="AECCAR{}".format(n)).get('standard')
+                        for n in range(0, 3)]
+        if aeccar_files == [None, None, None]:
+            aeccar_files = None
+        ddec = DDEC6Analysis(
+            chgcar_file, potcar_file, aeccar_files, gzipped=True)
+        ddec6_charges_slab = 0
+
+        # DDEC for Slab
+        for surf_idx, site in enumerate(output_slab):
+            ddec6_charges_slab += ddec.get_charge(surf_idx)
+        slab_data.update({'ddec6':ddec6_charges_slab,
+                          'p_band_center': p_band_center_slab,
+                          'orbital_densities_by_type':
+                              orbital_densities_by_type,
+                          'work_function':work_function,
+                          'cbm_elemental_makeup':cbm_elemental_makeup,
+                          'vbm_elemental_makeup':vbm_elemental_makeup})
+
+
         if 'magmom' in list(output_slab.site_properties):
             output_slab.remove_site_property('magmom')
         for ads_idx, adsorbate in enumerate(adsorbates):
