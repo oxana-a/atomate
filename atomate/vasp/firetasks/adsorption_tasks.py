@@ -738,7 +738,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         # Densities by Orbital Type for Surface Site
         orbital_densities_by_type = {}
         for site_idx, site in enumerate(output_slab):
-            print(site.)
+            print(site.properties)
             if "surface" in site.properties["surface_properties"]:
                 dos_spd_site = complete_dos.get_site_spd_dos(
                     complete_dos.structure.sites[site_idx])
