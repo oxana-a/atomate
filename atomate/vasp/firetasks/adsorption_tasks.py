@@ -1010,6 +1010,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                         fws.append(nscf_calc)
                     fws.append(slab_ads_fw)
 
+        print(fws)
+
         return FWAction(additions=Workflow(fws))
 
 
