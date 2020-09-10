@@ -745,7 +745,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                 orbital_densities_for_site = {}
             for orbital_type, elec_dos in dos_spd_site.items():
                 orbital_densities_for_site.update(
-                    {orbital_type: np.trapz(
+                    {orbital_type.name: np.trapz(
                         elec_dos.get_densities(),
                         x=elec_dos.energies)})
             orbital_densities_by_type[site_idx] = \
