@@ -614,7 +614,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                        "ads_site_finder_params", "ads_structures_params",
                        "slab_ads_fw_params", "optimize_distance",
                        "static_distances", "static_fws_params",
-                       "bulk_data", "slab_data", "dos_calculate"]
+                       "bulk_data", "slab_data", "dos_calculate","ddec_params"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -663,6 +663,8 @@ class SlabAdsAdditionTask(FiretaskBase):
         dos_calculate = self.get("dos_calculate", True)
         _category = fw_spec.get("_category")
 
+        ddec_params = fw_spec.get("ddec_params", {})
+
         if slab_dir:
             print("load file")
             slab_data.update({'directory': slab_dir})
@@ -685,12 +687,10 @@ class SlabAdsAdditionTask(FiretaskBase):
                     if not output_slab:
                         output_slab = vrun_o.final_structure
 
-                    print(output_slab.site_properties)
                     if "surface_properties" not in output_slab.site_properties:
                         height = ads_site_finder_params.get("height", 0.9)
                         surf_props = get_slab_surf_props(output_slab,
                                                          height=height)
-                        print(surf_props)
                         output_slab.add_site_property("surface_properties",
                                                       surf_props)
                     print(output_slab.site_properties)
@@ -739,7 +739,6 @@ class SlabAdsAdditionTask(FiretaskBase):
         # Densities by Orbital Type for Surface Site
         orbital_densities_by_type = {}
         for site_idx, site in enumerate(output_slab):
-            print(site.properties)
             if "surface" in site.properties["surface_properties"]:
                 dos_spd_site = complete_dos.get_site_spd_dos(
                     complete_dos.structure.sites[site_idx])
@@ -823,7 +822,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         if aeccar_files == [None, None, None]:
             aeccar_files = None
         ddec = DDEC6Analysis(
-            chgcar_file, potcar_file, aeccar_files, gzipped=True)
+            chgcar_file, potcar_file, aeccar_files, **ddec_params)
         ddec6_charges_slab = 0
 
         # DDEC for Slab
@@ -836,6 +835,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                           'work_function':work_function,
                           'cbm_elemental_makeup':cbm_elemental_makeup,
                           'vbm_elemental_makeup':vbm_elemental_makeup})
+
+        print(slab_data)
 
 
         if 'magmom' in list(output_slab.site_properties):
