@@ -661,7 +661,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         slab_name = slab_data.get("name")
         # miller_index = slab_data.get("miller_index")
         dos_calculate = self.get("dos_calculate", True)
-        _category = fw_spec.get("_category")
+        _category = self.get("_category")
 
         ddec_params = fw_spec.get("ddec_params", {})
 
