@@ -693,7 +693,6 @@ class SlabAdsAdditionTask(FiretaskBase):
                                                          height=height)
                         output_slab.add_site_property("surface_properties",
                                                       surf_props)
-                    print(output_slab.site_properties)
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
                     input_slab = vrun_i.initial_structure
 
@@ -835,8 +834,6 @@ class SlabAdsAdditionTask(FiretaskBase):
                           'work_function':work_function,
                           'cbm_elemental_makeup':cbm_elemental_makeup,
                           'vbm_elemental_makeup':vbm_elemental_makeup})
-
-        print(slab_data)
 
 
         if 'magmom' in list(output_slab.site_properties):
@@ -1009,8 +1006,6 @@ class SlabAdsAdditionTask(FiretaskBase):
                         nscf_calc.tasks.append(analysis_task)
                         fws.append(nscf_calc)
                     fws.append(slab_ads_fw)
-
-        print(fws)
 
         return FWAction(additions=Workflow(fws))
 
