@@ -782,8 +782,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                                       x=vbm_energies)
             cbm_integrated = np.trapz(cbm_densities,
                                       x=cbm_energies)
-            cbm_elemental_makeup[element] = cbm_integrated
-            vbm_elemental_makeup[element] = vbm_integrated
+            cbm_elemental_makeup[element.name] = cbm_integrated
+            vbm_elemental_makeup[element.name] = vbm_integrated
 
         # Work Function Analyzer
         print("wfa")
