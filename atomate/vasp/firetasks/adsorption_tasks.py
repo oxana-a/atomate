@@ -1158,7 +1158,7 @@ class AnalysisAdditionTask(FiretaskBase):
                     orbital_densities_by_type = {}
 
                     for site_idx, site in enumerate(output_slab_ads):
-                        if site.properties["surface_property"] == "surface":
+                        if site.properties["surface_properties"] == "surface":
                             dos_spd_site = complete_dos.get_site_spd_dos(
                                 complete_dos.structure.sites[site_idx])
                             orbital_densities_for_site = {}
@@ -1174,10 +1174,10 @@ class AnalysisAdditionTask(FiretaskBase):
                     # surface ads sites
                     total_surf_ads_pdos_overlap = {}
                     for surf_idx, site in enumerate(output_slab_ads):
-                        if site.properties["surface_property"] == "surface":
+                        if site.properties["surface_properties"] == "surface":
                             total_surf_ads_pdos_overlap[surf_idx] = {}
                             for ads_idx, ads_site in enumerate(output_slab_ads):
-                                if ads_site.properties["surface_property"] == "adsorbate":
+                                if ads_site.properties["surface_properties"] == "adsorbate":
                                     surf_dos = complete_dos.get_site_dos(
                                         complete_dos.structure.sites[surf_idx]
                                     ).get_densities()
