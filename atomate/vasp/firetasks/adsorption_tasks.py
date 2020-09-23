@@ -1307,7 +1307,7 @@ class AnalysisAdditionTask(FiretaskBase):
                     ddec6_charges["adsorbate"] += ddec.get_charge(
                         index=idx)
                 else:
-                    ddec6_charges["slab"] += ddec.get_charge(index=idx)
+                    ddec6_charges["slab"] += ddec.get_charge(idx)
 
             slab_ads_data["ddec6"] = ddec6_charges
 
