@@ -1160,165 +1160,169 @@ class AnalysisAdditionTask(FiretaskBase):
                     # out_site_type, surface_ads_sites, distances = get_site_type(
                     #     output_slab_ads, ads_adsorp_id, ads_ids, mvec)
 
-                    # Densities by Orbital Type for Surface Ads Site
-                    orbital_densities_by_type = {}
-
-                    for site_idx, site in enumerate(output_slab_ads):
-                        if site.properties["surface_properties"] == "surface":
-                            dos_spd_site = complete_dos.get_site_spd_dos(
-                                complete_dos.structure.sites[site_idx])
-                            orbital_densities_for_site = {}
-                            for orbital_type, elec_dos in dos_spd_site.items():
-                                orbital_densities_for_site.update(
-                                    {orbital_type: np.trapz(
-                                        elec_dos.get_densities(),
-                                        x=elec_dos.energies)})
-                            orbital_densities_by_type[site_idx] = \
-                                orbital_densities_for_site
-
-                    # Quantify Total PDOS overlap between adsorbate and
-                    # surface ads sites
-                    total_surf_ads_pdos_overlap = {}
-                    for surf_idx, site in enumerate(output_slab_ads):
-                        if site.properties["surface_properties"] == "surface":
-                            total_surf_ads_pdos_overlap[surf_idx] = {}
-                            for ads_idx, ads_site in enumerate(output_slab_ads):
-                                if ads_site.properties["surface_properties"] == "adsorbate":
-                                    surf_dos = complete_dos.get_site_dos(
-                                        complete_dos.structure.sites[surf_idx]
-                                    ).get_densities()
-                                    ads_dos = complete_dos.get_site_dos(
-                                        complete_dos.structure.sites[ads_idx]
-                                    ).get_densities()
-                                    c_overlap = np.trapz(get_overlap(surf_dos,
-                                                                     ads_dos),
-                                                         x=complete_dos.energies)
-                                    total_surf_ads_pdos_overlap[surf_idx][ads_idx] = \
-                                        c_overlap
-
-                    # for surf_ids, surf_prop in surface_ads_sites.items():
-                    #     if not total_surf_ads_pdos_overlap.get(
-                    #             surf_ids, False):
-                    #         total_surf_ads_pdos_overlap[surf_ids] = {}
-                    #     for ads_idx in ads_ids:
-                    #         surf_idx = surf_prop['index']
-                    #         surf_dos = complete_dos.get_site_dos(
-                    #             complete_dos.structure.sites[surf_idx]
-                    #         ).get_densities()
-                    #         ads_dos = complete_dos.get_site_dos(
-                    #             complete_dos.structure.sites[ads_idx]
-                    #         ).get_densities()
-                    #         c_overlap = np.trapz(get_overlap(surf_dos,
-                    #                                          ads_dos),
-                    #                              x=complete_dos.energies)
-                    #         total_surf_ads_pdos_overlap[surf_ids][ads_idx] = \
-                    #             c_overlap
-
-                    # Quantify overlap by orbital type
-
-                    # Elemental make-up of CBM and VBM
-                    cbm_elemental_makeup = {}
-                    vbm_elemental_makeup = {}
-                    (cbm, vbm) = complete_dos.get_cbm_vbm()
-                    for element in output_slab_ads.composition:
-                        elem_dos = complete_dos.get_element_dos()[
-                            element]
-                        cbm_densities = []
-                        cbm_energies = []
-                        vbm_densities = []
-                        vbm_energies = []
-                        for energy, density in zip(
-                                elem_dos.energies,
-                                elem_dos.get_densities()):
-                            if energy > cbm:
-                                if density == 0:
-                                    break
-                                cbm_densities.append(density)
-                                cbm_energies.append(energy)
-                        for energy, density in zip(
-                                reversed(elem_dos.energies),
-                                reversed(elem_dos.get_densities())):
-                            if energy < vbm:
-                                if density == 0:
-                                    break
-                                vbm_densities.append(density)
-                                vbm_energies.append(energy)
-                        vbm_integrated = np.trapz(vbm_densities,
-                                                  x=vbm_energies)
-                        cbm_integrated = np.trapz(cbm_densities,
-                                                  x=cbm_energies)
-                        cbm_elemental_makeup[element] = cbm_integrated
-                        vbm_elemental_makeup[element] = vbm_integrated
-
-                    # Work Function Analyzer
-                    vd = VaspDrone()
-                    poscar_file = vd.filter_files(
-                        slab_ads_dir, file_pattern="POSCAR")['standard']
-                    locpot_file = vd.filter_files(
-                        slab_ads_dir, "LOCPOT")["standard"]
-                    outcar_file = vd.filter_files(
-                        slab_ads_dir, "OUTCAR")["standard"]
-                    wfa = WorkFunctionAnalyzer.from_files(
-                        poscar_file, locpot_file, outcar_file)
-                    work_function = wfa.work_function
-
-                    #Bader Analysis
-                    chgcar_file = vd.filter_files(
-                        slab_ads_dir, file_pattern="CHGCAR")['standard']
-                    potcar_file = vd.filter_files(
-                        slab_ads_dir, file_pattern="POTCAR")["standard"]
-                    ba = BaderAnalysis(chgcar_file,potcar_file)
-
-                    bader_charges = {"slab": 0,
-                                     "adsorbate": 0}
-                    # Bader for Slab Sites:
-                    for idx, site in enumerate(output_slab_ads):
-                        if site.properties['surface_properties'] == "adsorbate":
-                            bader_charges["adsorbate"] += ba.get_charge(idx)
-                        else:
-                            bader_charges["slab"] += ba.get_charge(idx)
-
-                    slab_ads_data["bader"] = bader_charges
-
-                    # DDEC6 Analysis
-                    aeccar_files = [vd.filter_files(
-                        slab_ads_dir,
-                        file_pattern="AECCAR{}".format(n))['standard']
-                                    for n in range(0,3)]
-
-                    ddec = DDEC6Analysis(
-                        chgcar_file,potcar_file,aeccar_files,gzipped=True)
-
-                    ddec6_charges = {"slab": 0,
-                                     "adsorbate": 0}
-                    # DDEC for Surface Ads Sites
-                    for idx, site in enumerate(output_slab_ads):
-                        if site.properties['surface_properties'] == "adsorbate":
-                            ddec6_charges["adsorbate"] += ddec.get_charge(index=idx)
-                        else:
-                            ddec6_charges["slab"] += ddec.get_charge(index=idx)
-
-
-                    slab_ads_data["ddec6"] = ddec6_charges
-
-                    slab_ads_data.update({
-                        'input_structure': input_slab_ads,
-                        'converged': slab_ads_converged,
-                        'eigenvalue_band_properties': eigenvalue_band_props,
-                        'p_band_center': p_band_center_slab_ads,
-                        'orbital_densities_by_type':orbital_densities_by_type,
-                        'total_surf_ads_pdos_overlap':
-                            total_surf_ads_pdos_overlap,
-                        'work_function':work_function,
-                        'cbm_elemental_makeup':cbm_elemental_makeup,
-                        'vbm_elemental_makeup':vbm_elemental_makeup,
-                    })
-
                 except (ParseError, AssertionError):
                     pass
             except FileNotFoundError:
                 warnings.warn("Slab + adsorbate directory not found: {}"
                               .format(slab_ads_dir))
+
+            ## Electronic Analysis
+
+            # Densities by Orbital Type for Surface Ads Site
+            orbital_densities_by_type = {}
+
+            for site_idx, site in enumerate(output_slab_ads):
+                if site.properties["surface_properties"] == "surface":
+                    dos_spd_site = complete_dos.get_site_spd_dos(
+                        complete_dos.structure.sites[site_idx])
+                    orbital_densities_for_site = {}
+                    for orbital_type, elec_dos in dos_spd_site.items():
+                        orbital_densities_for_site.update(
+                            {orbital_type: np.trapz(
+                                elec_dos.get_densities(),
+                                x=elec_dos.energies)})
+                    orbital_densities_by_type[site_idx] = \
+                        orbital_densities_for_site
+
+            # Quantify Total PDOS overlap between adsorbate and
+            # surface ads sites
+            total_surf_ads_pdos_overlap = {}
+            for surf_idx, site in enumerate(output_slab_ads):
+                if site.properties["surface_properties"] == "surface":
+                    total_surf_ads_pdos_overlap[surf_idx] = {}
+                    for ads_idx, ads_site in enumerate(output_slab_ads):
+                        if ads_site.properties[
+                            "surface_properties"] == "adsorbate":
+                            surf_dos = complete_dos.get_site_dos(
+                                complete_dos.structure.sites[surf_idx]
+                            ).get_densities()
+                            ads_dos = complete_dos.get_site_dos(
+                                complete_dos.structure.sites[ads_idx]
+                            ).get_densities()
+                            c_overlap = np.trapz(get_overlap(surf_dos,
+                                                             ads_dos),
+                                                 x=complete_dos.energies)
+                            total_surf_ads_pdos_overlap[surf_idx][
+                                ads_idx] = \
+                                c_overlap
+
+            # for surf_ids, surf_prop in surface_ads_sites.items():
+            #     if not total_surf_ads_pdos_overlap.get(
+            #             surf_ids, False):
+            #         total_surf_ads_pdos_overlap[surf_ids] = {}
+            #     for ads_idx in ads_ids:
+            #         surf_idx = surf_prop['index']
+            #         surf_dos = complete_dos.get_site_dos(
+            #             complete_dos.structure.sites[surf_idx]
+            #         ).get_densities()
+            #         ads_dos = complete_dos.get_site_dos(
+            #             complete_dos.structure.sites[ads_idx]
+            #         ).get_densities()
+            #         c_overlap = np.trapz(get_overlap(surf_dos,
+            #                                          ads_dos),
+            #                              x=complete_dos.energies)
+            #         total_surf_ads_pdos_overlap[surf_ids][ads_idx] = \
+            #             c_overlap
+
+            # Quantify overlap by orbital type
+
+            # Elemental make-up of CBM and VBM
+            cbm_elemental_makeup = {}
+            vbm_elemental_makeup = {}
+            (cbm, vbm) = complete_dos.get_cbm_vbm()
+            for element in output_slab_ads.composition:
+                elem_dos = complete_dos.get_element_dos()[
+                    element]
+                cbm_densities = []
+                cbm_energies = []
+                vbm_densities = []
+                vbm_energies = []
+                for energy, density in zip(
+                        elem_dos.energies,
+                        elem_dos.get_densities()):
+                    if energy > cbm:
+                        if density == 0:
+                            break
+                        cbm_densities.append(density)
+                        cbm_energies.append(energy)
+                for energy, density in zip(
+                        reversed(elem_dos.energies),
+                        reversed(elem_dos.get_densities())):
+                    if energy < vbm:
+                        if density == 0:
+                            break
+                        vbm_densities.append(density)
+                        vbm_energies.append(energy)
+                vbm_integrated = np.trapz(vbm_densities,
+                                          x=vbm_energies)
+                cbm_integrated = np.trapz(cbm_densities,
+                                          x=cbm_energies)
+                cbm_elemental_makeup[element] = cbm_integrated
+                vbm_elemental_makeup[element] = vbm_integrated
+
+            # Work Function Analyzer
+            vd = VaspDrone()
+            poscar_file = vd.filter_files(
+                slab_ads_dir, file_pattern="POSCAR")['standard']
+            locpot_file = vd.filter_files(
+                slab_ads_dir, "LOCPOT")["standard"]
+            outcar_file = vd.filter_files(
+                slab_ads_dir, "OUTCAR")["standard"]
+            wfa = WorkFunctionAnalyzer.from_files(
+                poscar_file, locpot_file, outcar_file)
+            work_function = wfa.work_function
+
+            # Bader Analysis
+            chgcar_file = vd.filter_files(
+                slab_ads_dir, file_pattern="CHGCAR")['standard']
+            potcar_file = vd.filter_files(
+                slab_ads_dir, file_pattern="POTCAR")["standard"]
+            ba = BaderAnalysis(chgcar_file, potcar_file)
+
+            bader_charges = {"slab": 0,
+                             "adsorbate": 0}
+            # Bader for Slab Sites:
+            for idx, site in enumerate(output_slab_ads):
+                if site.properties['surface_properties'] == "adsorbate":
+                    bader_charges["adsorbate"] += ba.get_charge(idx)
+                else:
+                    bader_charges["slab"] += ba.get_charge(idx)
+
+            slab_ads_data["bader"] = bader_charges
+
+            # DDEC6 Analysis
+            aeccar_files = [vd.filter_files(
+                slab_ads_dir,
+                file_pattern="AECCAR{}".format(n))['standard']
+                            for n in range(0, 3)]
+
+            ddec = DDEC6Analysis(
+                chgcar_file, potcar_file, aeccar_files, gzipped=True)
+
+            ddec6_charges = {"slab": 0,
+                             "adsorbate": 0}
+            # DDEC for Surface Ads Sites
+            for idx, site in enumerate(output_slab_ads):
+                if site.properties['surface_properties'] == "adsorbate":
+                    ddec6_charges["adsorbate"] += ddec.get_charge(
+                        index=idx)
+                else:
+                    ddec6_charges["slab"] += ddec.get_charge(index=idx)
+
+            slab_ads_data["ddec6"] = ddec6_charges
+
+            slab_ads_data.update({
+                'input_structure': input_slab_ads,
+                'converged': slab_ads_converged,
+                'eigenvalue_band_properties': eigenvalue_band_props,
+                'p_band_center': p_band_center_slab_ads,
+                'orbital_densities_by_type': orbital_densities_by_type,
+                'total_surf_ads_pdos_overlap':
+                    total_surf_ads_pdos_overlap,
+                'work_function': work_function,
+                'cbm_elemental_makeup': cbm_elemental_makeup,
+                'vbm_elemental_makeup': vbm_elemental_makeup,
+            })
 
         if id_map and surface_properties:
             ordered_surf_prop = [prop for new_id, prop in
