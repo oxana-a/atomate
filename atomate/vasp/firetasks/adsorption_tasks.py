@@ -1304,8 +1304,7 @@ class AnalysisAdditionTask(FiretaskBase):
             # DDEC for Surface Ads Sites
             for idx, site in enumerate(output_slab_ads):
                 if site.properties['surface_properties'] == "adsorbate":
-                    ddec6_charges["adsorbate"] += ddec.get_charge(
-                        index=idx)
+                    ddec6_charges["adsorbate"] += ddec.get_charge(idx)
                 else:
                     ddec6_charges["slab"] += ddec.get_charge(idx)
 
