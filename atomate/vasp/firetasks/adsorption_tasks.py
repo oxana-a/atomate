@@ -1181,7 +1181,7 @@ class AnalysisAdditionTask(FiretaskBase):
                             {orbital_type.name: np.trapz(
                                 elec_dos.get_densities(),
                                 x=elec_dos.energies)})
-                    orbital_densities_by_type[site_idx] = \
+                    orbital_densities_by_type[str(site_idx)] = \
                         orbital_densities_for_site
 
             # Quantify Total PDOS overlap between adsorbate and
