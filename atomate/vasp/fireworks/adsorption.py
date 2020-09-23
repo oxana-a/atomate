@@ -494,7 +494,7 @@ class AdsorptionAnalysisFW(Firework):
 
     def __init__(self, adsorbate=None, db_file=DB_FILE, job_type=None,
                  name="adsorption analysis", bulk_data=None, slab_data=None,
-                 slab_ads_data=None, parents=None):
+                 slab_ads_data=None, parents=None, **kwargs):
         """
         Analyze data from Adsorption workflow for a slab + adsorbate
         structure and save it to database.
