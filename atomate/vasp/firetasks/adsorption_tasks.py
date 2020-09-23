@@ -1178,7 +1178,7 @@ class AnalysisAdditionTask(FiretaskBase):
                     orbital_densities_for_site = {}
                     for orbital_type, elec_dos in dos_spd_site.items():
                         orbital_densities_for_site.update(
-                            {orbital_type: np.trapz(
+                            {orbital_type.name: np.trapz(
                                 elec_dos.get_densities(),
                                 x=elec_dos.energies)})
                     orbital_densities_by_type[site_idx] = \
@@ -1257,8 +1257,8 @@ class AnalysisAdditionTask(FiretaskBase):
                                           x=vbm_energies)
                 cbm_integrated = np.trapz(cbm_densities,
                                           x=cbm_energies)
-                cbm_elemental_makeup[element] = cbm_integrated
-                vbm_elemental_makeup[element] = vbm_integrated
+                cbm_elemental_makeup[element.element.name] = cbm_integrated
+                vbm_elemental_makeup[element.name] = vbm_integrated
 
             # Work Function Analyzer
             vd = VaspDrone()
