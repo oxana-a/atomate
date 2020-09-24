@@ -1202,7 +1202,7 @@ class AnalysisAdditionTask(FiretaskBase):
                             c_overlap = np.trapz(get_overlap(surf_dos,
                                                              ads_dos),
                                                  x=complete_dos.energies)
-                            total_surf_ads_pdos_overlap[surf_idx][
+                            total_surf_ads_pdos_overlap[str(surf_idx)][
                                 ads_idx] = \
                                 c_overlap
 
