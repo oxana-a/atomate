@@ -1189,7 +1189,7 @@ class AnalysisAdditionTask(FiretaskBase):
             total_surf_ads_pdos_overlap = {}
             for surf_idx, site in enumerate(output_slab_ads):
                 if site.properties["surface_properties"] == "surface":
-                    total_surf_ads_pdos_overlap[surf_idx] = {}
+                    total_surf_ads_pdos_overlap[str(surf_idx)] = {}
                     for ads_idx, ads_site in enumerate(output_slab_ads):
                         if ads_site.properties[
                             "surface_properties"] == "adsorbate":
