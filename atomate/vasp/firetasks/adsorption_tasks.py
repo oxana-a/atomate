@@ -1203,7 +1203,7 @@ class AnalysisAdditionTask(FiretaskBase):
                                                              ads_dos),
                                                  x=complete_dos.energies)
                             total_surf_ads_pdos_overlap[str(surf_idx)][
-                                ads_idx] = \
+                                str(ads_idx)] = \
                                 c_overlap
 
             # for surf_ids, surf_prop in surface_ads_sites.items():
