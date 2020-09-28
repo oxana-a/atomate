@@ -1736,11 +1736,6 @@ class AdsorptionAnalysisTask(FiretaskBase):
                                  for key2, value2 in
                                  slab_ads_data["cbm_elemental_makeup"].items()
                                  if key1 == key2},
-            "orbital_densities_shift":{key1: (value1 - value2) for key1, value1
-                                 in slab_data["orbital_densities_by_type"].items()
-                                 for key2, value2 in
-                                 slab_ads_data["orbital_densities_by_type"].items()
-                                 if key1 == key2},
         }
         stored_data["charge_analysis"] = {
             "bader_charge_transfer":slab_ads_data["bader"]["slab"]-
