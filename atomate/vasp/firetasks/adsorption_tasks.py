@@ -1719,11 +1719,11 @@ class AdsorptionAnalysisTask(FiretaskBase):
             "p_band_center_shift":
                 (slab_ads_data["p_band_center"]-slab_data["p_band_center"]),
             "cbm_shift":
-                (slab_ads_data["eigenvalue_band_properties"]["cbm"]-
-                 slab_data["eigenvalue_band_properties"]["cbm"]),
+                (slab_ads_data["eigenvalue_band_properties"][1]-
+                 slab_data["eigenvalue_band_properties"][1]),
             "vbm_shift":
-                (slab_ads_data["eigenvalue_band_properties"]["cbm"] -
-                 slab_data["eigenvalue_band_properties"]["cbm"]),
+                (slab_ads_data["eigenvalue_band_properties"][2] -
+                 slab_data["eigenvalue_band_properties"][2]),
             "wf_shift":
                 (slab_ads_data["work_function"]-slab_data["work_function"]),
             "vbm_makeup_shift":{key1:(value1-value2) for key1, value1
