@@ -714,26 +714,33 @@ class SlabAdsAdditionTask(FiretaskBase):
 
         # Electronic Analysis
 
-        # p-Band Center analysis:
+        # s,p,d-Band Center analysis:
         complete_dos = vrun_o.complete_dos
-        dos_p = complete_dos.get_spd_dos().get(OrbitalType.p)
 
-        # add spin up and spin down densities
-        total_p_densities = dos_p.get_densities()
-        # Get integrated density for d
-        total_integrated_density = np.trapz(total_p_densities,
-                                            x=dos_p.energies,
-                                            dx=.01)
-        # Find E which splits integrated d DOS into 2
-        # (d-band center):
-        p_band_center_slab = 0
-        for k in range(len(total_p_densities)):
-            c_int = np.trapz(total_p_densities[:k],
-                             x=dos_p.energies[:k],
-                             dx=.01)
-            if c_int > (total_integrated_density / 2):
-                p_band_center_slab = dos_p.energies[k]
-                break
+        orbital_type_band_centers = {}
+        for density_type in [OrbitalType.s, OrbitalType.p,
+                             OrbitalType.d]:
+            dos_c = complete_dos.get_spd_dos().get(density_type)
+
+            # add spin up and spin down densities
+            total_c_densities = dos_c.get_densities()
+
+            # Get integrated density for d
+            total_integrated_density = np.trapz(total_c_densities,
+                                                x=dos_c.energies,
+                                                dx=.01)
+            # Find E which splits integrated d DOS into 2
+            # (p-band center):
+            c_band_center_slab_ads = 0
+            for k in range(len(total_c_densities)):
+                c_int = np.trapz(total_c_densities[:k],
+                                 x=dos_c.energies[:k],
+                                 dx=.01)
+                if c_int > (total_integrated_density / 2):
+                    c_band_center_slab_ads = dos_c.energies[k]
+                    break
+            orbital_type_band_centers[density_type.name] = \
+                c_band_center_slab_ads
 
         # Densities by Orbital Type for Surface Site
         orbital_densities_by_type = {}
@@ -828,7 +835,8 @@ class SlabAdsAdditionTask(FiretaskBase):
         for surf_idx, site in enumerate(output_slab):
             ddec6_charges_slab += ddec.get_charge(surf_idx)
         slab_data.update({'ddec6':ddec6_charges_slab,
-                          'p_band_center': p_band_center_slab,
+                          'orbital_band_centers':
+                              orbital_type_band_centers,
                           'orbital_densities_by_type':
                               orbital_densities_by_type,
                           'work_function':work_function,
@@ -1113,27 +1121,34 @@ class AnalysisAdditionTask(FiretaskBase):
                     input_slab_ads = vrun_i.initial_structure
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
 
-                    # p-Band Center analysis:
+                    # s,p,d-Band Center analysis:
                     complete_dos = vrun_o.complete_dos
-                    dos_p = complete_dos.get_spd_dos().get(OrbitalType.p)
 
-                    # add spin up and spin down densities
-                    total_p_densities = dos_p.get_densities()
+                    orbital_type_band_centers = {}
+                    for density_type in [OrbitalType.s,OrbitalType.p,
+                                         OrbitalType.d]:
+                        dos_c = complete_dos.get_spd_dos().get(density_type)
 
-                    # Get integrated density for d
-                    total_integrated_density = np.trapz(total_p_densities,
-                                                        x=dos_p.energies,
-                                                        dx=.01)
-                    # Find E which splits integrated d DOS into 2
-                    # (p-band center):
-                    p_band_center_slab_ads = 0
-                    for k in range(len(total_p_densities)):
-                        c_int = np.trapz(total_p_densities[:k],
-                                         x=dos_p.energies[:k],
-                                         dx=.01)
-                        if c_int > (total_integrated_density / 2):
-                            p_band_center_slab_ads = dos_p.energies[k]
-                            break
+                        # add spin up and spin down densities
+                        total_c_densities = dos_c.get_densities()
+
+                        # Get integrated density for d
+                        total_integrated_density = np.trapz(total_c_densities,
+                                                            x=dos_c.energies,
+                                                            dx=.01)
+                        # Find E which splits integrated d DOS into 2
+                        # (p-band center):
+                        c_band_center_slab_ads = 0
+                        for k in range(len(total_c_densities)):
+                            c_int = np.trapz(total_c_densities[:k],
+                                             x=dos_c.energies[:k],
+                                             dx=.01)
+                            if c_int > (total_integrated_density / 2):
+                                c_band_center_slab_ads = dos_c.energies[k]
+                                break
+                        orbital_type_band_centers[density_type.name] = \
+                            c_band_center_slab_ads
+
 
                     # Get adsorbate sites:
                     ads_sites = []
@@ -1314,7 +1329,7 @@ class AnalysisAdditionTask(FiretaskBase):
                 'input_structure': input_slab_ads,
                 'converged': slab_ads_converged,
                 'eigenvalue_band_properties': eigenvalue_band_props,
-                'p_band_center': p_band_center_slab_ads,
+                'orbital_band_centers': orbital_type_band_centers,
                 'orbital_densities_by_type': orbital_densities_by_type,
                 'total_surf_ads_pdos_overlap':
                     total_surf_ads_pdos_overlap,
@@ -1519,7 +1534,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
                 'vbm': evalue_band_props_slab[2],
                 'is_band_gap_direct': evalue_band_props_slab[3]}})
         stored_data['slab'].update({
-            'p_band_center': slab_data.get("p_band_center", False),
+            'orbital_band_centers': slab_data.get("orbital_band_centers", False),
             "orbital_densities_by_type":slab_data.get(
                 "orbital_densities_by_type", False),
             'work_function':slab_data.get('work_function', False),
@@ -1548,8 +1563,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
                     'vbm': evalue_band_props_slab_ads[2],
                     'is_band_gap_direct': evalue_band_props_slab_ads[3]}})
         stored_data['slab_adsorbate'].update({
-            'p_band_center': slab_ads_data.get(
-                "p_band_center", False),
+            'orbital_band_centers': slab_ads_data.get(
+                "orbital_band_centers", False),
             'orbital_densities_by_type':slab_ads_data.get(
                 "orbital_densities_by_type", False),
             'total_surf_ads_pdos_overlap':slab_ads_data.get(
