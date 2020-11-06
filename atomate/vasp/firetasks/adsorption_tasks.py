@@ -144,7 +144,8 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 
         slab_ads_data.update({'id_map': id_map,
                               'surface_properties': surface_properties,
-                              'in_site_type': in_site_type})
+                              'in_site_type': in_site_type,
+                              'input_structure':slab_ads})
 
         slab_ads_fws = []
         if dos_calculate:
@@ -524,6 +525,7 @@ class SlabAdditionTask(FiretaskBase):
                 slab.add_site_property('selective_dynamics', sel_dyn)
 
             #Chnage for DOS calc:
+            slab_data.update({'input_structure':slab})
             slab_fw = af.SlabFW(slab, name=name, adsorbates=adsorbates,
                                 vasp_cmd=vasp_cmd, db_file=db_file,
                                 min_lw=min_lw,
@@ -694,12 +696,12 @@ class SlabAdsAdditionTask(FiretaskBase):
                         output_slab.add_site_property("surface_properties",
                                                       surf_props)
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
-                    input_slab = vrun_i.initial_structure
-
+                    if not slab_data.get('input_structure', False):
+                        input_slab = vrun_i.initial_structure
+                        slab_data.update({'input_structure':input_slab})
 
 
                     slab_data.update({
-                        'input_structure': input_slab,
                         'converged': slab_converged,
                         'eigenvalue_band_properties': eigenvalue_band_props,
                     })
@@ -903,6 +905,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                     do_fw_name = "{} distance analysis".format(
                         slab_ads_name)
 
+
                     fws.append(af.DistanceOptimizationFW(
                         adsorbate, slab_structure=output_slab, coord=coord,
                         static_distances=static_distances, name=do_fw_name,
@@ -974,7 +977,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                                      'asf_site_type': asf_site_type,
                                      'in_site_type': in_site_type,
                                      'name': slab_ads_name,
-                                     'mvec': asf.mvec}
+                                     'mvec': asf.mvec,
+                                     'input_structure':slab_ads}
 
                     #DOS calculation implementation
                     slab_ads_fw = af.SlabAdsFW(
@@ -1118,7 +1122,9 @@ class AnalysisAdditionTask(FiretaskBase):
 
                     if not output_slab_ads:
                         output_slab_ads = vrun_o.final_structure
-                    input_slab_ads = vrun_i.initial_structure
+                    if not slab_ads_data.get('input_structure', False):
+                        input_slab_ads = vrun_i.initial_structure
+                        slab_ads_data.update({'input_structure':input_slab_ads})
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
 
                     # s,p,d-Band Center analysis:
