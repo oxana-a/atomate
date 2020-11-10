@@ -76,8 +76,9 @@ class CopyVaspOutputs(CopyFiles):
         # determine what files need to be copied
         files_to_copy = None
 
-        if "$ALL" not in self.get("additional_files", []) or \
-                self.get("additional_files") is None:
+        if self.get("additional_files") is None:
+            self.additional_files = []
+        if "$ALL" not in self.get("additional_files", []):
             files_to_copy = ['INCAR', 'POSCAR', 'KPOINTS', 'POTCAR', 'OUTCAR',
                              'vasprun.xml']
             if self.get("additional_files"):
