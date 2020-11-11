@@ -823,7 +823,7 @@ class SlabAdsAdditionTask(FiretaskBase):
 
         # Update Bader Site Properties:
         for site_idx, site in enumerate(output_slab):
-            site.properties["bader_charge"] = ba.get_charge(site_idx)
+            site.properties["bader_slab_charge"] = ba.get_charge(site_idx)
 
         # DDEC6 Analysis for Slab
         aeccar_files = [vd.filter_files(
@@ -842,16 +842,17 @@ class SlabAdsAdditionTask(FiretaskBase):
 
         # Update DDEC Site Properties, Bond Order:
         for n1, site1 in enumerate(output_slab):
-            site1.properties["ddec_charge"] = ddec.get_charge(n1)
+            site1.properties["ddec_slab_charge"] = ddec.get_charge(n1)
             site1.properties[
-                "ddec_charge_transfer"] = ddec.get_charge_transfer(n1)
+                "ddec_slab_charge_transfer"] = ddec.get_charge_transfer(n1)
             for n2, site2 in enumerate(output_slab):
                 bo = ddec.get_bond_order(n1, n2)
                 if bo:
-                    if site1.properties.get('ddec_bond_order'):
-                        site1.properties['ddec_bond_order'].update({n2: bo})
+                    if site1.properties.get('ddec_slab_bond_order'):
+                        site1.properties['ddec_slab_bond_order'].update(
+                            {n2: bo})
                     else:
-                        site1.properties['ddec_bond_order'] = {n2: bo}
+                        site1.properties['ddec_slab_bond_order'] = {n2: bo}
 
         slab_data.update({'output_structure': output_slab})
 
@@ -1330,6 +1331,11 @@ class AnalysisAdditionTask(FiretaskBase):
 
             slab_ads_data["bader"] = bader_charges
 
+            # Update Bader Site Properties:
+            for site_idx, site in enumerate(output_slab_ads):
+                site.properties["bader_slab_ads_charge"] = \
+                    ba.get_charge(site_idx)
+
             # DDEC6 Analysis
             aeccar_files = [vd.filter_files(
                 slab_ads_dir,
@@ -1349,6 +1355,23 @@ class AnalysisAdditionTask(FiretaskBase):
                     ddec6_charges["slab"] += ddec.get_charge(idx)
 
             slab_ads_data["ddec6"] = ddec6_charges
+
+            # Update DDEC Site Properties, Bond Order:
+            for n1, site1 in enumerate(output_slab_ads):
+                site1.properties["ddec_slab_ads_charge"] = \
+                    ddec.get_charge(n1)
+                site1.properties[
+                    "ddec_slab_ads_charge_transfer"] = \
+                    ddec.get_charge_transfer(n1)
+                for n2, site2 in enumerate(output_slab_ads):
+                    bo = ddec.get_bond_order(n1, n2)
+                    if bo:
+                        if site1.properties.get('ddec_slab_ads_bond_order'):
+                            site1.properties[
+                                'ddec_slab_ads_bond_order'].update({n2: bo})
+                        else:
+                            site1.properties[
+                                'ddec_slab_ads_bond_order'] = {n2: bo}
 
             slab_ads_data.update({
                 'input_structure': input_slab_ads,
