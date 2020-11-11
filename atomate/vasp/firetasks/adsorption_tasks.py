@@ -711,8 +711,7 @@ class SlabAdsAdditionTask(FiretaskBase):
             except FileNotFoundError:
                 warnings.warn("Slab directory not found: {}".format(slab_dir))
 
-        slab_data.update({'output_structure': output_slab,
-                          'final_energy': slab_energy})
+        slab_data.update({'final_energy': slab_energy})
 
         # Electronic Analysis
 
@@ -817,10 +816,14 @@ class SlabAdsAdditionTask(FiretaskBase):
         bader_charges_slab = 0
 
         # Bader for Slab
-        for surf_idx, site in enumerate(output_slab):
-            bader_charges_slab += ba.get_charge(surf_idx)
+        for site_idx, site in enumerate(output_slab):
+            bader_charges_slab += ba.get_charge(site_idx)
 
         slab_data["bader"] = bader_charges_slab
+
+        # Update Bader Site Properties:
+        for site_idx, site in enumerate(output_slab):
+            site.properties["bader_charge"] = ba.get_charge(site_idx)
 
         # DDEC6 Analysis for Slab
         aeccar_files = [vd.filter_files(
@@ -836,6 +839,22 @@ class SlabAdsAdditionTask(FiretaskBase):
         # DDEC for Slab
         for surf_idx, site in enumerate(output_slab):
             ddec6_charges_slab += ddec.get_charge(surf_idx)
+
+        # Update DDEC Site Properties, Bond Order:
+        for n1, site1 in enumerate(output_slab):
+            site1.properties["ddec_charge"] = ddec.get_charge(n1)
+            site1.properties[
+                "ddec_charge_transfer"] = ddec.get_charge_transfer(n1)
+            for n2, site2 in enumerate(output_slab):
+                bo = ddec.get_bond_order(n1, n2)
+                if bo:
+                    if site1.properties.get('ddec_bond_order'):
+                        site1.properties['ddec_bond_order'].update({n2: bo})
+                    else:
+                        site1.properties['ddec_bond_order'] = {n2: bo}
+
+        slab_data.update({'output_structure': output_slab})
+
         slab_data.update({'ddec6':ddec6_charges_slab,
                           'orbital_band_centers':
                               orbital_type_band_centers,
