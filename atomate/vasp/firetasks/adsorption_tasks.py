@@ -545,6 +545,8 @@ class SlabAdditionTask(FiretaskBase):
                 #static
                 static = StaticFW(name=name+" static", vasp_cmd=vasp_cmd,
                                   db_file=db_file, parents=slab_fws[-1],
+                                  vasptodb_kwargs={
+                                      "parse_bader": False},
                                   spec={"_category": _category})
                 static.tasks.insert(2, ModifyIncar(incar_update={
                     "IVDW": 11, "GG": "RP", "LAECHG": True}))
@@ -553,6 +555,7 @@ class SlabAdditionTask(FiretaskBase):
                 nscf_calc = NonSCFFW(parents=slab_fws[-1],
                                      name=name+" nscf", mode="uniform",
                                      vasptodb_kwargs={
+                                         "parse_bader":False,
                                          "task_fields_to_push": {
                                              "slab_structure":
                                                  "output.structure",
@@ -1016,6 +1019,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                         static = StaticFW(name=fw_name+" static",
                                           vasp_cmd=vasp_cmd, db_file=db_file,
                                           parents=fws[-1],
+                                          vasptodb_kwargs={
+                                              "parse_bader":False},
                                           spec={"_category": _category})
                         static.insert(2, ModifyIncar(incar_update={
                             "IVDW": 11, "GG": "RP", "LAECHG": True}))
@@ -1025,6 +1030,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                                              name=fw_name+ " nscf",
                                              mode="uniform",
                                              vasptodb_kwargs={
+                                                 "parse_bader":False,
                                                  "task_fields_to_push": {
                                                      "slab_ads_structure":
                                                          "output.structure",
