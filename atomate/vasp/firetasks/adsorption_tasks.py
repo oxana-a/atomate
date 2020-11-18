@@ -1115,11 +1115,8 @@ class AnalysisAdditionTask(FiretaskBase):
         bulk_data = self.get("bulk_data")
         slab_data = self.get("slab_data")
         slab_ads_data = self.get("slab_ads_data") or {}
-        id_map = slab_ads_data.get("id_map")
-        surface_properties = slab_ads_data.get("surface_properties")
 
         mvec = np.array(slab_ads_data.get("mvec"))
-
         id_map = slab_ads_data.get("id_map")
         surface_properties = slab_ads_data.get("surface_properties")
         _category = fw_spec.get("_category")
