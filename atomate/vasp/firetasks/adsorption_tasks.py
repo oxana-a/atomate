@@ -1150,34 +1150,12 @@ class AnalysisAdditionTask(FiretaskBase):
                         slab_ads_data.update({'input_structure':input_slab_ads})
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
 
-                    # s,p,d-Band Center analysis:
-                    complete_dos = vrun_o.complete_dos
-
-                    orbital_type_band_centers = {}
-                    for density_type in [OrbitalType.s,OrbitalType.p,
-                                         OrbitalType.d]:
-                        dos_c = complete_dos.get_spd_dos().get(density_type)
-
-                        # add spin up and spin down densities
-                        total_c_densities = dos_c.get_densities()
-
-                        # Get integrated density for d
-                        total_integrated_density = np.trapz(total_c_densities,
-                                                            x=dos_c.energies,
-                                                            dx=.01)
-                        # Find E which splits integrated d DOS into 2
-                        # (p-band center):
-                        c_band_center_slab_ads = 0
-                        for k in range(len(total_c_densities)):
-                            c_int = np.trapz(total_c_densities[:k],
-                                             x=dos_c.energies[:k],
-                                             dx=.01)
-                            if c_int > (total_integrated_density / 2):
-                                c_band_center_slab_ads = dos_c.energies[k]
-                                break
-                        orbital_type_band_centers[density_type.name] = \
-                            c_band_center_slab_ads
-
+                    if id_map and surface_properties:
+                        ordered_surf_prop = [prop for new_id, prop in
+                                             sorted(zip(id_map,
+                                                        surface_properties))]
+                        output_slab_ads.add_site_property('surface_properties',
+                                                          ordered_surf_prop)
 
                     # Get adsorbate sites:
                     ads_sites = []
@@ -1196,6 +1174,8 @@ class AnalysisAdditionTask(FiretaskBase):
                     ads_ids = [output_slab_ads.sites.index(site) for site in
                                ads_sites]
 
+
+
                     # Get Surface ads sites Sites:
                     ## NOT NEEDED?
                     # nn_surface_list = get_nn_surface(output_slab_ads, ads_ids)
@@ -1211,6 +1191,33 @@ class AnalysisAdditionTask(FiretaskBase):
                               .format(slab_ads_dir))
 
             ## Electronic Analysis
+            # s,p,d-Band Center analysis:
+            complete_dos = vrun_o.complete_dos
+
+            orbital_type_band_centers = {}
+            for density_type in [OrbitalType.s, OrbitalType.p,
+                                 OrbitalType.d]:
+                dos_c = complete_dos.get_spd_dos().get(density_type)
+
+                # add spin up and spin down densities
+                total_c_densities = dos_c.get_densities()
+
+                # Get integrated density for d
+                total_integrated_density = np.trapz(total_c_densities,
+                                                    x=dos_c.energies,
+                                                    dx=.01)
+                # Find E which splits integrated d DOS into 2
+                # (p-band center):
+                c_band_center_slab_ads = 0
+                for k in range(len(total_c_densities)):
+                    c_int = np.trapz(total_c_densities[:k],
+                                     x=dos_c.energies[:k],
+                                     dx=.01)
+                    if c_int > (total_integrated_density / 2):
+                        c_band_center_slab_ads = dos_c.energies[k]
+                        break
+                orbital_type_band_centers[density_type.name] = \
+                    c_band_center_slab_ads
 
             # Densities by Orbital Type for Surface Ads Site
             orbital_densities_by_type = {}
@@ -1388,12 +1395,6 @@ class AnalysisAdditionTask(FiretaskBase):
                 'cbm_elemental_makeup': cbm_elemental_makeup,
                 'vbm_elemental_makeup': vbm_elemental_makeup,
             })
-
-        if id_map and surface_properties:
-            ordered_surf_prop = [prop for new_id, prop in
-                                 sorted(zip(id_map, surface_properties))]
-            output_slab_ads.add_site_property('surface_properties',
-                                              ordered_surf_prop)
 
         slab_ads_data.update({'output_structure': output_slab_ads,
                               'final_energy': slab_ads_energy})
