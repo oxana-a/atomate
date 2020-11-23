@@ -1378,10 +1378,12 @@ class AnalysisAdditionTask(FiretaskBase):
                     if bo:
                         if site1.properties.get('ddec_slab_ads_bond_order'):
                             site1.properties[
-                                'ddec_slab_ads_bond_order'].update({n2: bo})
+                                'ddec_slab_ads_bond_order'].update(
+                                {str(n2): bo})
                         else:
                             site1.properties[
-                                'ddec_slab_ads_bond_order'] = {n2: bo}
+                                'ddec_slab_ads_bond_order'] = {
+                                str(n2): bo}
 
             slab_ads_data.update({
                 'input_structure': input_slab_ads,
