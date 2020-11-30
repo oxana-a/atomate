@@ -468,3 +468,38 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
     #     return incar
 
     return wf
+
+
+def launch_adsorbate_only_fw(lpad, fw_ids):
+    '''
+    A function that launches a Static Firework based on an analysis or nscf (if dos) and optimization (if no dos)
+    firework with just the adsorbate, and same kpoint density. Useful for comparing electron density gain/loss
+    for a slab+ads.
+
+    Arguments:
+    lpad (LaunchPad): a Fireworks LaunchPad object to get FW data and append a new fw
+    fw_ids (List): a list of FW for which to get what the relaxed slab+ads structure is and for which to append a
+        adsorbate only static FW to.
+    '''
+    for fw_id in fw_ids:
+        fw = lpad.get_fw_by_id(fw_id)
+        if "analysis" in fw.name:
+            structure = fw.tasks[0].get("slab_ads_data").get(
+                "output_structure")
+            only_ads_structure = structure.copy()
+            sites_to_remove = [n for n, site in enumerate(
+                structure) if site.properties[
+                                   "surface_properties"] != "adsorbate"]
+            only_ads_structure.remove_sites(sites_to_remove)
+        else:
+            structure = fw.launches[-1].action.update_spec[
+                'slab_ads_structure']
+            surface_properties = fw.tasks[-1].get("slab_ads_data").get(
+                "surface_properties")
+            sites_to_remove = [n for n, prop in enumerate(surface_properties)
+                               if prop != "adsorbate"]
+            only_ads_structure = structure.copy()
+            only_ads_structure.remove_sites(sites_to_remove)
+
+        only_ads_wf = Workflow([MPStaticSet(only_ads_structure)])
+        lpad.append_wf(only_ads_wf, [fw_id], pull_spec_mods=False)
