@@ -547,4 +547,4 @@ class AdsorptionAnalysisFW(Firework):
         tasks.append(ads_an_t)
 
         super(AdsorptionAnalysisFW, self).__init__(tasks, parents=parents,
-                                                   name=name)
+                                                   name=name, **kwargs)
