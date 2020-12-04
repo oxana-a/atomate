@@ -356,8 +356,8 @@ def get_wfs_all_slabs(bulk_structure, include_bulk_opt=False,
     return wfs
 
 
-def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
-                     db_file=DB_FILE, bulk_fw_params=None,
+def get_wf_from_bulk(bulk_structure, adsorbates=None, ads_energies=None,
+                     vasp_cmd=VASP_CMD, db_file=DB_FILE, bulk_fw_params=None,
                      slab_gen_params=None, min_lw=None, slab_fw_params=None,
                      ads_site_finder_params=None, ads_structures_params=None,
                      slab_ads_fw_params=None, optimize_distance=True,
@@ -373,6 +373,9 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
         bulk_structure (Structure): bulk structure from which to make
             slabs
         adsorbates ([Molecule]): adsorbates to place on surfaces
+        ads_energies ([float]): reference energies to be used for the
+            adsorbates when calculating adsorption energies. The order
+            should correspond to that of the adsorbates parameter
         vasp_cmd (str): vasp command
         db_file (str): path to database file
         bulk_fw_params (dict): dictionary of kwargs for BulkFW
@@ -411,9 +414,9 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
     fws = []
     name = bulk_structure.composition.reduced_formula + " bulk optimization"
     bulk_fw = BulkFW(bulk_structure, name=name, adsorbates=adsorbates,
-                     vasp_cmd=vasp_cmd, db_file=db_file,
-                     slab_gen_params=slab_gen_params, min_lw=min_lw,
-                     slab_fw_params=slab_fw_params,
+                     ads_energies=ads_energies, vasp_cmd=vasp_cmd,
+                     db_file=db_file, slab_gen_params=slab_gen_params,
+                     min_lw=min_lw, slab_fw_params=slab_fw_params,
                      ads_site_finder_params=ads_site_finder_params,
                      ads_structures_params=ads_structures_params,
                      slab_ads_fw_params=slab_ads_fw_params,
@@ -432,40 +435,7 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, vasp_cmd=VASP_CMD,
     wf = Workflow(fws, name=name)
     if bulk_fw_params.get("vasp_calc"):
         vasp_calc = bulk_fw_params.pop("vasp_calc")
-        wf = use_fake_vasp(wf,{wf.fws[0].name: vasp_calc})
-    # TODO: add_molecules_in_box
-    #
-    # def __init__(self, structure, bulk=False, auto_dipole=None, **kwargs):
-    #
-    #     # If not a bulk calc, turn get_locpot/auto_dipole on by default
-    #     auto_dipole = auto_dipole or not bulk
-    #     super(MPSurfaceSet, self).__init__(
-    #         structure, bulk=bulk, auto_dipole=False, **kwargs)
-    #     # This is a hack, but should be fixed when this is ported over to
-    #     # pymatgen to account for vasp native dipole fix
-    #     if auto_dipole:
-    #         self._config_dict['INCAR'].update({"LDIPOL": True, "IDIPOL": 3})
-    #         self.auto_dipole = True
-    #
-    # @property
-    # def incar(self):
-    #     incar = super(MPSurfaceSet, self).incar
-    #
-    #     # Determine LDAU based on slab chemistry without adsorbates
-    #     ldau_elts = {'O', 'F'}
-    #     if self.structure.site_properties.get("surface_properties"):
-    #         non_adsorbate_elts = {
-    #             s.specie.symbol for s in self.structure
-    #             if not s.properties['surface_properties'] == 'adsorbate'}
-    #     else:
-    #         non_adsorbate_elts = {s.specie.symbol for s in self.structure}
-    #     ldau = bool(non_adsorbate_elts & ldau_elts)
-    #
-    #     # Should give better forces for optimization
-    #     incar_config = {"EDIFFG": -0.05, "ENAUG": 4000, "IBRION": 2, "LDAU": ldau, "EDIFF": 1e-5, "ISYM": 0}
-    #     incar.update(incar_config)
-    #     incar.update(self.user_incar_settings)
-    #     return incar
+        wf = use_fake_vasp(wf, {wf.fws[0].name: vasp_calc})
 
     return wf
 

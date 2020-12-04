@@ -22,12 +22,13 @@ from pymatgen.io.vasp.sets import MPSurfaceSet, MPStaticSet
 
 
 class DistanceOptimizationFW(Firework):
-    def __init__(self, adsorbate, slab_structure=None, coord=None,
-                 static_distances=None, name=None, vasp_cmd=VASP_CMD,
-                 db_file=DB_FILE, min_lw=None, ads_site_finder_params=None,
-                 ads_structures_params=None, slab_ads_fw_params=None,
-                 bulk_data=None, slab_data=None, slab_ads_data=None,
-                 dos_calculate = None, parents=None, **kwargs):
+    def __init__(self, adsorbate, ads_energy=None, slab_structure=None,
+                 coord=None, static_distances=None, name=None,
+                 vasp_cmd=VASP_CMD, db_file=DB_FILE, min_lw=None,
+                 ads_site_finder_params=None, ads_structures_params=None,
+                 slab_ads_fw_params=None, bulk_data=None, slab_data=None,
+                 slab_ads_data=None, dos_calculate=None, parents=None,
+                 **kwargs):
 
         """
         Firework (FW) that analyzes many similar static calculations where
@@ -61,10 +62,12 @@ class DistanceOptimizationFW(Firework):
         # t.append(at.GetPassedJobInformation(distances=static_distances))
         t.append(at.AnalyzeStaticOptimumDistance(slab_structure=slab_structure,
                                                  distances=static_distances,
-                                                 adsorbate=adsorbate))
+                                                 adsorbate=adsorbate,
+                                                 ads_energy=ads_energy))
         t.append(at.LaunchVaspFromOptimumDistance(
-            adsorbate=adsorbate, slab_structure=slab_structure,
-            coord=coord, vasp_cmd=vasp_cmd, db_file=db_file, min_lw=min_lw,
+            adsorbate=adsorbate, ads_energy=ads_energy,
+            slab_structure=slab_structure, coord=coord, vasp_cmd=vasp_cmd,
+            db_file=db_file, min_lw=min_lw,
             ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params,
             slab_ads_fw_params=slab_ads_fw_params,
@@ -181,14 +184,15 @@ class EnergyLandscapeFW(Firework):
 class BulkFW(Firework):
 
     def __init__(self, bulk_structure, name="bulk optimization",
-                 adsorbates=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
-                 job_type="double_relaxation_run", handler_group="default",
-                 vasp_input_set=None, user_incar_settings=None,
-                 slab_gen_params=None, min_lw=None, slab_fw_params=None,
-                 ads_site_finder_params=None, ads_structures_params=None,
-                 slab_ads_fw_params=None, optimize_distance=True,
-                 static_distances=None, static_fws_params=None,
-                 dos_calculate=None,parents=None,**kwargs):
+                 adsorbates=None, ads_energies=None, vasp_cmd=VASP_CMD,
+                 db_file=DB_FILE, job_type="double_relaxation_run",
+                 handler_group="default", vasp_input_set=None,
+                 user_incar_settings=None, slab_gen_params=None, min_lw=None,
+                 slab_fw_params=None, ads_site_finder_params=None,
+                 ads_structures_params=None, slab_ads_fw_params=None,
+                 optimize_distance=True, static_distances=None,
+                 static_fws_params=None, dos_calculate=None,
+                 parents=None, **kwargs):
         """
         Optimize bulk structure and add a slab generator firework as
         addition.
@@ -245,9 +249,8 @@ class BulkFW(Firework):
         # user_incar_settings is passed itself as a parameter
         user_incar_settings = user_incar_settings \
                               or {'IBRION': 2, 'POTIM': 0.5, 'NSW': 200,
-                                  "IVDW": 11, "GGA": "RP", "EDIFFG":-.05,
-                                  "ALGO":"All"}
-
+                                  "IVDW": 11, "GGA": "RP", "EDIFFG": -.05,
+                                  "ALGO": "All"}
 
         vis = vasp_input_set or MPSurfaceSet(
             bulk_structure, bulk=True, user_incar_settings=user_incar_settings)
@@ -266,7 +269,8 @@ class BulkFW(Firework):
         add_fw_name = (bulk_structure.composition.reduced_formula
                        + " slab generator")
         t.append(at.SlabAdditionTask(
-            adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
+            adsorbates=adsorbates, ads_energies=ads_energies,
+            vasp_cmd=vasp_cmd, db_file=db_file,
             slab_gen_params=slab_gen_params, min_lw=min_lw,
             slab_fw_params=slab_fw_params,
             ads_site_finder_params=ads_site_finder_params,
@@ -283,8 +287,8 @@ class BulkFW(Firework):
 class SlabFW(Firework):
 
     def __init__(self, slab_structure, name="slab optimization",
-                 vasp_input_set=None, adsorbates=None, vasp_cmd=VASP_CMD,
-                 db_file=DB_FILE, job_type="normal",
+                 vasp_input_set=None, adsorbates=None, ads_energies=None,
+                 vasp_cmd=VASP_CMD, db_file=DB_FILE, job_type="normal",
                  handler_group="md", min_lw=None, ads_site_finder_params=None,
                  ads_structures_params=None, slab_ads_fw_params=None,
                  user_incar_settings=None, optimize_distance=True,
@@ -377,7 +381,8 @@ class SlabFW(Firework):
         slab_data.update({'name': slab_name})
 
         t.append(at.SlabAdsAdditionTask(
-            adsorbates=adsorbates, vasp_cmd=vasp_cmd, db_file=db_file,
+            adsorbates=adsorbates, ads_energies=ads_energies,
+            vasp_cmd=vasp_cmd, db_file=db_file,
             min_lw=min_lw, ads_site_finder_params=ads_site_finder_params,
             ads_structures_params=ads_structures_params,
             slab_ads_fw_params=slab_ads_fw_params,
@@ -392,8 +397,8 @@ class SlabAdsFW(Firework):
 
     def __init__(self, slab_ads_structure,
                  name="slab + adsorbate optimization", adsorbate=None,
-                 vasp_input_set=None, vasp_cmd=VASP_CMD, db_file=DB_FILE,
-                 job_type="normal", handler_group="md",
+                 ads_energy=None, vasp_input_set=None, vasp_cmd=VASP_CMD,
+                 db_file=DB_FILE, job_type="normal", handler_group="md",
                  user_incar_settings=None, bulk_data=None, slab_data=None,
                  slab_ads_data=None, parents=None, **kwargs):
         """
@@ -482,8 +487,9 @@ class SlabAdsFW(Firework):
                                 + " adsorption analysis")
 
         t.append(at.AnalysisAdditionTask(
-            adsorbate=adsorbate, analysis_fw_name=analysis_fw_name,
-            db_file=db_file, job_type=job_type, bulk_data=bulk_data,
+            adsorbate=adsorbate, ads_energy=ads_energy,
+            analysis_fw_name=analysis_fw_name, db_file=db_file,
+            job_type=job_type, bulk_data=bulk_data,
             slab_data=slab_data, slab_ads_data=slab_ads_data))
 
         super(SlabAdsFW, self).__init__(t, parents=parents, name=name,
@@ -492,9 +498,9 @@ class SlabAdsFW(Firework):
 
 class AdsorptionAnalysisFW(Firework):
 
-    def __init__(self, adsorbate=None, db_file=DB_FILE, job_type=None,
-                 name="adsorption analysis", bulk_data=None, slab_data=None,
-                 slab_ads_data=None, parents=None, **kwargs):
+    def __init__(self, adsorbate=None, ads_energy=None, db_file=DB_FILE,
+                 job_type=None, name="adsorption analysis", bulk_data=None,
+                 slab_data=None, slab_ads_data=None, parents=None, **kwargs):
         """
         Analyze data from Adsorption workflow for a slab + adsorbate
         structure and save it to database.
@@ -541,9 +547,9 @@ class AdsorptionAnalysisFW(Firework):
         tasks = []
 
         ads_an_t = at.AdsorptionAnalysisTask(
-            adsorbate=adsorbate, db_file=db_file, job_type=job_type,
-            name=name, bulk_data=bulk_data, slab_data=slab_data,
-            slab_ads_data=slab_ads_data)
+            adsorbate=adsorbate, ads_energy=ads_energy, db_file=db_file,
+            job_type=job_type, name=name, bulk_data=bulk_data,
+            slab_data=slab_data, slab_ads_data=slab_ads_data)
         tasks.append(ads_an_t)
 
         super(AdsorptionAnalysisFW, self).__init__(tasks, parents=parents,
