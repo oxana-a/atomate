@@ -915,7 +915,8 @@ class SlabAdsAdditionTask(FiretaskBase):
                                         "output.energy",
                                     "{}_structure".format(distance_idx):
                                         "output.structure"},
-                                "defuse_unsuccessful": False},
+                                "defuse_unsuccessful": False,
+                                "parse_bader":False},
                             runvaspcustodian_kwargs={
                                 "handler_group": "no_handler"},
                             spec={"_pass_job_info": True,
