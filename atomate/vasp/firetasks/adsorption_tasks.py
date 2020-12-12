@@ -45,7 +45,7 @@ from pymatgen.analysis.dimensionality import get_dimensionality_gorai
 from copy import deepcopy
 
 logger = get_logger(__name__)
-ref_elem_energy = {'H': -3.379, 'O': -7.459, 'C': -7.329}
+# ref_elem_energy = {'H': -3.379, 'O': -7.459, 'C': -7.329}
 
 
 @explicit_serialize
@@ -59,7 +59,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
 
     required_params = ["adsorbate", "coord", "slab_structure",
                        "static_distances"]
-    optional_params = ["vasp_cmd", "db_file", "min_lw",
+    optional_params = ["ads_energy", "vasp_cmd", "db_file", "min_lw",
                        "ads_site_finder_params", "ads_structures_params",
                        "slab_ads_fw_params", "bulk_data", "slab_data",
                        "slab_ads_data", "dos_calculate"]
@@ -68,6 +68,7 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         import atomate.vasp.fireworks.adsorption as af
 
         adsorbate = self.get("adsorbate")
+        ads_energy = self.get("ads_energy")
         slab_structure = self.get("slab_structure")
         vasp_cmd = self.get("vasp_cmd")
         db_file = self.get("db_file")
@@ -151,8 +152,9 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
         if dos_calculate:
             #relax
             relax_calc = af.SlabAdsFW(
-                slab_ads, name=fw_name, adsorbate=adsorbate, vasp_cmd=vasp_cmd,
-                db_file=db_file, bulk_data=bulk_data, slab_data=slab_data,
+                slab_ads, name=fw_name, adsorbate=adsorbate,
+                ads_energy=ads_energy, vasp_cmd=vasp_cmd, db_file=db_file,
+                bulk_data=bulk_data, slab_data=slab_data,
                 slab_ads_data=slab_ads_data, spec={"_category": _category},
                 **slab_ads_fw_params)
             analysis_step = relax_calc.tasks[-1]
@@ -182,7 +184,8 @@ class LaunchVaspFromOptimumDistance(FiretaskBase):
             slab_ads_fws.append(nscf_calc)
         else:
             slab_ads_fws.append(af.SlabAdsFW(
-                slab_ads, name=fw_name, adsorbate=adsorbate, vasp_cmd=vasp_cmd,
+                slab_ads, name=fw_name, adsorbate=adsorbate,
+                ads_energy=ads_energy, vasp_cmd=vasp_cmd,
                 db_file=db_file, bulk_data=bulk_data, slab_data=slab_data,
                 slab_ads_data=slab_ads_data, spec={"_category": _category},
                 **slab_ads_fw_params))
@@ -203,7 +206,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
     """
 
     required_params = ["slab_structure", "distances", "adsorbate"]
-    optional_params = ["algo"]
+    optional_params = ["algo", "ads_energy"]
 
     def run_task(self, fw_spec):
 
@@ -213,6 +216,7 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
         ads_comp = self["adsorbate"].composition
         algo = self.get("algo", "standard")
         output_slab = self["slab_structure"]
+        ads_energy = self.get("ads_energy")
 
         #Setup some initial parameters
         optimal_distance = 3.0
@@ -278,9 +282,8 @@ class AnalyzeStaticOptimumDistance(FiretaskBase):
         #Optimal Energy for current slab with adsorbate:
         if output_slab_ads:
             scale_factor = output_slab_ads.volume / output_slab.volume
-            adsorption_en = lowest_energy - slab_energy * scale_factor - sum(
-                [ads_comp.get(element, 0) * ref_elem_energy.get(str(element)) for
-                 element in ads_comp])
+            adsorption_en = (lowest_energy - slab_energy * scale_factor
+                             - ads_energy)
         else:
             adsorption_en = 1000
         # ads_e = lowest_energy - slab_energy*(len(slab_structure)-2) - sum([ads_comp.get(elt, 0) * ref_elem_energy.get(elt) for elt in ref_elem_energy])
@@ -342,12 +345,12 @@ class SlabAdditionTask(FiretaskBase):
             and custom user incar  settings, or passing an input set.
     """
     required_params = []
-    optional_params = ["adsorbates", "vasp_cmd", "db_file", "slab_gen_params",
-                       "min_lw", "slab_fw_params", "ads_site_finder_params",
-                       "ads_structures_params", "slab_ads_fw_params",
-                       "add_fw_name", "optimize_distance",
-                       "static_distances", "static_fws_params",
-                       "dos_calculate"]
+    optional_params = ["adsorbates", "ads_energies", "vasp_cmd", "db_file",
+                       "slab_gen_params", "min_lw", "slab_fw_params",
+                       "ads_site_finder_params", "ads_structures_params",
+                       "slab_ads_fw_params", "add_fw_name",
+                       "optimize_distance", "static_distances",
+                       "static_fws_params", "dos_calculate"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -360,6 +363,7 @@ class SlabAdditionTask(FiretaskBase):
             output_bulk = fw_spec["bulk_structure"]
         bulk_energy = fw_spec["bulk_energy"]
         adsorbates = self.get("adsorbates")
+        ads_energies = self.get("ads_energies")
         vasp_cmd = self.get("vasp_cmd")
         db_file = self.get("db_file")
         sgp = self.get("slab_gen_params") or {}
@@ -367,7 +371,6 @@ class SlabAdditionTask(FiretaskBase):
         dos_calculate = self.get("dos_calculate", True)
         _category = fw_spec.get("_category")
 
-        # TODO: these could be more well-thought out defaults
         if "min_slab_size" not in sgp:
             sgp["min_slab_size"] = 12.0
         if "min_vacuum_size" not in sgp:
@@ -527,8 +530,8 @@ class SlabAdditionTask(FiretaskBase):
             #Chnage for DOS calc:
             slab_data.update({'input_structure':slab})
             slab_fw = af.SlabFW(slab, name=name, adsorbates=adsorbates,
-                                vasp_cmd=vasp_cmd, db_file=db_file,
-                                min_lw=min_lw,
+                                ads_energies=ads_energies, vasp_cmd=vasp_cmd,
+                                db_file=db_file, min_lw=min_lw,
                                 ads_site_finder_params=ads_site_finder_params,
                                 ads_structures_params=ads_structures_params,
                                 slab_ads_fw_params=slab_ads_fw_params,
@@ -615,11 +618,12 @@ class SlabAdsAdditionTask(FiretaskBase):
             analysis step (expected to include miller_index, shift)
     """
     required_params = []
-    optional_params = ["adsorbates", "vasp_cmd", "db_file", "min_lw",
-                       "ads_site_finder_params", "ads_structures_params",
-                       "slab_ads_fw_params", "optimize_distance",
-                       "static_distances", "static_fws_params",
-                       "bulk_data", "slab_data", "dos_calculate","ddec_params"]
+    optional_params = ["adsorbates", "ads_energies", "vasp_cmd", "db_file",
+                       "min_lw", "ads_site_finder_params",
+                       "ads_structures_params", "slab_ads_fw_params",
+                       "optimize_distance", "static_distances",
+                       "static_fws_params", "bulk_data", "slab_data",
+                       "dos_calculate", "ddec_params"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -637,6 +641,7 @@ class SlabAdsAdditionTask(FiretaskBase):
         if calc_locs:
             slab_dir = calc_locs[-1].get("path")
         adsorbates = self.get("adsorbates")
+        ads_energies = self.get("ads_energies")
         vasp_cmd = self.get("vasp_cmd")
         db_file = self.get("db_file")
         min_lw = self.get("min_lw") or 10.0
@@ -701,8 +706,7 @@ class SlabAdsAdditionTask(FiretaskBase):
                     eigenvalue_band_props = vrun_o.eigenvalue_band_properties
                     if not slab_data.get('input_structure', False):
                         input_slab = vrun_i.initial_structure
-                        slab_data.update({'input_structure':input_slab})
-
+                        slab_data.update({'input_structure': input_slab})
 
                     slab_data.update({
                         'converged': slab_converged,
@@ -865,16 +869,15 @@ class SlabAdsAdditionTask(FiretaskBase):
                               orbital_type_band_centers,
                           'orbital_densities_by_type':
                               orbital_densities_by_type,
-                          'work_function':work_function,
-                          'cbm_elemental_makeup':cbm_elemental_makeup,
-                          'vbm_elemental_makeup':vbm_elemental_makeup})
-
+                          'work_function': work_function,
+                          'cbm_elemental_makeup': cbm_elemental_makeup,
+                          'vbm_elemental_makeup': vbm_elemental_makeup})
 
         if 'magmom' in list(output_slab.site_properties):
             output_slab.remove_site_property('magmom')
         for ads_idx, adsorbate in enumerate(adsorbates):
             # adsorbate.add_site_property('magmom', [0.0]*adsorbate.num_sites)
-
+            ads_energy = ads_energies[ads_idx]
             if optimize_distance:
 
                 asf = AdsorbateSiteFinder(output_slab,
@@ -930,9 +933,9 @@ class SlabAdsAdditionTask(FiretaskBase):
                     do_fw_name = "{} distance analysis".format(
                         slab_ads_name)
 
-
                     fws.append(af.DistanceOptimizationFW(
-                        adsorbate, slab_structure=output_slab, coord=coord,
+                        adsorbate, ads_energy=ads_energy,
+                        slab_structure=output_slab, coord=coord,
                         static_distances=static_distances, name=do_fw_name,
                         vasp_cmd=vasp_cmd, db_file=db_file, min_lw=min_lw,
                         ads_site_finder_params=ads_site_finder_params,
@@ -1008,9 +1011,9 @@ class SlabAdsAdditionTask(FiretaskBase):
                     #DOS calculation implementation
                     slab_ads_fw = af.SlabAdsFW(
                         slab_ads, name=fw_name, adsorbate=adsorbate,
-                        vasp_cmd=vasp_cmd, db_file=db_file,
-                        bulk_data=bulk_data, slab_data=slab_data,
-                        slab_ads_data=slab_ads_data,
+                        ads_energy=ads_energy, vasp_cmd=vasp_cmd,
+                        db_file=db_file, bulk_data=bulk_data,
+                        slab_data=slab_data, slab_ads_data=slab_ads_data,
                         spec={"_category": _category}, **slab_ads_fw_params)
                     if dos_calculate:
                         #relax
@@ -1091,8 +1094,9 @@ class AnalysisAdditionTask(FiretaskBase):
             MPSurfaceSet)
     """
     required_params = []
-    optional_params = ["adsorbate", "analysis_fw_name", "db_file", "job_type",
-                       "bulk_data", "slab_data", "slab_ads_data"]
+    optional_params = ["adsorbate", "ads_energy", "analysis_fw_name",
+                       "db_file", "job_type", "bulk_data", "slab_data",
+                       "slab_ads_data"]
 
     def run_task(self, fw_spec):
         import atomate.vasp.fireworks.adsorption as af
@@ -1109,6 +1113,7 @@ class AnalysisAdditionTask(FiretaskBase):
         if calc_locs:
             slab_ads_dir = calc_locs[-1].get("path")
         adsorbate = self.get("adsorbate")
+        ads_energy = self.get("ads_energy")
         analysis_fw_name = self.get("analysis_fw_name") or (
                 output_slab_ads.composition.reduced_formula
                 + " adsorption analysis")
@@ -1404,9 +1409,10 @@ class AnalysisAdditionTask(FiretaskBase):
                               'final_energy': slab_ads_energy})
 
         fw = af.AdsorptionAnalysisFW(
-            adsorbate=adsorbate, db_file=db_file, job_type=job_type,
-            name=analysis_fw_name, bulk_data=bulk_data, slab_data=slab_data,
-            slab_ads_data=slab_ads_data, spec={"_category": _category})
+            adsorbate=adsorbate, ads_energy=ads_energy, db_file=db_file,
+            job_type=job_type, name=analysis_fw_name, bulk_data=bulk_data,
+            slab_data=slab_data, slab_ads_data=slab_ads_data,
+            spec={"_category": _category})
 
         return FWAction(additions=fw)
 
@@ -1458,8 +1464,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
     """
 
     required_params = []
-    optional_params = ["adsorbate", "db_file", "name", "job_type", "bulk_data",
-                       "slab_data", "slab_ads_data"]
+    optional_params = ["adsorbate", "ads_energy", "db_file", "name",
+                       "job_type", "bulk_data", "slab_data", "slab_ads_data"]
 
     def run_task(self, fw_spec):
         stored_data = {}
@@ -1503,6 +1509,7 @@ class AdsorptionAnalysisTask(FiretaskBase):
         mvec = np.array(slab_ads_data.get("mvec"))
 
         adsorbate = self.get("adsorbate")
+        ads_energy = self.get("ads_energy")
         db_file = self.get("db_file") or DB_FILE
         task_name = self.get("name")
 
@@ -1777,9 +1784,8 @@ class AdsorptionAnalysisTask(FiretaskBase):
         # adsorption energy
         scale_factor = output_slab_ads.volume / output_slab.volume
         ads_comp = Structure.from_sites(ads_sites).composition
-        adsorption_en = slab_ads_energy - slab_energy * scale_factor - sum(
-            [ads_comp.get(element, 0) * ref_elem_energy.get(str(element)) for
-             element in ads_comp])
+        adsorption_en = (slab_ads_energy - slab_energy * scale_factor
+                         - ads_energy)
         stored_data['adsorption_energy'] = adsorption_en
 
         # TODO: figure out what's up with this slab_ads_task_id
