@@ -137,14 +137,13 @@ class EnergyLandscapeFW(Firework):
                 # user_incar_settings is passed itself as a parameter
                 static_user_incar_settings = static_user_incar_settings or\
                                              {"ALGO": "All",
-                                              "ISMEAR": 0,
                                               "ADDGRID": True,
                                               "LASPH": True,
                                               "LORBIT": 11,
-                                              "LELF": True,
                                               "IVDW": 11,
                                               "GGA": "RP",
-                                              "ICHARG": 0
+                                              "ICHARG": 0,
+                                              "NELM":300,
                                               }
 
                 if "additional_fields" not in vasptodb_kwargs:
