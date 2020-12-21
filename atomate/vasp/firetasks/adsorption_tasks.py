@@ -45,7 +45,7 @@ from pymatgen.analysis.dimensionality import get_dimensionality_gorai
 from copy import deepcopy
 
 logger = get_logger(__name__)
-# ref_elem_energy = {'H': -3.379, 'O': -7.459, 'C': -7.329}
+ref_elem_energy = {'H': -3.379, 'O': -7.459, 'C': -7.329}
 
 
 @explicit_serialize
@@ -877,7 +877,9 @@ class SlabAdsAdditionTask(FiretaskBase):
             output_slab.remove_site_property('magmom')
         for ads_idx, adsorbate in enumerate(adsorbates):
             # adsorbate.add_site_property('magmom', [0.0]*adsorbate.num_sites)
-            ads_energy = ads_energies[ads_idx]
+            ads_energy = ads_energies[ads_idx] or sum(
+                [adsorbate.composition.get(elt, 0) * ref_elem_energy.get(elt)
+                 for elt in ref_elem_energy])
             if optimize_distance:
 
                 asf = AdsorbateSiteFinder(output_slab,
