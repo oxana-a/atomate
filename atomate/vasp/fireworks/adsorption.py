@@ -355,12 +355,15 @@ class SlabFW(Firework):
                                "GGA": "RP", "IVDW":11, "EDIFFG":-.05,
                                "ALGO": "All", "LAECHG": True}
 
+
         vis = vasp_input_set or MPSurfaceSet(
             slab_structure, bulk=False,
             user_incar_settings=user_incar_settings)
         vasptodb_kwargs = {
             'task_fields_to_push': {'slab_structure': 'output.structure',
-                                    'slab_energy': 'output.energy'}}
+                                    'slab_energy': 'output.energy',},
+            'parse_bader':False}
+
         slab_fw = OptimizeFW(structure=slab_structure, name=name,
                              vasp_input_set=vis, vasp_cmd=vasp_cmd,
                              db_file=db_file, job_type=job_type,
@@ -465,7 +468,8 @@ class SlabAdsFW(Firework):
             'task_fields_to_push': {'slab_ads_structure': 'output.structure',
                                     'slab_ads_energy': 'output.energy',
                                     'adsorbate': adsorbate,
-                                    'slab_ads_task_id': 'task_id'}}
+                                    'slab_ads_task_id': 'task_id',},
+            'parse_bader':False}
         slab_ads_fw = OptimizeFW(structure=slab_ads_structure, name=name,
                                  vasp_input_set=vis, vasp_cmd=vasp_cmd,
                                  db_file=db_file, job_type=job_type,
