@@ -136,8 +136,7 @@ class EnergyLandscapeFW(Firework):
                 # this should supersede the default settings but not if
                 # user_incar_settings is passed itself as a parameter
                 static_user_incar_settings = static_user_incar_settings or\
-                                             {"ALGO": "All",
-                                              "ADDGRID": True,
+                                             {"ADDGRID": True,
                                               "LASPH": True,
                                               "LORBIT": 11,
                                               "IVDW": 11,
