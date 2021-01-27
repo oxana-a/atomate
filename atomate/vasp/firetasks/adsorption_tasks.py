@@ -1951,19 +1951,27 @@ def get_site_type(slab_ads, ads_adsorp_id, ads_ids, mvec):
 
     elif second_distance < 1.2 * first_distance and (
             third_distance < 1.4 * first_distance):
-        ads = ads_adsorp_site.coords
         f = first_site.coords
         s = second_site.coords
         t = third_site.coords
 
-        fs = s - f
-        ft = t - f
+        d12 = first_distance
+        d13 = second_distance
+        d14 = third_distance
 
-        n = np.cross(fs, ft)
-        a, b, c = n
-        d = n.dot(-f)
+        d23 = np.linalg.norm(f - s)
+        d34 = np.linalg.norm(s - t)
+        d24 = np.linalg.norm(f - t)
 
-        d_to_surface = np.abs(n.dot(ads) + d) / (a ** 2 + b ** 2 + c ** 2)**0.5
+        vol = (1 / 288 * np.linalg.det(
+            [[0, 1, 1, 1, 1],
+             [1, 0, d12 ** 2, d13 ** 2, d14 ** 2],
+             [1, d12 ** 2, 0, d23 ** 2, d24 ** 2],
+             [1, d13 ** 2, d23 ** 2, 0, d34 ** 2],
+             [1, d14 ** 2, d24 ** 2, d34 ** 2, 0]])) ** (1 / 2)
+        s = (d23 + d34 + d24) / 2
+        area = (s * (s - d23) * (s - d34) * (s - d24)) ** 0.5
+        d_to_surface = 3 * vol / area
 
         site_type = 'hollow'
         surface_sites = {'site1': {'index': first_index,
