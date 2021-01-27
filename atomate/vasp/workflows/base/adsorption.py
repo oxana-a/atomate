@@ -375,7 +375,7 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, ads_energies=None,
         adsorbates ([Molecule]): adsorbates to place on surfaces
         ads_energies ([float]): reference energies to be used for the
             adsorbates when calculating adsorption energies. The order
-            should correspond to that of the adsorbates parameter
+            should correspond to that in the adsorbates parameter
         vasp_cmd (str): vasp command
         db_file (str): path to database file
         bulk_fw_params (dict): dictionary of kwargs for BulkFW
@@ -402,10 +402,17 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, ads_energies=None,
         optimize_distance (bool): whether to launch static calculations
             to determine the optimal adsorbate - surface distance
             before optimizing the slab + adsorbate structure
-        static_distances (list): if optimize_distance is true, these are
-            the distances at which to test the adsorbate distance
-        static_fws_params (dict): dictionary for setting custum user kpoints
-            and custom user incar  settings, or passing an input set.
+        dos_calculate (bool): whether to launch static DOS calculations
+            for the slab and slab + adsorbate structures after the
+            corresponding geometry optimizations
+        static_distances ([float]): if optimize_distance is True, these
+            are the slab - adsorbate distances to use for the purpose of
+            the distance optimization
+        static_fws_params (dict): dictionary for setting custom user
+            KPOINTS and custom user INCAR settings, or passing an input
+            set for the static calculations
+        _category (string): _category key to be used in the Firework
+            spec to match the FireWorker category variable
     Returns:
         Workflow
     """
@@ -441,16 +448,19 @@ def get_wf_from_bulk(bulk_structure, adsorbates=None, ads_energies=None,
 
 
 def launch_adsorbate_only_fw(lpad, fw_ids):
-    '''
-    A function that launches a Static Firework based on an analysis or nscf (if dos) and optimization (if no dos)
-    firework with just the adsorbate, and same kpoint density. Useful for comparing electron density gain/loss
-    for a slab+ads.
+    """
+    A function that launches a Static Firework based on an analysis or
+    nscf (if dos) and optimization (if no dos) firework with just the
+    adsorbate, and same kpoint density. Useful for comparing electron
+    density gain/loss for a slab+ads.
 
     Arguments:
-    lpad (LaunchPad): a Fireworks LaunchPad object to get FW data and append a new fw
-    fw_ids (List): a list of FW for which to get what the relaxed slab+ads structure is and for which to append a
-        adsorbate only static FW to.
-    '''
+    lpad (LaunchPad): a Fireworks LaunchPad object to get FW data and
+    append a new fw fw_ids (List): a list of FW for which to get what
+    the relaxed slab+ads structure is and for which to append a
+    adsorbate only static FW to.
+    """
+
     for fw_id in fw_ids:
         fw = lpad.get_fw_by_id(fw_id)
         if "analysis" in fw.name:
