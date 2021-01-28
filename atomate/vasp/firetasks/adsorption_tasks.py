@@ -1560,9 +1560,18 @@ class AdsorptionAnalysisTask(FiretaskBase):
         # atom movements during slab + adsorbate optimization
         translation_vecs = [None] * output_slab_ads.num_sites
         if input_slab_ads:
-            translation_vecs = [(output_slab_ads[i].coords
-                                 - input_slab_ads[i].coords)
-                                for i in range(output_slab_ads.num_sites)]
+            translated_in = input_slab_ads.copy()
+            translated_in = translated_in.translate_sites(
+                list(range(len(translated_in))), [0, 0, 0],
+                to_unit_cell=True)
+            translated_out = output_slab_ads.copy()
+            translated_out = translated_out.translate_sites(
+                list(range(len(translated_out))), [0, 0, 0],
+                to_unit_cell=True)
+
+            translation_vecs = [(translated_out[i].coords
+                                 - translated_in[i].coords)
+                                for i in range(translated_out.num_sites)]
         output_slab_ads.add_site_property(
             'translation_vector', translation_vecs)
 
